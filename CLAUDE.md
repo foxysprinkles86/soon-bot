@@ -46,6 +46,7 @@ Read this first in every new conversation. It replaces the long history of the o
 Check: lines aimed at Soon Classic mistaken as hers; repeated phrases/sign-offs/props; replies that dead-end; too long (75% should be one sentence); made-up facts (only Panda facts allowed); Kor chats fun and easy English; Foxy two-faced; overused names/"boss"; missed openings (e.g. Panda posting). Fix in code, commit, wait for "push it".
 
 ## Roadmap (next)
+Step-by-step tracker: **'Move Plan' tab** of the Classic Soon checklist sheet (tick boxes as steps finish).
 1. **Move the casino + economy** from Soon Classic: chips, tacobal (taco debt), tacos, margs, eggs/eggcount, casnet, hidden, jackpot (jpot), heistsubs. Plan: build all games in 2.0 first (same typed commands + buttons), test in #soon-lab, then cutover night: 🚧 construction notice → freeze Classic → YAGPDB export command prints balances → `soon import` → verify totals → enable casino channel → disable Classic (keep 2 weeks as rollback).
 2. Then: tips to Soon, chip bets on duels, race betting, race screenshot reading (needs a vision model), custom Soon emoji reactions (`SOON_EMOJIS`).
 3. Launch day: rename to Soon™, smug avatar, `soon takeover complete`.
