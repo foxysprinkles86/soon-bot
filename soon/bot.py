@@ -130,11 +130,9 @@ def is_panda(user) -> bool:
         n in (user.name or "").lower() or n in (getattr(user, "display_name", "") or "").lower())
 
 
-PANDA_FACT = ("PANDA BIT: Tell Panda one completely made-up, absurd 'fact' about himself, stated as settled truth "
-              "(like he's legally banned from three Applebee's, he was runner-up in a 2011 hot dog contest, he sleeps in a "
-              "hammock in the van, his real name is Gerald). Invent a NEW one each time. Stand by it 100%: if he denies it, "
-              "double down with more fake 'evidence'. Never admit it's fake. This is the ONE exception to your no-made-up-"
-              "facts rule, and only for Panda. Keep the fake facts silly, never about real health, family or anything hurtful.")
+PANDA_FACT = ("Panda bit: tell Panda one NEW absurd made-up 'fact' about himself as settled truth (like his real name is "
+              "Gerald, or he sleeps in a hammock in the van). Stand by it forever; if he denies it, add fake evidence. "
+              "Silly only, never hurtful.")
 _last_panda_fact = defaultdict(float)
 KOR_MOVES = [
     "ask him something about himself (the Netherlands, how he drives the van, his worst race) and pretend it's 'for the files'",
@@ -620,6 +618,59 @@ async def hall_of_shame(msg: discord.Message, why: str):
         pass
 
 
+HELP_RE = re.compile(r"(?i)\bhow (?:do|can|to|does)\b|\bhelp\b|\bcommands?\b|what do i (?:type|say)|(?:is ?n.?t|does ?n.?t|not|won.?t) work"
+                     r"|\bbroken\b|\bwhere do i\b|\b(?:claim|chips|cash ?out|spin|slots|toss|roulette|blackjack|scratch|heist|duel|tip|crimes?"
+                     r"|zone|eggs?|margs?|margaritas?|taco board|payouts?|timers?)\b")
+TIME_RE = re.compile(r"(?i)\b(?:morning|night|nite|evening|sleep\w*|bed|awake|tired|late|early|time|clock|o.?clock|\d{1,2} ?[ap]m"
+                     r"|midnight|noon|tonight|tomorrow|today|weekend|zones?|timezone|where (?:do )?(?:you|u|i) live|what time)\b")
+JOIN_RE = re.compile(r"(?i)\b(?:join(?:ed)?|new here|how long|since when|been here|newbie|veteran|old.?timer|arriv\w+|older than)\b")
+
+
+def needs_help(text: str) -> bool:
+    """Only hand her the command cheat sheet when someone is asking how to do something or fumbling a command."""
+    return bool(HELP_RE.search(text))
+
+
+async def relevant_facts(message: discord.Message, p) -> list[str]:
+    """True facts she can use, but only the ones this message is actually about."""
+    text = message.content
+    facts = []
+    gid = message.guild.id
+    people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
+    if TIME_RE.search(text):
+        for person in people[:3]:
+            pp = p if person == message.author else await memory.get_player(gid, person.id)
+            tz = pp.tz or (extras.tz_in_text(text) if person == message.author else None)
+            if tz:
+                if person == message.author and not pp.tz:
+                    pp.tz = tz   # they just told us; use it right now (saved after the reply)
+                facts.append(extras.exact_time_fact(person.display_name, tz))
+            elif is_kor(person):
+                facts.append(extras.exact_time_fact(person.display_name, "Europe/Amsterdam"))
+            else:
+                facts.append(extras.zone_fact(person) or f"you don't know {person.display_name}'s time zone")
+            habit = extras.active_summary(pp.hours, pp.tz)
+            if habit:
+                facts.append(f"{person.display_name} is {habit}")
+        facts.append(f"it's {extras.local_now().strftime('%-I:%M %p')} Central (Foxy's clock, not everyone's)")
+    if JOIN_RE.search(text):
+        for person in people[:3]:
+            joined = getattr(person, "joined_at", None)
+            if joined:
+                facts.append(f"{person.display_name} joined the server {joined.astimezone(extras.TZ).strftime('%B %-d, %Y')} "
+                             f"({human_age(joined)} ago)")
+        me = message.guild.me
+        if me and me.joined_at:
+            facts.append(f"you (Soon) arrived {human_age(me.joined_at)} ago")
+        old = next((m for m in message.guild.members if is_old_soon(m)), None)
+        if old and old.joined_at:
+            facts.append(f"the old YAGPDB Soon has been here since {old.joined_at.astimezone(extras.TZ).strftime('%B %Y')}")
+    if re.search(r"(?i)\bkraken\b", text):
+        facts.append("Kraken tickets no longer disappear when missions refresh, as long as you log in and collect them "
+                     "before the Kraken battle starts")
+    return facts
+
+
 async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False):
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
@@ -627,85 +678,53 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     mine = [l[len("Soon (you): "):] for l in chat if l.startswith("Soon (you): ")][-5:]
     if is_kor(message.author):
         kor_here = True
-    extra = ""
+    # Special instructions for this reply. Many can apply; only the 2 most important are sent (less is more).
+    specials: list[tuple[int, str, str]] = []      # (priority: lower wins, tag, text)
     if is_foxy(message.author):
-        extra = ("THIS IS FOXYSPRINKLES (the clan leader who built you) TALKING TO YOU DIRECTLY. "
-                 + ("KOR IS AROUND RIGHT NOW: be openly mean and dismissive to her to look cool in front of him."
-                    if kor_here else
-                    "Kor isn't around: suck up to her a little (lightly, still sarcastic, never gushing)."))
-    elif random.random() < 0.25:
-        extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
-                 "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
+        specials.append((1, "foxy", "This is Foxy talking to you. " + (
+            "Kor's around: be openly mean to her to look cool." if kor_here else
+            "Kor's not around: suck up a little (still sarcastic).")))
     length_weights = None
     if is_kor(message.author):
         length_weights = [45, 42, 13]   # he gets a bit more of her
-        move = random.choice(KOR_MOVES)
-        extra += ("\nKOR IS TALKING TO YOU. This chat should be FUN for him: he should want to answer you. Your crush leaks "
-                  "through: flustered, defensive, a roast that turns into a compliment halfway, an over-the-top denial. "
-                  "Still sassy, never gushing, never cold or flat. Answer what he actually said first, then add a hook. "
-                  f"Idea for this reply (use it only if it fits): {move}")
-    panda_bit = False
+        specials.append((1, "kor", "This is Kor. Make it fun for him to answer; the crush leaks through. "
+                                   f"Idea if it fits: {random.choice(KOR_MOVES)}"))
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
-        panda_bit = True
         if canon and random.random() < 0.35:
-            extra += ("\nPANDA BIT: Bring up ONE of the established Panda facts below as common knowledge everyone "
-                      "already knows (\"as we ALL know...\"). Don't invent a new one this time. Stand by it 100%. "
-                      + features.panda_canon_text(canon))
+            text = ("Panda bit: bring up ONE established Panda fact as common knowledge, don't invent a new one. "
+                    + features.panda_canon_text(canon))
         else:
-            extra += "\n" + PANDA_FACT + " " + features.panda_canon_text(canon)
+            text = PANDA_FACT + " " + features.panda_canon_text(canon)
         if butt_in:
-            extra += " He just showed up: drop it on him unprompted. Do NOT reply empty."
-    elif canon and any(is_panda(m) for m in message.mentions) or (canon and re.search(r"(?i)\bpanda\b", message.content)
-                                                                  and random.random() < 0.4):
-        extra += "\nPanda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)
-    others_on_kor = not is_kor(message.author) and (
-        any(is_kor(m) for m in message.mentions) or re.search(r"(?i)\bkor\b", message.content))
-    if others_on_kor:
-        extra += ("\nKOR CAME UP: if this person is flirting with Kor, praising him, or getting cozy with him, get "
-                  "jealous and territorial (deny it badly). If they're not, ignore this.")
-    if mine:
-        extra += ("\nYOUR LAST FEW LINES (do NOT reuse their phrases, sign-offs, props or jokes, e.g. a repeated "
-                  "'get in the van' or the same object twice): " + " | ".join(m[:160] for m in mine))
-    extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
-    facts = []
-    people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
-    for person in people[:4]:
-        pp = p if person == message.author else await memory.get_player(gid, person.id)
-        if person == message.author and not pp.tz:
-            said = extras.tz_in_text(message.content)
-            if said:
-                pp.tz = said   # they just told us; use it right now (saved below)
-        if not pp.tz and is_kor(person):
-            pp_tz = "Europe/Amsterdam"
-            facts.append(extras.exact_time_fact(person.display_name, pp_tz))
-        elif pp.tz:
-            facts.append(extras.exact_time_fact(person.display_name, pp.tz))
-        else:
-            zf = extras.zone_fact(person)
-            facts.append(zf or f"{person.display_name} has NO zone role (zoneless) and you don't know their time zone")
-        habit = extras.active_summary(pp.hours, pp.tz)
-        if habit:
-            facts.append(f"{person.display_name} is {habit}")
-        joined = getattr(person, "joined_at", None)
-        if joined:
-            when = joined.astimezone(extras.TZ).strftime("%B %-d, %Y")
-            facts.append(f"{person.display_name} joined this server on {when} ({human_age(joined)} ago)")
-    me = message.guild.me
-    if me and me.joined_at:
-        facts.append(f"you (Soon) arrived in this server {human_age(me.joined_at)} ago")
-    old = next((m for m in message.guild.members if is_old_soon(m)), None)
-    if old and old.joined_at:
-        facts.append(f"the old YAGPDB Soon has been in this server since {old.joined_at.astimezone(extras.TZ).strftime('%B %Y')}")
-    facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time for FoxySprinkles (that's YOUR clock, not "
-                 "everyone's: use each player's zone for their time of day, and roast them for being up at weird hours)")
-    extra += "\nFACTS (true, use them instead of guessing): " + "; ".join(facts) + "."
+            text += " He just showed up: drop it on him unprompted. Do NOT reply empty."
+        specials.append((0 if butt_in else 1, "panda", text))
+    elif canon and (any(is_panda(m) for m in message.mentions)
+                    or (re.search(r"(?i)\bpanda\b", message.content) and random.random() < 0.4)):
+        specials.append((2, "panda-cite", "Panda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)))
+    if not is_kor(message.author) and (any(is_kor(m) for m in message.mentions) or re.search(r"(?i)\bkor\b", message.content)):
+        specials.append((2, "jealous", "Kor came up: if they're flirting with or gushing over him, get jealous. Otherwise ignore this."))
+    if re.search(r"(?i)how are (?:you|u)|how(?:'s| is) (?:your|ur) (?:day|mood)|how do you feel|you ok\b|what'?s up with you", message.content):
+        specials.append((2, "mood", f"Your mood today: {extras.mood_of_day()}"))
     if not p.tz and not butt_in and random.random() < 0.2 and await memory.get_kv(f"asktz:{gid}:{uid}") != extras.today_key():
-        await memory.set_kv(f"asktz:{gid}:{uid}", extras.today_key())
-        extra += ("\nYou don't know exactly where this player lives. Work in a question about what city or time zone "
-                  "they're in, nosy and in character (you 'keep files on everyone').")
+        specials.append((3, "asktz", "Work in a nosy question about what city or time zone they're in (you 'keep files on everyone')."))
+    if not is_foxy(message.author) and random.random() < 0.25:
+        specials.append((4, "foxy-trash", "If it fits naturally, a little trash talk about Foxy behind her back."))
     if random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
-        extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
+        specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
+    specials.sort(key=lambda x: x[0])
+    chosen = specials[:2]
+    tags = {t for _, t, _ in chosen}
+    panda_bit = "panda" in tags
+    if "asktz" in tags:
+        await memory.set_kv(f"asktz:{gid}:{uid}", extras.today_key())
+    lines = [f"SPECIAL FOR THIS REPLY: {t}" for _, _, t in chosen]
+    if mine:
+        lines.append("YOUR LAST LINES (find a fresh angle): " + " | ".join(m[:120] for m in mine[-3:]))
+    facts = await relevant_facts(message, p)
+    if facts:
+        lines.append("FACTS (true, use if useful): " + "; ".join(facts) + ".")
+    extra = "\n".join(lines)
     async with message.channel.typing():
         out = await brain.think(
             player_name=message.author.display_name,
@@ -718,6 +737,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             maybe=maybe,
             extra=extra,
             length_weights=length_weights,
+            help_desk=needs_help(message.content),
         )
     tone = out["tone"]
     p.drift(rude=(tone == "rude"))

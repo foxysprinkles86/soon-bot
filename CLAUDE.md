@@ -29,7 +29,8 @@ Read this first in every new conversation. It replaces the long history of the o
 
 ## Code map (`soon/`)
 - `config.py` — env settings. `db.py` — Postgres `players` (mood, heat_lock, pester, notes, ign, chats, strikes, tz, hours, birthday), `ai_usage`, `kv` store; in-memory fallback.
-- `personality.py` — **SHEET**: Soon's full personality + lore (edit here to change who she is). `helpdesk.py` — cheat sheet of every Classic + 2.0 command.
+- `personality.py` — **SHEET**: Soon's identity, people, rival, voice (example lines), heat, hard lines. Kept lean (~1,000 words): add example lines, not "don't" rules. `helpdesk.py` — command cheat sheet, sent ONLY when the message looks like a help request or a command (`needs_help` in bot.py).
+- Per reply (`ai_reply` in bot.py): max **2** "SPECIAL FOR THIS REPLY" instructions (ranked: Panda/Foxy/Kor first, takeover last), FACTS only when relevant (time words → time zones; join words → join dates; "kraken" → Kraken tip), 6 most relevant notes, last 15 chat lines. Was ~3,200 words per message, now ~1,400 (~1,800 with the cheat sheet).
 - `brain.py` — DeepSeek calls: `think()` (JSON reply/tone/note/line_crossed/timezone/struggle/panda_fact; reply length 75% one sentence), `write()`, `extract_notes()` (notes, violations, Hall of Shame picks).
 - `extras.py` — moods, reactions, strikes/timeouts, **takeover storyline**, zones, time-zone helpers.
 - `features.py` — Panda Fact archive, roast allowance, race/event reminders (manual + Discord scheduled events), Hall of Shame.
@@ -38,6 +39,10 @@ Read this first in every new conversation. It replaces the long history of the o
 - `games.py` — slots (progressive jackpot), taco toss (+side), roulette, blackjack (hand saved in kv `bj:<gid>:<uid>`, 10 min), scratch-offs, Wheel of Fortaco (1 in 40 plays; mods `spin wheel @name`), Soon's "on break" gag. Same odds/prices/lines as Classic.
 - `classic/export.txt` — YAGPDB custom command (`classic export`, mods) that prints Classic's balances for the import. Read-only.
 - `duel.py` — quick-draw button duel. `bot.py` — commands, AI replies, rivalry with Soon Classic, daily loop (Panda tag, regular summon, diary 11:30 PM, life events, Sunday awards, Monday mod report, event reminders).
+
+## Casino economy decisions
+- Chips are play money with zero real value. Chips are created and destroyed freely (claims, wins, wheel); no fixed supply needed.
+- Player-friendly odds are fine and wanted (e.g. the toss side bet). Don't "fix" house edges unless Shannon asks.
 
 ## Personality & lore (keep consistent)
 - Savage, sarcastic glamorous robot girl; dealer/cashier/waitress of Casa de Soon; tacos are always "coming soon". Default heat **Spicy**; mood score −5..+5 per player sets heat (sweet/mild/spicy/savage/unhinged), players can lock it.

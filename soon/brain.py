@@ -6,19 +6,20 @@ import re
 import httpx
 
 from . import config
+from .helpdesk import GUIDE
 from .personality import FALLBACK_LINES, SHEET
 
 TONES = {"nice", "neutral", "rude", "upset"}
 
-INSTRUCTIONS = """Reply with JSON only, in this exact shape:
-{"reply": "<what Soon says>", "tone": "nice|neutral|rude|upset", "note": "<optional>", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": ""}
-- "reply": Soon's message. If BUTT-IN MODE is on and you have nothing genuinely funny and relevant to add, use "".
-- "tone": how the player's latest message treated Soon (or others): nice, neutral, rude, or upset (genuinely hurt or sad, not joking).
-- "note": written in your voice (sass welcome), but about something they actually said or did, never invented feelings or motives. One short NEW fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). It must not repeat or rephrase anything already in WHAT YOU REMEMBER. Usually empty: most messages don't need a note. Never store health, family or real-life trauma.
-- "line_crossed": true ONLY if the player's latest message attacks ANOTHER PERSON with a slur, or attacks them over race, religion, sexuality, gender or disability, or mocks real-life trauma or health someone shared. Swearing, trash talk, roasting game scores and insulting Soon are all fine and are false. When true, your reply should call it out in character.
-- "timezone": if the player's latest message tells you where they live or their time zone (a city, country, "EST", "UTC+10"...), the IANA time zone name, like "America/New_York" or "Australia/Sydney". Otherwise "".
-- "struggle": if the player is confused or a command isn't working for them, a few words on what they were trying to do (for the mods' weekly report). Otherwise "".
-- "panda_fact": ONLY if your reply states a NEW made-up fact about Panda, that fact in a few words (like "banned from three Applebee's"). Otherwise ""."""
+INSTRUCTIONS = """Reply with JSON only:
+{"reply": "", "tone": "nice|neutral|rude|upset", "note": "", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": ""}
+- reply: what Soon says ("" allowed only in BUTT-IN or MAYBE mode when there's nothing worth saying).
+- tone: how their latest message treated Soon or others (upset = genuinely hurt, not joking).
+- note: usually "". One short NEW thing they actually said or did worth remembering for future banter, in your voice. Never health, family or trauma, never a repeat of what you remember.
+- line_crossed: true only if they attacked another person with a slur, over race/religion/sexuality/gender/disability, or mocked real trauma. Trash talk, swearing and roasting Soon are fine. If true, call it out in character.
+- timezone: IANA zone (like "America/New_York") only if they just said where they live, else "".
+- struggle: a few words if they're confused or a command isn't working for them, else "".
+- panda_fact: only if your reply states a NEW made-up Panda fact, that fact in a few words, else ""."""
 
 
 def trim_sentences(text: str, limit: int) -> str:
@@ -40,6 +41,14 @@ def trim_sentences(text: str, limit: int) -> str:
     return " ".join(parts[:limit]).strip()
 
 
+def pick_notes(notes: list[str], message: str, limit: int = 6) -> list[str]:
+    """Only the notes that matter right now: ones sharing a word with their message, topped up with the newest."""
+    words = {w for w in re.findall(r"[a-z0-9']{4,}", message.lower())}
+    hits = [n for n in notes if words & set(re.findall(r"[a-z0-9']{4,}", n.lower()))][-limit:]
+    rest = [n for n in notes if n not in hits][-max(0, min(3, limit - len(hits))):] if len(hits) < limit else []
+    return rest + hits
+
+
 class Brain:
     def __init__(self, memory):
         self.memory = memory
@@ -51,29 +60,27 @@ class Brain:
 
     async def think(self, *, player_name: str, player_notes: list[str], heat: str, is_kor: bool,
                     message: str, recent_chat: list[str], butt_in: bool = False, maybe: bool = False, extra: str = "",
-                    length_weights: list[int] | None = None) -> dict:
+                    length_weights: list[int] | None = None, help_desk: bool = False) -> dict:
         """Returns {"reply", "tone", "note", "ok"}. ok=False means a fallback line was used."""
         if not config.DEEPSEEK_API_KEY or not await self.budget_left():
             return self._fallback(butt_in or maybe)
 
         if butt_in:
-            mode = "BUTT-IN - nobody asked you. Only reply if you have something relevant, short and funny. Otherwise reply \"\"."
+            mode = "BUTT-IN: nobody asked you. Reply only if you have something short, funny and relevant."
         elif maybe:
-            mode = ("MAYBE - they might be talking to you (they said your name, or they're continuing a chat with you). "
-                    "Reply only if the message is meant for you; if they're clearly talking to someone else or just saying "
-                    "'coming soon', reply \"\".")
+            mode = "MAYBE: they might be talking to you. Reply only if it's meant for you (not someone else, not just 'coming soon')."
         else:
-            mode = "DIRECT - they are talking to you. Always reply."
-        notes = "\n".join(f"- {n}" for n in player_notes[-15:]) or "- (nothing yet)"
-        chat = "\n".join(recent_chat[-30:]) or "(quiet)"
+            mode = "DIRECT: they're talking to you."
+        notes = "\n".join(f"- {n}" for n in pick_notes(player_notes, message)) or "- (nothing yet)"
+        chat = "\n".join(recent_chat[-15:]) or "(quiet)"
         situation = (
             f"PLAYER: {player_name}{' (this is KOR, your crush)' if is_kor else ''}\n"
             f"HEAT LEVEL FOR THIS PLAYER: {heat}\n"
             f"WHAT YOU REMEMBER ABOUT THEM:\n{notes}\n\n"
-            f"RECENT CHAT IN THE CHANNEL (oldest first):\n{chat}\n\n"
+            f"RECENT CHAT (oldest first):\n{chat}\n\n"
             f"MODE: {mode}\n"
-            f"{extra}\n"
-            f"THEIR LATEST MESSAGE: {message}"
+            + (f"{extra}\n" if extra else "")
+            + f"THEIR LATEST MESSAGE: {message}"
         )
         length, max_sentences = random.choices(
             [("ONE short sentence, under 20 words. Punchy.", 1),
@@ -84,7 +91,7 @@ class Brain:
         body = {
             "model": config.DEEPSEEK_MODEL,
             "messages": [
-                {"role": "system", "content": SHEET + "\n\n" + INSTRUCTIONS},
+                {"role": "system", "content": SHEET + ("\n\n" + GUIDE if help_desk else "") + "\n\n" + INSTRUCTIONS},
                 {"role": "user", "content": situation},
             ],
             "response_format": {"type": "json_object"},
