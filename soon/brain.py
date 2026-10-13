@@ -23,7 +23,18 @@ INSTRUCTIONS = """Reply with JSON only, in this exact shape:
 
 def trim_sentences(text: str, limit: int) -> str:
     """Hard cap on reply length: keep the first `limit` sentences (she gets carried away)."""
-    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"'*(])", text)
+    raw = re.split(r"(?<=[.!?])\s+(?=[A-Z\"'*(])", text)
+    parts, buf = [], ""
+    for piece in raw:                      # "Into you? Please. As if." counts as ONE sentence, not three
+        buf = f"{buf} {piece}".strip()
+        if len(buf.split()) >= 6:
+            parts.append(buf)
+            buf = ""
+    if buf:
+        if parts:
+            parts[-1] += " " + buf
+        else:
+            parts.append(buf)
     if len(parts) <= limit:
         return text
     return " ".join(parts[:limit]).strip()

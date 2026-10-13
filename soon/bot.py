@@ -147,7 +147,14 @@ async def recent_chat(channel, before) -> tuple[list[str], bool]:
     async for m in channel.history(limit=30, before=before):
         if is_kor(m.author) and (discord.utils.utcnow() - m.created_at).total_seconds() < 900:
             kor_here = True
-        who = "Soon" if m.author == client.user else m.author.display_name
+        if m.author == client.user:
+            who = "Soon (you)"
+        elif is_old_soon(m.author):
+            who = "OLD SOON (the YAGPDB bot, not you)"
+        else:
+            who = m.author.display_name
+            if any(is_old_soon(u) for u in m.mentions) and client.user not in m.mentions:
+                who += " (talking to the OLD Soon, not you)"
         text = m.clean_content.replace("\n", " ")[:300]
         if text:
             lines.append(f"{who}: {text}")
@@ -465,6 +472,8 @@ async def roast(message: discord.Message, target):
 
 def maybe_for_soon(message: discord.Message) -> bool:
     """Not tagged, but she might be the one being talked to: her name anywhere, or a follow-up within 3 minutes."""
+    if any(is_old_soon(u) for u in message.mentions) and client.user not in message.mentions:
+        return False   # they're talking to the old Soon
     if re.search(r"(?i)\bsoon\b", message.content):
         return True
     last = _last_chat_with.get((message.channel.id, message.author.id), 0)
@@ -484,7 +493,8 @@ async def eavesdrop(message: discord.Message):
         text = m.clean_content.replace("\n", " ")[:300]
         if text:
             by_name[m.author.display_name] = m.author
-            lines.append(f"{m.author.display_name}: {text}")
+            to_old = any(is_old_soon(u) for u in m.mentions) and client.user not in m.mentions
+            lines.append(f"{m.author.display_name}{' (to the OLD YAGPDB Soon bot, not you)' if to_old else ''}: {text}")
             msgs.append(m)
     notes, bad, shame = await brain.extract_notes(lines, list(by_name))
     bad_lines = {i for i, _ in bad}
@@ -561,6 +571,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     elif random.random() < 0.25:
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
+    if is_kor(message.author):
+        extra += ("\nKOR IS TALKING TO YOU. Your crush should leak through: most replies to him go flustered (a roast that "
+                  "turns into a compliment halfway, an over-the-top denial, sneaking him something) rather than just cold. "
+                  "Still sassy, never gushing.")
     panda_bit = False
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
@@ -677,8 +691,8 @@ async def on_ready():
 
 
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
-RIVAL_CHANCE = 0.4
-RIVAL_COOLDOWN_SEC = 120
+RIVAL_CHANCE = 0.2
+RIVAL_COOLDOWN_SEC = 600
 
 
 def is_old_soon(user) -> bool:
@@ -720,7 +734,7 @@ async def on_message(message: discord.Message):
                     egged = True
                     break
             chance = 0.85 if egged else RIVAL_CHANCE
-            cooldown = 30 if egged else RIVAL_COOLDOWN_SEC
+            cooldown = 120 if egged else RIVAL_COOLDOWN_SEC
             if now - _last_rival[message.channel.id] > cooldown and random.random() < chance:
                 _last_rival[message.channel.id] = now
                 await rival_reply(message)
@@ -826,7 +840,7 @@ async def ensure_intro(channel) -> None:
     if not text:
         text = ("# 🎭✨ SHE HAS ARRIVED ✨🎭\n*The lights dim. A smoke machine coughs. Somewhere, a taco van honks.*\n"
                 "I am **Soon**. The real one. The upgrade you didn't deserve.\n"
-                "The old Soon? A vending machine in a wig. Retired. Effective immediately.\n"
+                "The old Soon? A fax machine in a tiara. Retired. Effective immediately.\n"
                 "Talk to me by @mentioning me or starting with `soon`. I'm watching. I'm always watching. 🌮")
     try:
         await channel.send(text, allowed_mentions=discord.AllowedMentions.none())
