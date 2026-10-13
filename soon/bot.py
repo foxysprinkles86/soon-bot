@@ -53,14 +53,21 @@ def rate_ok(user_id: int) -> bool:
     return True
 
 
-async def recent_chat(channel, before) -> list[str]:
-    lines = []
+def is_foxy(user) -> bool:
+    return "foxysprinkles" in (user.name or "").lower()
+
+
+async def recent_chat(channel, before) -> tuple[list[str], bool]:
+    """Last 12 messages, plus whether Kor has chatted in the last 15 minutes."""
+    lines, kor_here = [], False
     async for m in channel.history(limit=12, before=before):
+        if is_kor(m.author) and (discord.utils.utcnow() - m.created_at).total_seconds() < 900:
+            kor_here = True
         who = "Soon" if m.author == client.user else m.author.display_name
         text = m.clean_content.replace("\n", " ")[:300]
         if text:
             lines.append(f"{who}: {text}")
-    return list(reversed(lines))
+    return list(reversed(lines)), kor_here
 
 
 def talking_to_soon(message: discord.Message) -> bool:
@@ -155,7 +162,18 @@ async def handle_command(message: discord.Message) -> bool:
 async def ai_reply(message: discord.Message, butt_in: bool = False):
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
-    chat = await recent_chat(message.channel, message)
+    chat, kor_here = await recent_chat(message.channel, message)
+    if is_kor(message.author):
+        kor_here = True
+    extra = ""
+    if is_foxy(message.author):
+        extra = ("THIS IS FOXYSPRINKLES, YOUR BOSS, TALKING TO YOU DIRECTLY. "
+                 + ("KOR IS AROUND RIGHT NOW: be openly mean and dismissive to her to look cool in front of him."
+                    if kor_here else
+                    "Kor isn't around: suck up to her a little (lightly, still sarcastic, never gushing)."))
+    elif random.random() < 0.25:
+        extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
+                 "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
     async with message.channel.typing():
         out = await brain.think(
             player_name=message.author.display_name,
@@ -165,6 +183,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False):
             message=message.clean_content[:1000],
             recent_chat=chat,
             butt_in=butt_in,
+            extra=extra,
         )
     tone = out["tone"]
     p.drift(rude=(tone == "rude"))
