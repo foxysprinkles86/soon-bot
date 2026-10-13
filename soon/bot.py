@@ -640,7 +640,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         else:
             extra += "\n" + PANDA_FACT + " " + features.panda_canon_text(canon)
         if butt_in:
-            extra += " He's playing in the casino: drop it on him unprompted. Do NOT reply empty."
+            extra += " He just showed up: drop it on him unprompted. Do NOT reply empty."
     elif canon and any(is_panda(m) for m in message.mentions) or (canon and re.search(r"(?i)\bpanda\b", message.content)
                                                                   and random.random() < 0.4):
         extra += "\nPanda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)
@@ -809,7 +809,7 @@ async def on_message(message: discord.Message):
             await ai_reply(message)
         return
     asyncio.create_task(eavesdrop(message))
-    if is_panda(message.author) and "casa" in message.channel.name.lower():
+    if is_panda(message.author):   # rarely around: pounce (casino or anywhere she's allowed)
         now = time.time()
         if now - _last_panda_fact[message.channel.id] > 600 and random.random() < 0.5:
             _last_panda_fact[message.channel.id] = now
