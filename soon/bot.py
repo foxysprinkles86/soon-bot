@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import config, extras
+from . import config, extras, features
 from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -134,6 +134,7 @@ PANDA_FACT = ("PANDA BIT: Tell Panda one completely made-up, absurd 'fact' about
               "double down with more fake 'evidence'. Never admit it's fake. This is the ONE exception to your no-made-up-"
               "facts rule, and only for Panda. Keep the fake facts silly, never about real health, family or anything hurtful.")
 _last_panda_fact = defaultdict(float)
+_last_jealous = defaultdict(float)   # guild_id -> last jealous butt-in (30 min cooldown)
 
 
 def is_foxy(user) -> bool:
@@ -359,6 +360,69 @@ async def handle_command(message: discord.Message) -> bool:
             _duels.discard(message.channel.id)
         return True
 
+    if cmd in ("panda facts", "panda fact", "pandafacts", "facts about panda"):
+        await message.reply(features.panda_facts_list(await features.panda_facts(memory, gid)),
+                            allowed_mentions=discord.AllowedMentions.none())
+        return True
+
+    if cmd.startswith("roast"):
+        rest = cmd[5:].strip()
+        targets = [m for m in message.mentions if m != client.user and not m.bot]
+        if rest in ("me", "myself"):
+            target = message.author
+        elif targets:
+            target = targets[0]
+        elif rest in ("yourself", "soon", "you"):
+            target = client.user
+        else:
+            await message.reply("Roast WHO? `soon roast @name` or `soon roast me`.")
+            return True
+        if target == client.user:
+            await message.reply("Roast myself? I'm flawless. Next.")
+            return True
+        if not await features.roast_allowance(memory, gid, uid, config.ROASTS_PER_DAY):
+            await message.reply(f"You've used your {config.ROASTS_PER_DAY} roasts today. Come back tomorrow. Bring snacks.")
+            return True
+        await roast(message, target)
+        return True
+
+    if cmd in ("events", "races", "race schedule", "schedule"):
+        await message.reply(features.events_list(await features.get_events(memory, gid)))
+        return True
+
+    em = re.match(r"^event(?:s)?\s+(remove|delete|cancel)\s+(.+)$", cmd)
+    if em or re.match(r"^event\s+\S", cmd):
+        if not is_mod(message.author):
+            await message.reply("Scheduling is a mod thing. Type `soon events` to see what's coming.")
+            return True
+        events = await features.get_events(memory, gid)
+        if em:
+            name = em.group(2).strip()
+            keep = [e for e in events if name not in e["name"].lower()]
+            await features.save_events(memory, gid, keep)
+            await message.reply(f"Removed {len(events) - len(keep)} event(s) matching **{name}**." if len(keep) < len(events)
+                                else f"No event called **{name}**. `soon events` shows the list.")
+            return True
+        raw = re.sub(r"^(?:soon\s+)?event\s+", "", text, flags=re.I).strip()
+        ev = await features.parse_event(brain, raw)
+        if not ev:
+            await message.reply("I couldn't find a day and time in that. Try `soon event Kraken starts Saturday 2pm every week`.")
+            return True
+        events = [e for e in events if e["name"].lower() != ev["name"].lower()] + [ev]
+        await features.save_events(memory, gid, events)
+        start = dt.datetime.fromisoformat(ev["start"])
+        await message.reply(f"📅 **{ev['name']}** · {features._fmt(start)}" + (" · every week" if ev["repeat"] == "weekly" else "")
+                            + "\nI'll remind everyone an hour before. Wrong? Say it again with the fix, or "
+                            f"`soon event remove {ev['name'].lower()}`.")
+        return True
+
+    if cmd.startswith("hall of shame") or cmd in ("shame", "clowns") or cmd.startswith("shame "):
+        others = [m for m in message.mentions if m != client.user]
+        who = str(others[0].id) if others else None
+        await message.reply(features.shame_text(await features.shame_list(memory, gid), who),
+                            allowed_mentions=discord.AllowedMentions.none())
+        return True
+
     if cmd in ("budget", "status"):
         if not is_mod(message.author):
             return False
@@ -368,6 +432,32 @@ async def handle_command(message: discord.Message) -> bool:
         return True
 
     return False
+
+
+async def roast(message: discord.Message, target):
+    gid = message.guild.id
+    tp = await memory.get_player(gid, target.id)
+    notes = "; ".join(tp.notes[-12:]) or "(you know nothing about them yet: roast their mystery, their silence, their vibes)"
+    who = "themselves" if target == message.author else target.display_name
+    extra = ""
+    if is_kor(target):
+        extra = " This is KOR, your crush: try to roast him and fail, it keeps turning into compliments. Flustered."
+    elif is_panda(target):
+        extra = (" This is Panda: build the roast on one of his Verified Panda Facts. "
+                 + features.panda_canon_text(await features.panda_facts(memory, gid), 8))
+    elif is_foxy(target):
+        extra = " This is FoxySprinkles, your creator. Roast her anyway, then nervously pretend you were joking."
+    text = await brain.write(
+        f"{message.author.display_name} asked you to roast {who}. Target: {target.display_name}. "
+        f"Heat level for the target: {tp.heat} (sweet/mild = gentle and fond, spicy = normal, savage/unhinged = no mercy). "
+        f"What you know about them: {notes}.{extra}\nWrite ONE roast, one or two short sentences, specific to them. "
+        "Roast their game, scores, timing, chips and vibes, never their real body, real life, health or family. "
+        "No made-up facts (except Panda facts). Don't include their @, it's added for you.",
+        max_tokens=120)
+    if not text:
+        text = "I'd roast you, but my oven only heats things worth cooking."
+    extras.log_event(f"roasted {target.display_name} because {message.author.display_name} asked")
+    await message.channel.send(f"🔥 {target.mention} {text}")
 
 
 # ---------- AI chat ----------
@@ -436,9 +526,26 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     elif random.random() < 0.25:
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
+    panda_bit = False
+    canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
-        extra += "\n" + PANDA_FACT + (" He's playing in the casino: drop the fact on him unprompted. Do NOT reply empty."
-                                       if butt_in else "")
+        panda_bit = True
+        if canon and random.random() < 0.35:
+            extra += ("\nPANDA BIT: Bring up ONE of the established Panda facts below as common knowledge everyone "
+                      "already knows (\"as we ALL know...\"). Don't invent a new one this time. Stand by it 100%. "
+                      + features.panda_canon_text(canon))
+        else:
+            extra += "\n" + PANDA_FACT + " " + features.panda_canon_text(canon)
+        if butt_in:
+            extra += " He's playing in the casino: drop it on him unprompted. Do NOT reply empty."
+    elif canon and any(is_panda(m) for m in message.mentions) or (canon and re.search(r"(?i)\bpanda\b", message.content)
+                                                                  and random.random() < 0.4):
+        extra += "\nPanda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)
+    others_on_kor = not is_kor(message.author) and (
+        any(is_kor(m) for m in message.mentions) or re.search(r"(?i)\bkor\b", message.content))
+    if others_on_kor:
+        extra += ("\nKOR CAME UP: if this person is flirting with Kor, praising him, or getting cozy with him, get "
+                  "jealous and territorial (deny it badly). If they're not, ignore this.")
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
     facts = []
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
@@ -448,7 +555,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             said = extras.tz_in_text(message.content)
             if said:
                 pp.tz = said   # they just told us; use it right now (saved below)
-        if pp.tz:
+        if not pp.tz and is_kor(person):
+            pp_tz = "Europe/Amsterdam"
+            facts.append(extras.exact_time_fact(person.display_name, pp_tz))
+        elif pp.tz:
             facts.append(extras.exact_time_fact(person.display_name, pp.tz))
         else:
             zf = extras.zone_fact(person)
@@ -505,6 +615,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if new_tz and new_tz != p.tz:
         p.tz = new_tz
         extras.log_event(f"found out {message.author.display_name} lives in {new_tz}")
+    if panda_bit and out.get("panda_fact") and out["reply"]:
+        if await features.add_panda_fact(memory, gid, out["panda_fact"]):
+            extras.log_event(f"established a new Panda fact: {out['panda_fact']}")
     if out["reply"] and not butt_in:
         p.chats += 1
     await memory.save_player(p)
@@ -598,6 +711,14 @@ async def on_message(message: discord.Message):
         if rate_ok(message.author.id):
             await ai_reply(message, maybe=True)
         return
+    # Someone else being sweet on Kor: sometimes she can't help herself.
+    if not is_kor(message.author) and (any(is_kor(m) for m in message.mentions)
+                                       or re.search(r"(?i)\bkor\b", message.content)):
+        now = time.time()
+        if now - _last_jealous[message.guild.id] > 1800 and random.random() < 0.3 and rate_ok(message.author.id):
+            _last_jealous[message.guild.id] = now
+            await ai_reply(message, butt_in=True)
+            return
     # Side-eye: sometimes she just reacts instead of talking.
     emoji = extras.pick_reaction(message.content)
     if emoji:
@@ -611,6 +732,39 @@ async def on_message(message: discord.Message):
         if now - _last_butt_in[message.channel.id] > config.BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
             _last_butt_in[message.channel.id] = now
             await ai_reply(message, butt_in=True)
+
+
+@client.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    """🤡 on a message = it goes in the Hall of Shame."""
+    if str(payload.emoji) != features.SHAME_EMOJI or not payload.guild_id or payload.user_id == client.user.id:
+        return
+    if payload.member and payload.member.bot:
+        return
+    guild = client.get_guild(payload.guild_id)
+    channel = guild.get_channel_or_thread(payload.channel_id) if guild else None
+    if not channel:
+        return
+    try:
+        msg = await channel.fetch_message(payload.message_id)
+    except discord.HTTPException:
+        return
+    text = msg.clean_content.replace("\n", " ").strip()
+    if not text or msg.author.id == payload.user_id or (msg.author.bot and msg.author != client.user):
+        return
+    entry = {"id": msg.id, "uid": str(msg.author.id), "who": msg.author.display_name, "text": text[:300],
+             "by": payload.member.display_name if payload.member else "", "date": extras.local_now().strftime("%b %-d")}
+    if not await features.add_shame(memory, guild.id, entry):
+        return
+    extras.log_event(f"{msg.author.display_name} got put in the Hall of Shame for saying \"{text[:120]}\"")
+    if allowed_channel(channel):
+        try:
+            await msg.reply(random.choice([
+                "📸 Framed. Hall of Shame. Forever.", "🤡 Filed in the Hall of Shame. No appeals.",
+                "🏛️ Added to the Hall of Shame. Your family will be told.", "📸 Got it. This one's going on the wall.",
+            ]), mention_author=False)
+        except discord.HTTPException:
+            pass
 
 
 @client.event
@@ -711,11 +865,27 @@ async def daily():
                     await ensure_intro(ch)
                     line = await brain.write(
                         "Write ONE short line tagging Panda, your favorite target, who is barely ever active. Call him out "
-                        "for vanishing and/or summon him to the casino. Don't include his @, it's added for you.",
+                        "for vanishing and/or summon him to the casino. Don't include his @, it's added for you. "
+                        "You may cite one: " + features.panda_canon_text(await features.panda_facts(memory, guild.id), 8),
                         max_tokens=80)
                     if line:
                         await ch.send(f"{panda.mention} {line}")
                         extras.log_event("pestered Panda")
+
+            # Race / event reminders, one hour before.
+            events = await features.get_events(memory, guild.id)
+            if events:
+                due, changed = features.due_events(events, now)
+                if changed:
+                    await features.save_events(memory, guild.id, events)
+                ch = extras.find_channel(guild, config.RACE_CHANNEL)
+                for e in due:
+                    if ch:
+                        await ensure_intro(ch)
+                        line = await brain.write(features.event_task(e), max_tokens=160)
+                        await ch.send(line or f"🏁 **{e['name']}** starts in one hour. Move.",
+                                      allowed_mentions=discord.AllowedMentions.none())
+                        extras.log_event(f"reminded everyone about {e['name']}")
 
             # One regular gets summoned out of nowhere (Kor twice as likely).
             if now.hour >= _planned_hour("regular", 13, 22) and await memory.get_kv(f"regular:{gk}") != today:

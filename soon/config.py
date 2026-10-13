@@ -43,6 +43,10 @@ MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
 # Where the nightly diary and daily pestering go (channel name or part of it).
 DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "soon-lab").strip().lower()
 PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "soon-lab").strip().lower()
+# Where race/event reminders go. Defaults to the pester channel.
+RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or PESTER_CHANNEL
+# Roasts on demand per person per day.
+ROASTS_PER_DAY = int(_float("ROASTS_PER_DAY", 3))
 # Panda gets tagged at least once a day: part of his Discord username or nickname.
 PANDA_NAME = os.environ.get("PANDA_NAME", "panda").strip().lower()
 TIMEZONE = os.environ.get("TIMEZONE", "America/Chicago")

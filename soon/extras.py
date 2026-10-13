@@ -26,7 +26,7 @@ MOODS = [
 
 REACTIONS = {
     r"\b(best|goat|carried|easy|ez|flawless|insane score|new record|pb)\b": ["💅", "🙄", "👀"],
-    r"\b(lost|died|failed|rip|bad|terrible|worst|ugh)\b": ["💀", "🫠", "🤡"],
+    r"\b(lost|died|failed|rip|bad|terrible|worst|ugh)\b": ["💀", "🫠", "🙃"],
     r"\b(kor)\b": ["😳", "💕"],
     r"\b(taco|tacos)\b": ["🌮", "⏳"],
     r"\b(lol|lmao|haha+)\b": ["🙄", "😐"],
