@@ -26,6 +26,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - Python 3.12, discord.py 2.5.2, asyncpg, httpx, tzdata. Time zone America/Chicago.
 - Talks only in channels matching `ALLOWED_CHANNELS` (currently `soon-lab,trash-talk`; casino channels contain "casa").
 - Casino words (claim, chips, cash out…) only work in `CASINO_CHANNELS` (default `casa,soon-lab`) and also need ALLOWED_CHANNELS.
+- **#soon-lab is the test channel**: Shannon adds testers there (no separate beta channel). Test chips there get wiped by `soon import` on cutover night.
 
 ## Code map (`soon/`)
 - `config.py` — env settings. `db.py` — Postgres `players` (mood, heat_lock, pester, notes, ign, chats, strikes, tz, hours, birthday), `ai_usage`, `kv` store; in-memory fallback.
@@ -59,7 +60,7 @@ Check: lines aimed at Soon Classic mistaken as hers; repeated phrases/sign-offs/
 
 ## Roadmap (next)
 Step-by-step tracker: **'Move Plan' tab** of the Classic Soon checklist sheet (tick boxes as steps finish).
-Phase 1 progress (built, not live yet): economy core, export command, `soon import`, cashier, slots, toss, roulette, blackjack, scratch, Wheel of Fortaco. Next: heists, chip duels + spectator bets, tips/rain/rob the bartender, crimes, menus + payouts.
+Phase 1 progress (live for testing in #soon-lab since Oct 14): economy core, export command, `soon import`, cashier, slots, toss, roulette, blackjack, scratch, Wheel of Fortaco. Next: heists, chip duels + spectator bets, tips/rain/rob the bartender, crimes, menus + payouts.
 1. **Move the casino + economy** from Soon Classic: chips, tacobal (taco debt), tacos, margs, eggs/eggcount, casnet, hidden, jackpot (jpot), heistsubs. Plan: build all games in 2.0 first (same typed commands + buttons), test in #soon-lab, then cutover night: 🚧 construction notice → freeze Classic → YAGPDB export command prints balances → `soon import` → verify totals → enable casino channel → disable Classic (keep 2 weeks as rollback).
 2. Then: tips to Soon, chip bets on duels, race betting, race screenshot reading (needs a vision model), custom Soon emoji reactions (`SOON_EMOJIS`).
 3. Launch day: rename to Soon™, smug avatar, `soon takeover complete`.
