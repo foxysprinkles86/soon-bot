@@ -1,6 +1,7 @@
 """Talking to DeepSeek. One request per reply: Soon's line, how the player treated her, and an optional note for her notebook."""
 import json
 import random
+import re
 
 import httpx
 
@@ -17,6 +18,14 @@ INSTRUCTIONS = """Reply with JSON only, in this exact shape:
 - "line_crossed": true ONLY if the player's latest message attacks ANOTHER PERSON with a slur, or attacks them over race, religion, sexuality, gender or disability, or mocks real-life trauma or health someone shared. Swearing, trash talk, roasting game scores and insulting Soon are all fine and are false. When true, your reply should call it out in character.
 - "timezone": if the player's latest message tells you where they live or their time zone (a city, country, "EST", "UTC+10"...), the IANA time zone name, like "America/New_York" or "Australia/Sydney". Otherwise "".
 - "struggle": if the player is confused or a command isn't working for them, a few words on what they were trying to do (for the mods' weekly report). Otherwise ""."""
+
+
+def trim_sentences(text: str, limit: int) -> str:
+    """Hard cap on reply length: keep the first `limit` sentences (she gets carried away)."""
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z\"'*(])", text)
+    if len(parts) <= limit:
+        return text
+    return " ".join(parts[:limit]).strip()
 
 
 class Brain:
@@ -53,10 +62,10 @@ class Brain:
             f"{extra}\n"
             f"THEIR LATEST MESSAGE: {message}"
         )
-        length = random.choices(
-            ["ONE short sentence, under 20 words. Punchy.",
-             "One or two short sentences, under 35 words.",
-             "Up to four sentences. This one can be a little dramatic."],
+        length, max_sentences = random.choices(
+            [("ONE short sentence, under 20 words. Punchy.", 1),
+             ("One or two short sentences, under 35 words.", 2),
+             ("Up to four sentences. This one can be a little dramatic.", 4)],
             weights=[60, 30, 10])[0]
         situation += f"\n\nLENGTH FOR THIS REPLY: {length}"
         body = {
@@ -83,7 +92,7 @@ class Brain:
             print(f"AI error: {e!r}")
             return self._fallback(butt_in or maybe)
 
-        reply = str(out.get("reply") or "").strip()
+        reply = trim_sentences(str(out.get("reply") or "").strip(), max_sentences)
         tone = str(out.get("tone") or "neutral").lower()
         if tone not in TONES:
             tone = "neutral"

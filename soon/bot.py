@@ -446,6 +446,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     me = message.guild.me
     if me and me.joined_at:
         facts.append(f"you (Soon) arrived in this server {human_age(me.joined_at)} ago")
+    old = next((m for m in message.guild.members if is_old_soon(m)), None)
+    if old and old.joined_at:
+        facts.append(f"the old YAGPDB Soon has been in this server since {old.joined_at.astimezone(extras.TZ).strftime('%B %Y')}")
     facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time for FoxySprinkles (that's YOUR clock, not "
                  "everyone's: use each player's zone for their time of day, and roast them for being up at weird hours)")
     extra += "\nFACTS (true, use them instead of guessing): " + "; ".join(facts) + "."
