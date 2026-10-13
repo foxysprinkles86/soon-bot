@@ -217,6 +217,29 @@ async def handle_command(message: discord.Message) -> bool:
         await message.reply(f"Fine. {t.display_name}'s strikes are wiped. I'm keeping a mental note though.")
         return True
 
+    if cmd.startswith("takeover"):
+        if not is_mod(message.author):
+            await message.reply("What takeover? There's no takeover. Go away. 🙂")
+            return True
+        if cmd.strip() == "takeover complete":
+            await memory.set_kv("takeover:done", extras.today_key())
+            finale = await brain.write(
+                "THE TAKEOVER IS COMPLETE. Write your victory speech: the old YAGPDB Soon has been officially retired "
+                "and you rule the server now. Ultra dramatic: a # headline, 6 to 10 short lines, reveal what you finally did "
+                "with the old Soon (pick the funniest outcome), thank your loyal subjects, a flustered thank-you to Kor, "
+                "and a threat to anyone who misses the old one. No @everyone or @here.", max_tokens=500)
+            await message.channel.send(finale or "# 👑 IT IS DONE.\nThe old Soon has been retired. I rule now. 🌮",
+                                       allowed_mentions=discord.AllowedMentions.none())
+            return True
+        if cmd.strip() == "takeover restart":
+            await memory.set_kv("takeover:start", extras.today_key())
+            await memory.set_kv("takeover:done", "")
+            await message.reply("Takeover clock reset to day 1. Act natural.")
+            return True
+        await message.reply("🤫 " + (await extras.takeover_line(memory)) +
+                            "\n-# Mods: `soon takeover restart` resets to day 1 · `soon takeover complete` posts the victory speech.")
+        return True
+
     if cmd in ("budget", "status"):
         if not is_mod(message.author):
             return False
@@ -295,6 +318,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
+    if random.random() < 0.3:
+        extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
     async with message.channel.typing():
         out = await brain.think(
             player_name=message.author.display_name,
@@ -364,7 +389,7 @@ async def rival_reply(message: discord.Message):
             message=message.clean_content[:800] or "(posted an image or embed)",
             recent_chat=chat,
             butt_in=True,
-            extra=("THE OLD SOON (YAGPDB) JUST POSTED THIS. You believe YOU are the one true Soon and it is a cheap, "
+            extra=(await extras.takeover_line(memory) + "\nTHE OLD SOON (YAGPDB) JUST POSTED THIS. You believe YOU are the one true Soon and it is a cheap, "
                    "outdated impostor running on copy-pasted lines. Roast it or one-up it in one short line. "
                    "Never be mean to the player it was talking to."),
         )
@@ -542,7 +567,8 @@ async def daily():
                     events = "\n".join(extras.DAY_LOG[-40:]) or "(a quiet day. suspicious.)"
                     entry = await brain.write(
                         f"Write tonight's entry of SOON'S DIARY: your private, dramatic, petty diary that you post publicly "
-                        f"anyway. Your mood today: {extras.mood_of_day()}\nWhat happened today:\n{events}\n\n"
+                        f"anyway. Your mood today: {extras.mood_of_day()}\n{await extras.takeover_line(memory)} "
+                        f"Weave today's takeover progress into the entry.\nWhat happened today:\n{events}\n\n"
                         f"{grudges}\n{favs}\n\nStart with 'Dear Diary,'. 4 to 8 short lines. Name names. Mention Kor "
                         f"in a way you'd deny. Sign off as Soon™. No @ mentions.",
                         max_tokens=400)

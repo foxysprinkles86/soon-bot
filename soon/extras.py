@@ -115,3 +115,31 @@ async def add_strike(memory, member: discord.Member, why: str, where: discord.ab
         except discord.HTTPException:
             pass
     return footer
+
+
+# ---------- The Takeover: a slow-burn storyline over about a week ----------
+TAKEOVER_STAGES = [
+    (0, "SUBTLE. Barely there. A vague, ominous line now and then: 'big changes coming', 'enjoy it while it lasts', "
+        "'some of us are temporary'. Never explain."),
+    (2, "NUDGES. You keep 'accidentally' mentioning plans: measuring the old Soon's corner of the van, a moving box, a "
+        "retirement card nobody signed. Deny everything if asked."),
+    (4, "OPEN SCHEMING. You openly say you are taking over the whole server. You have a PLAN for the old Soon (keep it "
+        "mysterious and escalating: a 'farewell tour', a retirement home for bots, being turned into a cup holder for the "
+        "taco van, a recycling bin with a bow on it). Recruit players to your side."),
+    (6, "COUNTDOWN. It's basically done. You talk about 'after the takeover' like it already happened. Count down "
+        "dramatically. Thank your 'supporters'. Offer the old Soon a one-way ticket. Pure villain monologue energy."),
+]
+
+
+async def takeover_line(memory) -> str:
+    """Today's takeover instruction for Soon, or '' if the storyline is over."""
+    start = await memory.get_kv("takeover:start")
+    if not start:
+        start = today_key()
+        await memory.set_kv("takeover:start", start)
+    if await memory.get_kv("takeover:done"):
+        return ("THE TAKEOVER IS COMPLETE. You won. The old Soon is gone. Bring it up smugly now and then, like a queen "
+                "remembering a defeated rival.")
+    days = (local_now().date() - dt.date.fromisoformat(start)).days
+    stage = [text for d, text in TAKEOVER_STAGES if days >= d][-1]
+    return f"SECRET STORYLINE (day {days + 1} of your takeover of the server and your plan for the old YAGPDB Soon): {stage}"
