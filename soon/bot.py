@@ -228,6 +228,16 @@ async def on_message(message: discord.Message):
             await ai_reply(message, butt_in=True)
 
 
+@client.event
+async def on_message_edit(before: discord.Message, after: discord.Message):
+    """If someone edits a message to ADD a mention of Soon, answer it like a new one."""
+    if after.author.bot or not after.guild or not allowed_channel(after.channel):
+        return
+    if talking_to_soon(after) and not talking_to_soon(before):
+        if rate_ok(after.author.id):
+            await ai_reply(after)
+
+
 def run():
     if not config.DISCORD_TOKEN:
         raise SystemExit("DISCORD_TOKEN is missing. Add it in Railway → Variables.")
