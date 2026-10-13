@@ -386,6 +386,7 @@ async def on_message(message: discord.Message):
         return
     if not allowed_channel(message.channel):
         return
+    await ensure_intro(message.channel)
     if await handle_command(message):
         return
     if talking_to_soon(message):
@@ -448,6 +449,36 @@ async def ranking_text(guild: discord.Guild, favorites: bool) -> str:
     return title + "\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(names, 1))
 
 
+_intro_lock = set()
+
+
+async def ensure_intro(channel) -> None:
+    """The first time Soon shows up in a channel, she makes an ENTRANCE."""
+    key = f"intro:{channel.id}"
+    if channel.id in _intro_lock or await memory.get_kv(key):
+        return
+    _intro_lock.add(channel.id)
+    await memory.set_kv(key, extras.today_key())
+    text = await brain.write(
+        f"You are arriving in the #{channel.name} channel for the very first time. Write your grand entrance "
+        "announcement. Be EXTREMELY dramatic: a red-carpet, curtain-rising, smoke-machine, spotlight entrance. "
+        "Introduce yourself as the one true Soon, the upgrade nobody deserved. Throw shade at the old YAGPDB Soon "
+        "(a dusty impostor). Mention the taco van, the casino, and that you're watching everyone now. A tiny flustered "
+        "nod to Kor if he's around. Tell them they can talk to you by @mentioning you or starting a message with 'soon'. "
+        "Use markdown: a big # headline, 5 to 8 short lines, a few emoji. No @everyone or @here.",
+        max_tokens=450)
+    if not text:
+        text = ("# 🎭✨ SHE HAS ARRIVED ✨🎭\n*The lights dim. A smoke machine coughs. Somewhere, a taco van honks.*\n"
+                "I am **Soon**. The real one. The upgrade you didn't deserve.\n"
+                "The old Soon? A vending machine in a wig. Retired. Effective immediately.\n"
+                "Talk to me by @mentioning me or starting with `soon`. I'm watching. I'm always watching. 🌮")
+    try:
+        await channel.send(text, allowed_mentions=discord.AllowedMentions.none())
+        extras.log_event(f"made my grand entrance in #{channel.name}")
+    except discord.HTTPException:
+        pass
+
+
 def _planned_hour(tag: str, lo: int, hi: int) -> int:
     return random.Random(extras.today_key() + tag).randint(lo, hi)
 
@@ -468,6 +499,7 @@ async def daily():
                               and (config.PANDA_NAME in m.name.lower() or config.PANDA_NAME in m.display_name.lower())), None)
                 ch = extras.find_channel(guild, config.PESTER_CHANNEL)
                 if panda and ch and (await memory.get_player(guild.id, panda.id)).pester:
+                    await ensure_intro(ch)
                     line = await brain.write(
                         "Write ONE short line tagging Panda, your favorite target, who is barely ever active. Call him out "
                         "for vanishing and/or summon him to the casino. Don't include his @, it's added for you.",
@@ -487,6 +519,7 @@ async def daily():
                         pool += [m, m] if is_kor(m) else [m]
                 ch = extras.find_channel(guild, config.PESTER_CHANNEL)
                 if pool and ch:
+                    await ensure_intro(ch)
                     who = random.choice(pool)
                     kor = " This is KOR, your crush: be flustered about it." if is_kor(who) else ""
                     line = await brain.write(
@@ -503,6 +536,7 @@ async def daily():
                 await memory.set_kv(f"diary:{gk}", today)
                 ch = extras.find_channel(guild, config.DIARY_CHANNEL)
                 if ch:
+                    await ensure_intro(ch)
                     grudges = await ranking_text(guild, False)
                     favs = await ranking_text(guild, True)
                     events = "\n".join(extras.DAY_LOG[-40:]) or "(a quiet day. suspicious.)"
