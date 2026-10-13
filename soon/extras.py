@@ -143,3 +143,46 @@ async def takeover_line(memory) -> str:
     days = (local_now().date() - dt.date.fromisoformat(start)).days
     stage = [text for d, text in TAKEOVER_STAGES if days >= d][-1]
     return f"SECRET STORYLINE (day {days + 1} of your takeover of the server and your plan for the old YAGPDB Soon): {stage}"
+
+
+# ---------- World zones (from the clan's zone roles) ----------
+ZONES = {
+    "raccoon": ("Raccoons & Capybaras", -10, -3),
+    "lion": ("Lions & Unicorns", -1, 3),
+    "panda": ("Pandas & Peacocks", 3, 8),
+    "platypus": ("Platypus & Kiwis", 8, 13),
+}
+
+
+def member_zone(member):
+    """(zone name, utc_lo, utc_hi) from their zone role, or None."""
+    for role in getattr(member, "roles", []) or []:
+        name = role.name.lower()
+        for key, z in ZONES.items():
+            if key in name:
+                return z
+    return None
+
+
+def _clock(utc_now: dt.datetime, offset: float) -> str:
+    return (utc_now + dt.timedelta(hours=offset)).strftime("%-I %p").lower()
+
+
+def zone_fact(member) -> str | None:
+    """'X is in Lions & Unicorns (UTC-1 to +3): it's roughly 8 am to 12 pm for them right now.'"""
+    z = member_zone(member)
+    if not z:
+        return None
+    name, lo, hi = z
+    now = dt.datetime.now(dt.timezone.utc)
+    return (f"{member.display_name} is in the {name} zone (UTC{lo:+d} to {hi:+d}): it's roughly "
+            f"{_clock(now, lo)} to {_clock(now, hi)} for them right now")
+
+
+def zone_local_hour(member) -> int | None:
+    """Their approximate local hour (middle of their zone), for timing pesters."""
+    z = member_zone(member)
+    if not z:
+        return None
+    mid = (z[1] + z[2]) / 2
+    return (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=mid)).hour

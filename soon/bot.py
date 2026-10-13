@@ -330,6 +330,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     facts = []
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
     for person in people[:4]:
+        zf = extras.zone_fact(person)
+        if zf:
+            facts.append(zf)
         joined = getattr(person, "joined_at", None)
         if joined:
             when = joined.astimezone(extras.TZ).strftime("%B %-d, %Y")
@@ -337,7 +340,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     me = message.guild.me
     if me and me.joined_at:
         facts.append(f"you (Soon) arrived in this server {human_age(me.joined_at)} ago")
-    facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time")
+    facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time for FoxySprinkles (that's YOUR clock, not "
+                 "everyone's: use each player's zone for their time of day, and roast them for being up at weird hours)")
     extra += "\nFACTS (true, use them instead of guessing): " + "; ".join(facts) + "."
     if random.random() < 0.3:
         extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
@@ -546,10 +550,12 @@ async def daily():
             gk = str(guild.id)
 
             # Panda gets tagged at least once a day.
-            if now.hour >= _planned_hour("panda", 12, 21) and await memory.get_kv(f"panda:{gk}") != today:
+            panda = next((m for m in guild.members if not m.bot and config.PANDA_NAME
+                          and (config.PANDA_NAME in m.name.lower() or config.PANDA_NAME in m.display_name.lower())), None)
+            panda_hour = extras.zone_local_hour(panda) if panda else None
+            hour_now = panda_hour if panda_hour is not None else now.hour
+            if 12 <= hour_now <= 22 and hour_now >= _planned_hour("panda", 12, 21) and await memory.get_kv(f"panda:{gk}") != today:
                 await memory.set_kv(f"panda:{gk}", today)
-                panda = next((m for m in guild.members if not m.bot and config.PANDA_NAME
-                              and (config.PANDA_NAME in m.name.lower() or config.PANDA_NAME in m.display_name.lower())), None)
                 ch = extras.find_channel(guild, config.PESTER_CHANNEL)
                 if panda and ch and (await memory.get_player(guild.id, panda.id)).pester:
                     await ensure_intro(ch)
@@ -568,7 +574,9 @@ async def daily():
                 pool = []
                 for p in await memory.all_players(guild.id):
                     m = guild.get_member(p.user_id)
-                    if m and not m.bot and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
+                    lh = extras.zone_local_hour(m) if m else None
+                    awake = lh is None or 9 <= lh <= 23
+                    if m and not m.bot and awake and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
                         pool += [m, m] if is_kor(m) else [m]
                 ch = extras.find_channel(guild, config.PESTER_CHANNEL)
                 if pool and ch:
