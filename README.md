@@ -27,12 +27,20 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `soon grudges` / `soon favorites` | anyone | Her current grudge and favorites lists |
 | `soon mood` | anyone | Her mood of the day |
 | `soon pardon @name` | mods | Wipe someone's strikes and lift their timeout |
+| `soon my timezone is <zone/city>` | anyone | Tell her where you live |
+| `soon my birthday is <month day>` | anyone | Birthday shout-out every year |
+| `soon duel @name` | anyone | Quick-draw duel (bragging rights) |
+| `soon duel record` / `soon duel record @name` | anyone | Win-loss record |
+| `soon takeover` | mods | Takeover storyline (`restart` / `complete`) |
 
 ## Daily life
 - **Mood of the day** flavors every reply.
 - **Side-eye reactions** on ~8% of messages.
 - **Panda** gets tagged once a day (afternoon/evening), plus one random regular gets summoned (Kor twice as likely).
 - **Soon's Diary** posts nightly at 11:30 PM Central.
+- **Weekly Soon Awards** post Sundays at 7 PM Central. **Mod report** (what confused people, who talks to her, AI spend) Mondays at 9 AM in the mod channel.
+- **Join anniversaries, birthdays, and 1-week recruit check-ins** around noon.
+- **Help desk**: she knows every casino/clan command and tells confused players exactly what to type.
 - **Hard lines**: slurs or attacks on protected traits/real trauma toward another person get called out. Strike 1 = warning, then 10 min, 1 hour, 24 hour timeouts. Logged to the first channel with "mod" in its name. Strikes reset after 7 clean days.
 
 ## Railway variables

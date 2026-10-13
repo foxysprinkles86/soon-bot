@@ -9,7 +9,10 @@ from collections import defaultdict, deque
 import discord
 from discord.ext import tasks
 
+import json
+
 from . import config, extras
+from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
 
@@ -71,6 +74,43 @@ def is_repeat(note: str, notes: list[str]) -> bool:
         if ow and len(words & ow) / len(words) >= 0.6:
             return True
     return False
+
+
+_duels = set()
+MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+          "november", "december"]
+
+
+def parse_birthday(text: str) -> str | None:
+    t = text.lower().strip().replace(",", " ")
+    m = re.search(r"(\d{1,2})[/-](\d{1,2})", t)
+    if m:
+        mo, d = int(m.group(1)), int(m.group(2))
+    else:
+        mo = next((i + 1 for i, name in enumerate(MONTHS) if re.search(rf"\b{name[:3]}", t)), None)
+        dm = re.search(r"\b(\d{1,2})(?:st|nd|rd|th)?\b", t)
+        d = int(dm.group(1)) if dm else None
+    if not mo or not d or not (1 <= mo <= 12 and 1 <= d <= 31):
+        return None
+    return f"{mo:02d}-{d:02d}"
+
+
+def bd_label(bd: str) -> str:
+    mo, d = (int(x) for x in bd.split("-"))
+    return f"{MONTHS[mo - 1].title()} {d}"
+
+
+async def push_list(key: str, item: str, keep: int = 100):
+    raw = await memory.get_kv(key)
+    items = json.loads(raw) if raw else []
+    items.append(item)
+    await memory.set_kv(key, json.dumps(items[-keep:]))
+
+
+async def pop_list(key: str) -> list[str]:
+    raw = await memory.get_kv(key)
+    await memory.set_kv(key, "[]")
+    return json.loads(raw) if raw else []
 
 
 def human_age(when) -> str:
@@ -270,6 +310,41 @@ async def handle_command(message: discord.Message) -> bool:
                             "Now I'll know when you're up too late.")
         return True
 
+    bm = re.match(r"^my (?:birthday|bday|b-day) is\s+(.+)$", cmd)
+    if bm:
+        bd = parse_birthday(bm.group(1))
+        if not bd:
+            await message.reply("That's not a date. Try `soon my birthday is March 14`.")
+            return True
+        p = await memory.get_player(gid, uid)
+        p.birthday = bd
+        await memory.save_player(p)
+        await message.reply(f"Noted: **{bd_label(bd)}**. I'll remember. I remember everything. That's the problem.")
+        return True
+
+    if cmd in ("duel record", "duel stats", "record"):
+        target = message.mentions[0] if message.mentions else message.author
+        await message.reply(await record_text(memory, target))
+        return True
+
+    if cmd.startswith("duel") or cmd.startswith("quickdraw") or cmd.startswith("quick draw"):
+        targets = [m for m in message.mentions if m != client.user and not m.bot]
+        if not targets:
+            await message.reply("Duel WHO? `soon duel @name`. Bring a target, not vibes.")
+            return True
+        if targets[0].id == uid:
+            await message.reply("You can't duel yourself. Well, you can. You'd lose.")
+            return True
+        if message.channel.id in _duels:
+            await message.reply("One duel at a time. This isn't a western, it's a taco van.")
+            return True
+        _duels.add(message.channel.id)
+        try:
+            await run_duel(message.channel, message.author, targets[0], memory, brain, extras.log_event)
+        finally:
+            _duels.discard(message.channel.id)
+        return True
+
     if cmd in ("budget", "status"):
         if not is_mod(message.author):
             return False
@@ -400,6 +475,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         extras.log_event(f"learned about {message.author.display_name}: {out['note']}")
     if tone == "rude":
         extras.log_event(f"{message.author.display_name} was rude to me: \"{message.clean_content[:120]}\"")
+    if out.get("struggle"):
+        await push_list(f"struggles:{gid}", f"{message.author.display_name}: {out['struggle']}", keep=60)
     new_tz = extras.valid_tz(out.get("timezone", ""))
     if new_tz and new_tz != p.tz:
         p.tz = new_tz
@@ -658,9 +735,85 @@ async def daily():
                     if entry:
                         await ch.send(f"📓 **Soon's Diary** · {now.strftime('%b %-d')}\n{entry}",
                                       allowed_mentions=discord.AllowedMentions.none())
+                    for line in extras.DAY_LOG[-40:]:
+                        await push_list(f"weeklog:{gk}", f"{now.strftime('%a')} {line}", keep=200)
                     extras.DAY_LOG.clear()
+            await life_events(guild, now, today, gk)
+            await weekly_jobs(guild, now, today, gk)
     except Exception as e:
         print(f"Daily loop error: {e!r}")
+
+
+async def life_events(guild: discord.Guild, now, today: str, gk: str):
+    """Around noon: join anniversaries, birthdays, and one-week check-ins for recruits."""
+    if now.hour < 12 or await memory.get_kv(f"life:{gk}") == today:
+        return
+    await memory.set_kv(f"life:{gk}", today)
+    ch = extras.find_channel(guild, config.PESTER_CHANNEL)
+    if not ch:
+        return
+    players = {p.user_id: p for p in await memory.all_players(guild.id)}
+    for m in guild.members:
+        if m.bot or not m.joined_at:
+            continue
+        joined = m.joined_at.astimezone(extras.TZ).date()
+        days = (now.date() - joined).days
+        p = players.get(m.id)
+        task = None
+        if days >= 365 and (joined.month, joined.day) == (now.month, now.day):
+            task = (f"Today is {m.display_name}'s {days // 365}-year anniversary of joining the TnT server. Write ONE "
+                    "or two lines congratulating them, sarcastic but secretly sweet. Mention the taco van.")
+        elif days == 7:
+            task = (f"{m.display_name} joined the clan exactly one week ago. Check in on them: ask how they're "
+                    "surviving, give one real tip (type `casino` in the casino, `soon my name is` to link their in-game "
+                    "name, pick a zone with `zone`), and roast them gently. Gently for you. 2 to 3 lines.")
+        if p and p.birthday == now.strftime("%m-%d"):
+            task = (f"Today is {m.display_name}'s BIRTHDAY. Write a dramatic, chaotic birthday message: 2 to 4 lines, "
+                    "promise them a birthday taco that will arrive 'soon', and be weirdly sincere for one line.")
+        if task:
+            if p and p.user_id and not p.pester and days != 7:
+                continue
+            await ensure_intro(ch)
+            line = await brain.write(task + " Don't include their @, it's added for you.", max_tokens=160)
+            if line:
+                await ch.send(f"{m.mention} {line}")
+                extras.log_event(f"celebrated/checked in on {m.display_name}")
+
+
+async def weekly_jobs(guild: discord.Guild, now, today: str, gk: str):
+    """Sunday 7 PM: the Soon Awards. Monday 9 AM: the mods' report."""
+    if now.weekday() == 6 and now.hour >= 19 and await memory.get_kv(f"awards:{gk}") != today:
+        await memory.set_kv(f"awards:{gk}", today)
+        ch = extras.find_channel(guild, config.DIARY_CHANNEL)
+        week = await pop_list(f"weeklog:{gk}")
+        if ch and week:
+            await ensure_intro(ch)
+            text = await brain.write(
+                "Host THE WEEKLY SOON AWARDS for the clan, based on this week's events:\n" + "\n".join(week[-120:]) +
+                "\n\n" + await ranking_text(guild, False) + "\n" + await ranking_text(guild, True) +
+                "\n\nFormat: a big # headline, then 5 to 7 awards, one line each: an emoji, a funny award name in bold, "
+                "the winner's name, and a one-line roast reason. Always include 'Employee of the Week' going to Kor "
+                "(flustered justification). Only give awards to people who actually appear in the events. No @ mentions.",
+                max_tokens=600)
+            if text:
+                await ch.send(text, allowed_mentions=discord.AllowedMentions.none())
+                extras.log_event("hosted the weekly Soon Awards")
+    if now.weekday() == 0 and now.hour >= 9 and await memory.get_kv(f"modreport:{gk}") != today:
+        await memory.set_kv(f"modreport:{gk}", today)
+        ch = extras.find_channel(guild, config.MOD_LOG_CHANNEL)
+        struggles = await pop_list(f"struggles:{guild.id}")
+        players = await memory.all_players(guild.id)
+        chatty = sorted(players, key=lambda p: p.chats, reverse=True)[:5]
+        spent, calls = await memory.month_spend()
+        lines = ["## 📋 Soon's Weekly Mod Report"]
+        lines.append("**What confused people this week:**")
+        lines += [f"• {s}" for s in struggles[-25:]] or ["• Nothing. Either everyone's a genius or nobody's talking to me."]
+        lines.append("**Who talks to me most:** " + (", ".join(
+            f"{guild.get_member(p.user_id).display_name} ({p.chats})" for p in chatty
+            if guild.get_member(p.user_id) and p.chats) or "nobody yet"))
+        lines.append(f"**AI budget this month:** ${spent:.2f} of ${config.AI_MONTHLY_CAP_USD:.2f} ({calls} replies)")
+        if ch:
+            await ch.send("\n".join(lines)[:1900], allowed_mentions=discord.AllowedMentions.none())
 
 
 def run():

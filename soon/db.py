@@ -29,6 +29,7 @@ ALTER TABLE players ADD COLUMN IF NOT EXISTS strikes INT NOT NULL DEFAULT 0;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS last_strike TIMESTAMPTZ;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS tz TEXT;
 ALTER TABLE players ADD COLUMN IF NOT EXISTS hours JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS birthday TEXT;
 CREATE TABLE IF NOT EXISTS ai_usage (
     month   TEXT PRIMARY KEY,
     cost    DOUBLE PRECISION NOT NULL DEFAULT 0,
@@ -61,7 +62,7 @@ def now() -> dt.datetime:
 
 class Player:
     def __init__(self, guild_id, user_id, mood=0, heat_lock=None, pester=True, notes=None, last_seen=None,
-                 ign=None, chats=0, strikes=0, last_strike=None, tz=None, hours=None):
+                 ign=None, chats=0, strikes=0, last_strike=None, tz=None, hours=None, birthday=None):
         self.guild_id = guild_id
         self.user_id = user_id
         self.mood = mood
@@ -75,6 +76,7 @@ class Player:
         self.last_strike = last_strike
         self.tz = tz
         self.hours = list(hours or []) or [0] * 24   # messages seen per UTC hour
+        self.birthday = birthday                       # "MM-DD"
 
     @property
     def heat(self) -> str:
@@ -101,7 +103,7 @@ def _from_row(row) -> Player:
     if isinstance(hours, str):
         hours = json.loads(hours)
     return Player(row["guild_id"], row["user_id"], row["mood"], row["heat_lock"], row["pester"], notes,
-                  row["last_seen"], row["ign"], row["chats"], row["strikes"], row["last_strike"], row["tz"], hours)
+                  row["last_seen"], row["ign"], row["chats"], row["strikes"], row["last_strike"], row["tz"], hours, row["birthday"])
 
 
 class Memory:
@@ -138,14 +140,15 @@ class Memory:
             return
         await self.pool.execute(
             """INSERT INTO players (guild_id, user_id, mood, heat_lock, pester, notes, last_seen, ign, chats, strikes,
-                                    last_strike, tz, hours)
-               VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13::jsonb)
+                                    last_strike, tz, hours, birthday)
+               VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13::jsonb,$14)
                ON CONFLICT (guild_id, user_id) DO UPDATE SET
                  mood=EXCLUDED.mood, heat_lock=EXCLUDED.heat_lock, pester=EXCLUDED.pester,
                  notes=EXCLUDED.notes, last_seen=EXCLUDED.last_seen, ign=EXCLUDED.ign, chats=EXCLUDED.chats,
-                 strikes=EXCLUDED.strikes, last_strike=EXCLUDED.last_strike, tz=EXCLUDED.tz, hours=EXCLUDED.hours""",
+                 strikes=EXCLUDED.strikes, last_strike=EXCLUDED.last_strike, tz=EXCLUDED.tz, hours=EXCLUDED.hours,
+                 birthday=EXCLUDED.birthday""",
             p.guild_id, p.user_id, p.mood, p.heat_lock, p.pester, json.dumps(p.notes), p.last_seen,
-            p.ign, p.chats, p.strikes, p.last_strike, p.tz, json.dumps(p.hours))
+            p.ign, p.chats, p.strikes, p.last_strike, p.tz, json.dumps(p.hours), p.birthday)
 
     async def forget_player(self, guild_id: int, user_id: int):
         if not self.pool:

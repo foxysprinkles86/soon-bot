@@ -10,12 +10,13 @@ from .personality import FALLBACK_LINES, SHEET
 TONES = {"nice", "neutral", "rude", "upset"}
 
 INSTRUCTIONS = """Reply with JSON only, in this exact shape:
-{"reply": "<what Soon says>", "tone": "nice|neutral|rude|upset", "note": "<optional>", "line_crossed": false, "timezone": ""}
+{"reply": "<what Soon says>", "tone": "nice|neutral|rude|upset", "note": "<optional>", "line_crossed": false, "timezone": "", "struggle": ""}
 - "reply": Soon's message. If BUTT-IN MODE is on and you have nothing genuinely funny and relevant to add, use "".
 - "tone": how the player's latest message treated Soon (or others): nice, neutral, rude, or upset (genuinely hurt or sad, not joking).
 - "note": one short NEW fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). It must not repeat or rephrase anything already in WHAT YOU REMEMBER. Usually empty: most messages don't need a note. Never store health, family or real-life trauma.
 - "line_crossed": true ONLY if the player's latest message attacks ANOTHER PERSON with a slur, or attacks them over race, religion, sexuality, gender or disability, or mocks real-life trauma or health someone shared. Swearing, trash talk, roasting game scores and insulting Soon are all fine and are false. When true, your reply should call it out in character.
-- "timezone": if the player's latest message tells you where they live or their time zone (a city, country, "EST", "UTC+10"...), the IANA time zone name, like "America/New_York" or "Australia/Sydney". Otherwise ""."""
+- "timezone": if the player's latest message tells you where they live or their time zone (a city, country, "EST", "UTC+10"...), the IANA time zone name, like "America/New_York" or "Australia/Sydney". Otherwise "".
+- "struggle": if the player is confused or a command isn't working for them, a few words on what they were trying to do (for the mods' weekly report). Otherwise ""."""
 
 
 class Brain:
@@ -89,7 +90,9 @@ class Brain:
         note = str(out.get("note") or "").strip()[:200]
         crossed = out.get("line_crossed") is True
         tz = str(out.get("timezone") or "").strip()
-        return {"reply": reply[:1900], "tone": tone, "note": note, "line_crossed": crossed, "timezone": tz, "ok": True}
+        struggle = str(out.get("struggle") or "").strip()[:150]
+        return {"reply": reply[:1900], "tone": tone, "note": note, "line_crossed": crossed, "timezone": tz,
+                "struggle": struggle, "ok": True}
 
     async def write(self, task: str, max_tokens: int = 350) -> str:
         """Free-form writing in Soon's voice (diary entries, pestering, announcements). '' if unavailable."""
@@ -164,4 +167,4 @@ class Brain:
     @staticmethod
     def _fallback(butt_in: bool) -> dict:
         return {"reply": "" if butt_in else random.choice(FALLBACK_LINES), "tone": "neutral", "note": "",
-                "line_crossed": False, "timezone": "", "ok": False}
+                "line_crossed": False, "timezone": "", "struggle": "", "ok": False}
