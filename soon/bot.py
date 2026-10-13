@@ -609,6 +609,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
     chat, kor_here = await recent_chat(message.channel, message)
+    mine = [l[len("Soon (you): "):] for l in chat if l.startswith("Soon (you): ")][-5:]
     if is_kor(message.author):
         kor_here = True
     extra = ""
@@ -648,6 +649,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if others_on_kor:
         extra += ("\nKOR CAME UP: if this person is flirting with Kor, praising him, or getting cozy with him, get "
                   "jealous and territorial (deny it badly). If they're not, ignore this.")
+    if mine:
+        extra += ("\nYOUR LAST FEW LINES (do NOT reuse their phrases, sign-offs, props or jokes, e.g. a repeated "
+                  "'get in the van' or the same object twice): " + " | ".join(m[:160] for m in mine))
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
     facts = []
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
