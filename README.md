@@ -21,6 +21,7 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `soon leave me alone` / `soon bother me` | anyone | Turn pestering off/on |
 | `soon notebook @name` | mods | See a player's page |
 | `soon forget @name` | mods | Wipe a player's page |
+| `soon unnote @name 3 5` | mods | Erase specific notes by number |
 | `soon budget` | mods | AI spend this month |
 | `soon my name is <in-game name>` | anyone | Link your in-game name |
 | `soon who is <in-game name>` / `soon ign @name` | anyone | Look up who's who |

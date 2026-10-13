@@ -14,7 +14,7 @@ INSTRUCTIONS = """Reply with JSON only, in this exact shape:
 {"reply": "<what Soon says>", "tone": "nice|neutral|rude|upset", "note": "<optional>", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": ""}
 - "reply": Soon's message. If BUTT-IN MODE is on and you have nothing genuinely funny and relevant to add, use "".
 - "tone": how the player's latest message treated Soon (or others): nice, neutral, rude, or upset (genuinely hurt or sad, not joking).
-- "note": one short NEW fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). It must not repeat or rephrase anything already in WHAT YOU REMEMBER. Usually empty: most messages don't need a note. Never store health, family or real-life trauma.
+- "note": only what they actually said or did, no interpretation or mind-reading. One short NEW fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). It must not repeat or rephrase anything already in WHAT YOU REMEMBER. Usually empty: most messages don't need a note. Never store health, family or real-life trauma.
 - "line_crossed": true ONLY if the player's latest message attacks ANOTHER PERSON with a slur, or attacks them over race, religion, sexuality, gender or disability, or mocks real-life trauma or health someone shared. Swearing, trash talk, roasting game scores and insulting Soon are all fine and are false. When true, your reply should call it out in character.
 - "timezone": if the player's latest message tells you where they live or their time zone (a city, country, "EST", "UTC+10"...), the IANA time zone name, like "America/New_York" or "Australia/Sydney". Otherwise "".
 - "struggle": if the player is confused or a command isn't working for them, a few words on what they were trying to do (for the mods' weekly report). Otherwise "".
@@ -149,7 +149,10 @@ class Brain:
                 {"role": "system", "content": (
                     "You are Soon's memory. Read this Discord chat from a Mob Control clan and pull out facts worth "
                     "remembering for future roasts or banter: brags, scores, nicknames, running jokes, promises, beefs, "
-                    "game milestones, what they're bad at. Skip boring small talk. Never store health, family, money "
+                    "game milestones, what they're bad at. Skip boring small talk. ONLY record what someone actually said or did, "
+                    "in plain words. No mind-reading or interpretation (not 'secretly scared of X', not 'the crush is mutual'). "
+                    "Lines marked as talking to the OLD YAGPDB Soon are about that bot, not about Soon: don't turn them into "
+                    "notes about Soon (ordering tacos, typing 'egg' etc. go to the old bot). Get WHO said what right. Never store health, family, money "
                     "trouble or real-life trauma. Also flag hard-line violations: a line that attacks ANOTHER PERSON with a slur, or over "
                     "race, religion, sexuality, gender or disability, or mocks real trauma or health someone shared. Swearing, "
                     "trash talk and game roasts are NOT violations. Return JSON: {\"notes\": [{\"player\": \"<exact name>\", "

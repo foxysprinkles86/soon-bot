@@ -232,6 +232,23 @@ async def handle_command(message: discord.Message) -> bool:
                             else "Fine. I'll stop tagging you. I'll just think about you. Menacingly.")
         return True
 
+    if cmd.startswith("unnote"):
+        if not is_mod(message.author):
+            await message.reply("Editing my notebook? Bold. Mods only.")
+            return True
+        targets = [m for m in message.mentions if m != client.user]
+        nums = [int(n) for n in re.findall(r"\b\d{1,3}\b", re.sub(r"<@[!&]?\d+>", "", cmd))]
+        if not targets or not nums:
+            await message.reply("Which notes? `soon unnote @name 3 5 9` (numbers from `soon notebook @name`).")
+            return True
+        p = await memory.get_player(gid, targets[0].id)
+        gone = [p.notes[n - 1] for n in sorted(set(nums)) if 1 <= n <= len(p.notes)]
+        p.notes = [x for i, x in enumerate(p.notes, 1) if i not in set(nums)]
+        await memory.save_player(p, touch=False)
+        await message.reply(f"Erased {len(gone)} note(s) from {targets[0].display_name}'s page. I'll pretend I never knew."
+                            if gone else "None of those numbers are on their page.")
+        return True
+
     if cmd.startswith("notebook") or cmd.startswith("forget"):
         if not is_mod(message.author):
             await message.reply("That's classified. Mods only. Nice try, though. Noted. In the notebook. 📓")
@@ -245,12 +262,14 @@ async def handle_command(message: discord.Message) -> bool:
             await message.reply(f"Wiped {target.display_name}'s page. Clean slate. I'll start a new grudge tomorrow.")
             return True
         p = await memory.get_player(gid, target.id)
-        notes = "\n".join(f"• {n}" for n in p.notes[-20:]) or "• (nothing yet)"
+        start = max(0, len(p.notes) - 20)
+        notes = "\n".join(f"`{i}` {n}" for i, n in enumerate(p.notes[start:], start + 1)) or "• (nothing yet)"
         await message.reply(
             f"📓 **{target.display_name}**\nMood: **{p.mood:+d}** · Heat: **{p.heat}**"
             f"{' (locked)' if p.heat_lock else ''} · Pester: {'on' if p.pester else 'off'}"
             + (f"\n🕐 {extras.tz_label(p.tz)}" if p.tz else "") + (f" · {extras.active_summary(p.hours, p.tz)}" if extras.active_summary(p.hours, p.tz) else "")
-            + f"\n{notes}")
+            + f"\n{notes}"
+            + ("\n-# Wrong note? `soon unnote @name 3 5` erases by number." if p.notes else ""))
         return True
 
     if cmd in ("grudges", "grudge list", "enemies", "favorites", "favourites", "favs"):
