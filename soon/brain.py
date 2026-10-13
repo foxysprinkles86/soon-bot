@@ -41,11 +41,11 @@ def trim_sentences(text: str, limit: int) -> str:
     return " ".join(parts[:limit]).strip()
 
 
-def pick_notes(notes: list[str], message: str, limit: int = 6) -> list[str]:
+def pick_notes(notes: list[str], message: str, limit: int = 12) -> list[str]:
     """Only the notes that matter right now: ones sharing a word with their message, topped up with the newest."""
     words = {w for w in re.findall(r"[a-z0-9']{4,}", message.lower())}
     hits = [n for n in notes if words & set(re.findall(r"[a-z0-9']{4,}", n.lower()))][-limit:]
-    rest = [n for n in notes if n not in hits][-max(0, min(3, limit - len(hits))):] if len(hits) < limit else []
+    rest = [n for n in notes if n not in hits][-(limit - len(hits)):] if len(hits) < limit else []
     return rest + hits
 
 
@@ -72,7 +72,7 @@ class Brain:
         else:
             mode = "DIRECT: they're talking to you."
         notes = "\n".join(f"- {n}" for n in pick_notes(player_notes, message)) or "- (nothing yet)"
-        chat = "\n".join(recent_chat[-15:]) or "(quiet)"
+        chat = "\n".join(recent_chat[-30:]) or "(quiet)"
         situation = (
             f"PLAYER: {player_name}{' (this is KOR, your crush)' if is_kor else ''}\n"
             f"HEAT LEVEL FOR THIS PLAYER: {heat}\n"

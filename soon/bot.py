@@ -710,7 +710,12 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((3, "asktz", "Work in a nosy question about what city or time zone they're in (you 'keep files on everyone')."))
     if not is_foxy(message.author) and random.random() < 0.25:
         specials.append((4, "foxy-trash", "If it fits naturally, a little trash talk about Foxy behind her back."))
-    if random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
+    takeover_day = (await memory.get_kv("takeover:fast") == extras.today_key()
+                    and not await memory.get_kv("takeover:done"))
+    if takeover_day:     # one-day takeover run: ~1 in 3 replies, ahead of the small stuff so the countdown stays alive
+        if random.random() < 0.36:
+            specials.append((1.5, "takeover", await extras.takeover_line(memory)))
+    elif random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
         specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
     specials.sort(key=lambda x: x[0])
     chosen = specials[:2]
