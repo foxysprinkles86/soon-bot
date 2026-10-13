@@ -11,10 +11,11 @@ from discord.ext import tasks
 
 import json
 
-from . import config, extras, features
+from . import casino, config, extras, features
 from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
+from .economy import Bank
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -26,6 +27,7 @@ client = discord.Client(
 )
 memory = Memory()
 brain = Brain(memory)
+bank = Bank(memory)
 
 _recent_ai = defaultdict(deque)      # user_id -> timestamps of AI replies (rate limit)
 _last_butt_in = defaultdict(float)   # channel_id -> last time Soon butted in
@@ -230,6 +232,19 @@ async def handle_command(message: discord.Message) -> bool:
         await memory.save_player(p)
         await message.reply("Fine. I'll pester you again. You asked for this." if p.pester
                             else "Fine. I'll stop tagging you. I'll just think about you. Menacingly.")
+        return True
+
+    if cmd in ("import", "import confirm"):
+        if not is_mod(message.author):
+            await message.reply("Moving the whole casino's money? Mods only.")
+        else:
+            await casino.import_classic(message, bank, cmd.endswith("confirm"), client.user)
+        return True
+
+    if cmd in ("bank", "bank totals", "totals"):
+        t = await bank.totals(gid)
+        await message.reply(f"🏦 Casa de Soon books: **{t['players']}** players • **{t['chips']}** {casino.C} • "
+                            f"**{t['tacobal']}** 🌮")
         return True
 
     if cmd.startswith("unnote"):
@@ -743,6 +758,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
 @client.event
 async def on_ready():
     await memory.connect()
+    await bank.setup()
     if not daily.is_running():
         daily.start()
     print(f"Soon 2.0 online as {client.user} in {len(client.guilds)} server(s). Talking in: {config.ALLOWED_CHANNELS}")
@@ -803,6 +819,8 @@ async def on_message(message: discord.Message):
     _activity[(message.guild.id, message.author.id)][discord.utils.utcnow().hour] += 1
     await ensure_intro(message.channel)
     if await handle_command(message):
+        return
+    if await casino.handle(message, bank, is_mod(message.author)):
         return
     if talking_to_soon(message):
         if rate_ok(message.author.id):

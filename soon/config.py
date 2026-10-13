@@ -20,6 +20,9 @@ DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 # Starts locked to the lab so the old Soon keeps running everywhere else.
 ALLOWED_CHANNELS = [c.strip().lower() for c in os.environ.get("ALLOWED_CHANNELS", "soon-lab").split(",") if c.strip()]
 
+# Where casino words (claim, chips, cash out...) work. Soon must also be allowed to talk there (ALLOWED_CHANNELS).
+CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", "casa,soon-lab").split(",") if c.strip()]
+
 # Monthly AI budget in US dollars. When it runs out, Soon falls back to her written lines.
 AI_MONTHLY_CAP_USD = _float("AI_MONTHLY_CAP_USD", 10.0)
 

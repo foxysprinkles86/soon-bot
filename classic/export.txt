@@ -1,0 +1,37 @@
+{{/* SOON 2.0 EXPORT (cutover night only) | Trigger type: Regex | Trigger: (?i)^\s*classic\s+export\s*$
+ Set "Required roles" to your mod roles. Paste this into a NEW custom command in YAGPDB.
+ Run it by typing `classic export` in the channel where you'll then type `soon import`.
+ It prints every balance as "SX ..." lines, one small page every 2 seconds (about a minute in all).
+ Wait for the line that starts with "SX END" before typing `soon import`.
+ It only READS the database. It changes nothing. Safe to run more than once. */}}
+{{- $keys := cslice "chips" "tacobal" "tacos" "margs" "eggcount" "casnet" "delivered" "eggs"}}
+{{- $ki := 0}}{{$skip := 0}}{{$nc := 0}}{{$tc := 0}}{{$tt := 0}}
+{{- with .ExecData}}{{$ki = toInt .ki}}{{$skip = toInt .skip}}{{$nc = toInt .nc}}{{$tc = toInt .tc}}{{$tt = toInt .tt}}{{end}}
+{{- $out := ""}}
+{{- if and (eq $ki 0) (eq $skip 0)}}{{$out = "SX START\n"}}{{end}}
+{{- if lt $ki (len $keys)}}
+  {{- $k := index $keys $ki}}{{$page := 40}}{{if eq $k "eggs"}}{{$page = 12}}{{end}}
+  {{- $rows := dbTopEntries $k $page $skip}}
+  {{- range $rows}}
+    {{- if eq $k "eggs"}}{{$e := ""}}{{if .Value}}{{range .Value}}{{$e = print $e . ","}}{{end}}{{end}}{{$out = print $out "SX eggs " .UserID " " $e "\n"}}
+    {{- else}}{{$v := toInt .Value}}{{$out = print $out "SX " $k " " .UserID " " $v "\n"}}
+      {{- if eq $k "chips"}}{{$nc = add $nc 1}}{{$tc = add $tc $v}}{{end}}
+      {{- if eq $k "tacobal"}}{{$tt = add $tt $v}}{{end}}
+    {{- end}}
+  {{- end}}
+  {{- if $out}}{{sendMessage nil $out}}{{end}}
+  {{- if eq (len $rows) $page}}{{$skip = add $skip $page}}{{else}}{{$ki = add $ki 1}}{{$skip = 0}}{{end}}
+  {{- execCC $.CCID nil 2 (sdict "ki" $ki "skip" $skip "nc" $nc "tc" $tc "tt" $tt)}}
+{{- else if eq $ki 8}}
+  {{- with dbGet 0 "jpot"}}{{$out = print $out "SX jpot " (toInt .Value) "\n"}}{{end}}
+  {{- with dbGet 0 "jackpots"}}{{range .Value}}{{$out = print $out "SX jackpots " . "\n"}}{{end}}{{end}}
+  {{- sendMessage nil (print $out "SX house part 1 done")}}
+  {{- execCC $.CCID nil 2 (sdict "ki" 9 "skip" 0 "nc" $nc "tc" $tc "tt" $tt)}}
+{{- else if eq $ki 9}}
+  {{- with dbGet 0 "heistsubs"}}{{range .Value}}{{$out = print $out "SX heistsubs " . "\n"}}{{end}}{{end}}
+  {{- sendMessage nil (print $out "SX house part 2 done")}}
+  {{- execCC $.CCID nil 2 (sdict "ki" 10 "skip" 0 "nc" $nc "tc" $tc "tt" $tt)}}
+{{- else}}
+  {{- $cnt := ""}}{{range $keys}}{{if ne . "eggs"}}{{$cnt = print $cnt " n_" . "=" (dbCount .)}}{{end}}{{end}}
+  {{- sendMessage nil (print "SX END players=" $nc " chips=" $tc " tacobal=" $tt $cnt "\n✅ Export done. Now type `soon import` here.")}}
+{{- end}}
