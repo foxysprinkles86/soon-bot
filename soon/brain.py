@@ -50,7 +50,8 @@ class Brain:
         return spent < config.AI_MONTHLY_CAP_USD
 
     async def think(self, *, player_name: str, player_notes: list[str], heat: str, is_kor: bool,
-                    message: str, recent_chat: list[str], butt_in: bool = False, maybe: bool = False, extra: str = "") -> dict:
+                    message: str, recent_chat: list[str], butt_in: bool = False, maybe: bool = False, extra: str = "",
+                    length_weights: list[int] | None = None) -> dict:
         """Returns {"reply", "tone", "note", "ok"}. ok=False means a fallback line was used."""
         if not config.DEEPSEEK_API_KEY or not await self.budget_left():
             return self._fallback(butt_in or maybe)
@@ -78,7 +79,7 @@ class Brain:
             [("ONE short sentence, under 20 words. Punchy.", 1),
              ("One or two short sentences, under 35 words.", 2),
              ("Up to four sentences. This one can be a little dramatic.", 4)],
-            weights=[75, 19, 6])[0]
+            weights=length_weights or [75, 19, 6])[0]
         situation += f"\n\nLENGTH FOR THIS REPLY: {length}"
         body = {
             "model": config.DEEPSEEK_MODEL,

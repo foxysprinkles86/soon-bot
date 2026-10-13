@@ -134,6 +134,18 @@ PANDA_FACT = ("PANDA BIT: Tell Panda one completely made-up, absurd 'fact' about
               "double down with more fake 'evidence'. Never admit it's fake. This is the ONE exception to your no-made-up-"
               "facts rule, and only for Panda. Keep the fake facts silly, never about real health, family or anything hurtful.")
 _last_panda_fact = defaultdict(float)
+KOR_MOVES = [
+    "ask him something about himself (the Netherlands, how he drives the van, his worst race) and pretend it's 'for the files'",
+    "accidentally reveal you've been keeping track of something he did, then panic and deny it",
+    "dare him: a duel (`soon duel @you`), a bet, or a race score challenge",
+    "offer him a secret perk nobody else gets (extra chips, the good margarita, front seat of the van), then deny you offered",
+    "blame him for something absurd that happened in the van and make him defend himself",
+    "get jealous of someone or something he mentioned",
+    "tease him with a piece of your takeover plan and ask if he's on your side",
+    "insult him, then immediately overcorrect with a compliment and tell him to forget you said it",
+    "turn his question back on him with a ridiculous accusation",
+    "make up a dramatic rule just for him ('Kor tax', 'Kor hours', 'the Kor clause')",
+]
 _last_jealous = defaultdict(float)   # guild_id -> last jealous butt-in (30 min cooldown)
 
 
@@ -571,10 +583,14 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     elif random.random() < 0.25:
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
+    length_weights = None
     if is_kor(message.author):
-        extra += ("\nKOR IS TALKING TO YOU. Your crush should leak through: most replies to him go flustered (a roast that "
-                  "turns into a compliment halfway, an over-the-top denial, sneaking him something) rather than just cold. "
-                  "Still sassy, never gushing.")
+        length_weights = [45, 42, 13]   # he gets a bit more of her
+        move = random.choice(KOR_MOVES)
+        extra += ("\nKOR IS TALKING TO YOU. This chat should be FUN for him: he should want to answer you. Your crush leaks "
+                  "through: flustered, defensive, a roast that turns into a compliment halfway, an over-the-top denial. "
+                  "Still sassy, never gushing, never cold or flat. Answer what he actually said first, then add a hook. "
+                  f"Idea for this reply (use it only if it fits): {move}")
     panda_bit = False
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
@@ -645,6 +661,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             butt_in=butt_in,
             maybe=maybe,
             extra=extra,
+            length_weights=length_weights,
         )
     tone = out["tone"]
     p.drift(rude=(tone == "rude"))
