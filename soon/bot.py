@@ -122,6 +122,20 @@ def human_age(when) -> str:
     return f"{int(secs // 86400)} days"
 
 
+def is_panda(user) -> bool:
+    n = config.PANDA_NAME
+    return bool(n) and not getattr(user, "bot", False) and (
+        n in (user.name or "").lower() or n in (getattr(user, "display_name", "") or "").lower())
+
+
+PANDA_FACT = ("PANDA BIT: Tell Panda one completely made-up, absurd 'fact' about himself, stated as settled truth "
+              "(like he's legally banned from three Applebee's, he was runner-up in a 2011 hot dog contest, he sleeps in a "
+              "hammock in the van, his real name is Gerald). Invent a NEW one each time. Stand by it 100%: if he denies it, "
+              "double down with more fake 'evidence'. Never admit it's fake. This is the ONE exception to your no-made-up-"
+              "facts rule, and only for Panda. Keep the fake facts silly, never about real health, family or anything hurtful.")
+_last_panda_fact = defaultdict(float)
+
+
 def is_foxy(user) -> bool:
     return "foxysprinkles" in (user.name or "").lower()
 
@@ -422,6 +436,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     elif random.random() < 0.25:
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
+    if is_panda(message.author) and (butt_in or random.random() < 0.6):
+        extra += "\n" + PANDA_FACT + (" He's playing in the casino: drop the fact on him unprompted. Do NOT reply empty."
+                                       if butt_in else "")
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
     facts = []
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
@@ -571,6 +588,12 @@ async def on_message(message: discord.Message):
             await ai_reply(message)
         return
     asyncio.create_task(eavesdrop(message))
+    if is_panda(message.author) and "casa" in message.channel.name.lower():
+        now = time.time()
+        if now - _last_panda_fact[message.channel.id] > 600 and random.random() < 0.5:
+            _last_panda_fact[message.channel.id] = now
+            await ai_reply(message, butt_in=True)
+            return
     if maybe_for_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message, maybe=True)

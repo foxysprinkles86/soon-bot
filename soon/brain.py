@@ -66,7 +66,7 @@ class Brain:
             [("ONE short sentence, under 20 words. Punchy.", 1),
              ("One or two short sentences, under 35 words.", 2),
              ("Up to four sentences. This one can be a little dramatic.", 4)],
-            weights=[60, 30, 10])[0]
+            weights=[75, 19, 6])[0]
         situation += f"\n\nLENGTH FOR THIS REPLY: {length}"
         body = {
             "model": config.DEEPSEEK_MODEL,
