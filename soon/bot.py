@@ -328,9 +328,12 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
     facts = []
-    joined = getattr(message.author, "joined_at", None)
-    if joined:
-        facts.append(f"{message.author.display_name} joined this server {human_age(joined)} ago")
+    people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
+    for person in people[:4]:
+        joined = getattr(person, "joined_at", None)
+        if joined:
+            when = joined.astimezone(extras.TZ).strftime("%B %-d, %Y")
+            facts.append(f"{person.display_name} joined this server on {when} ({human_age(joined)} ago)")
     me = message.guild.me
     if me and me.joined_at:
         facts.append(f"you (Soon) arrived in this server {human_age(me.joined_at)} ago")
