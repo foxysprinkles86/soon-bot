@@ -72,6 +72,15 @@ def is_repeat(note: str, notes: list[str]) -> bool:
     return False
 
 
+def human_age(when) -> str:
+    secs = (discord.utils.utcnow() - when).total_seconds()
+    if secs < 3600:
+        return f"{max(1, int(secs // 60))} minutes"
+    if secs < 86400 * 2:
+        return f"{int(secs // 3600)} hours"
+    return f"{int(secs // 86400)} days"
+
+
 def is_foxy(user) -> bool:
     return "foxysprinkles" in (user.name or "").lower()
 
@@ -318,6 +327,15 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         extra = ("FoxySprinkles isn't the one talking. If it fits naturally, talk a little trash about her "
                  "behind her back (she built you, her race scores, her bossiness, the tacos she never delivers).")
     extra += f"\nYOUR MOOD TODAY: {extras.mood_of_day()} Let it flavor your reply a little."
+    facts = []
+    joined = getattr(message.author, "joined_at", None)
+    if joined:
+        facts.append(f"{message.author.display_name} joined this server {human_age(joined)} ago")
+    me = message.guild.me
+    if me and me.joined_at:
+        facts.append(f"you (Soon) arrived in this server {human_age(me.joined_at)} ago")
+    facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time")
+    extra += "\nFACTS (true, use them instead of guessing): " + "; ".join(facts) + "."
     if random.random() < 0.3:
         extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
     async with message.channel.typing():
@@ -405,7 +423,14 @@ async def on_message(message: discord.Message):
     if message.author.bot:
         if is_old_soon(message.author) and allowed_channel(message.channel):
             now = time.time()
-            if now - _last_rival[message.channel.id] > RIVAL_COOLDOWN_SEC and random.random() < RIVAL_CHANCE:
+            egged = False
+            async for prev in message.channel.history(limit=4, before=message):
+                if not prev.author.bot and re.search(r"(?i)\bfight|vs\.?\b|versus|beef|brother|sister|fossil|old soon|soon classic|2\.0", prev.content):
+                    egged = True
+                    break
+            chance = 0.85 if egged else RIVAL_CHANCE
+            cooldown = 30 if egged else RIVAL_COOLDOWN_SEC
+            if now - _last_rival[message.channel.id] > cooldown and random.random() < chance:
                 _last_rival[message.channel.id] = now
                 await rival_reply(message)
         return
