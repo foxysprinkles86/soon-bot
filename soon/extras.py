@@ -186,3 +186,76 @@ def zone_local_hour(member) -> int | None:
         return None
     mid = (z[1] + z[2]) / 2
     return (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=mid)).hour
+
+
+# ---------- Exact time zones and activity patterns ----------
+from zoneinfo import ZoneInfoNotFoundError
+
+TZ_ALIASES = {
+    "est": "America/New_York", "edt": "America/New_York", "eastern": "America/New_York",
+    "cst": "America/Chicago", "cdt": "America/Chicago", "central": "America/Chicago",
+    "mst": "America/Denver", "mdt": "America/Denver", "mountain": "America/Denver",
+    "pst": "America/Los_Angeles", "pdt": "America/Los_Angeles", "pacific": "America/Los_Angeles",
+    "akst": "America/Anchorage", "hst": "Pacific/Honolulu", "hawaii": "Pacific/Honolulu",
+    "gmt": "Europe/London", "bst": "Europe/London", "uk": "Europe/London", "cet": "Europe/Paris",
+    "aest": "Australia/Sydney", "aedt": "Australia/Sydney", "acst": "Australia/Adelaide", "awst": "Australia/Perth",
+    "nzst": "Pacific/Auckland", "nzdt": "Pacific/Auckland", "ist": "Asia/Kolkata", "sgt": "Asia/Singapore",
+    "jst": "Asia/Tokyo", "kst": "Asia/Seoul", "pht": "Asia/Manila",
+}
+
+
+def valid_tz(name: str) -> str | None:
+    """Turn 'America/Chicago', 'cst', 'UTC+10' etc. into a usable zone name, or None."""
+    import re
+    if not name:
+        return None
+    raw = name.strip()
+    key = raw.lower()
+    if key in TZ_ALIASES:
+        return TZ_ALIASES[key]
+    m = re.fullmatch(r"(?:utc|gmt)\s*([+-])\s*(\d{1,2})", key)
+    if m:
+        hours = int(m.group(2))
+        if hours <= 14:
+            sign = "-" if m.group(1) == "+" else "+"   # Etc/GMT signs are inverted
+            return f"Etc/GMT{sign}{hours}" if hours else "Etc/GMT"
+    try:
+        ZoneInfo(raw)
+        return raw
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+
+
+def tz_label(tz: str) -> str:
+    if tz.startswith("Etc/GMT"):
+        off = tz[7:] or "+0"
+        return "UTC" + ("-" if off.startswith("+") else "+") + off[1:] if off != "+0" else "UTC"
+    return tz.split("/")[-1].replace("_", " ")
+
+
+def tz_clock(tz: str) -> str:
+    return dt.datetime.now(ZoneInfo(tz)).strftime("%-I:%M %p on %A")
+
+
+def exact_time_fact(name: str, tz: str) -> str:
+    return f"it's {tz_clock(tz)} for {name} (they live in {tz_label(tz)})"
+
+
+def active_summary(hours: list[int], tz: str | None) -> str:
+    """'usually around 7 PM - 11 PM their time', from per-UTC-hour message counts."""
+    if not hours or sum(hours) < 10:
+        return ""
+    top = sorted(range(24), key=lambda h: hours[h], reverse=True)[:3]
+    zone = ZoneInfo(tz) if tz else TZ
+    base = dt.datetime.now(dt.timezone.utc).replace(minute=0, second=0, microsecond=0)
+    labels = [(base.replace(hour=h)).astimezone(zone).strftime("%-I %p").lower() for h in sorted(top)]
+    return "most active around " + ", ".join(labels) + (" their time" if tz else " Central")
+
+
+def usually_active_now(hours: list[int]) -> bool | None:
+    """True/False once we know their habits, None if not enough data yet."""
+    if not hours or sum(hours) < 20:
+        return None
+    h = dt.datetime.now(dt.timezone.utc).hour
+    window = hours[h] + hours[(h - 1) % 24] + hours[(h + 1) % 24]
+    return window >= sum(hours) / 24 * 3 * 0.6

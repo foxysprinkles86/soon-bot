@@ -30,6 +30,7 @@ _last_chat_with = {}                 # (channel_id, user_id) -> last time Soon r
 _since_notes = defaultdict(list)     # channel_id -> messages heard since her last eavesdrop
 NOTES_EVERY = 25                     # read regular chat for notebook facts every 25 messages per channel
 FOLLOWUP_SEC = 180                   # keep listening to someone for 3 minutes after she answers them
+_activity = defaultdict(lambda: [0] * 24)   # (guild_id, user_id) -> messages per UTC hour, flushed every 10 min
 
 
 def allowed_channel(channel) -> bool:
@@ -173,7 +174,9 @@ async def handle_command(message: discord.Message) -> bool:
         notes = "\n".join(f"• {n}" for n in p.notes[-20:]) or "• (nothing yet)"
         await message.reply(
             f"📓 **{target.display_name}**\nMood: **{p.mood:+d}** · Heat: **{p.heat}**"
-            f"{' (locked)' if p.heat_lock else ''} · Pester: {'on' if p.pester else 'off'}\n{notes}")
+            f"{' (locked)' if p.heat_lock else ''} · Pester: {'on' if p.pester else 'off'}"
+            + (f"\n🕐 {extras.tz_label(p.tz)}" if p.tz else "") + (f" · {extras.active_summary(p.hours, p.tz)}" if extras.active_summary(p.hours, p.tz) else "")
+            + f"\n{notes}")
         return True
 
     if cmd in ("grudges", "grudge list", "enemies", "favorites", "favourites", "favs"):
@@ -247,6 +250,24 @@ async def handle_command(message: discord.Message) -> bool:
             return True
         await message.reply("🤫 " + (await extras.takeover_line(memory)) +
                             "\n-# Mods: `soon takeover restart` resets to day 1 · `soon takeover complete` posts the victory speech.")
+        return True
+
+    tm = re.match(r"^(?:my (?:time ?zone|tz) is|i live in|i'?m in|timezone|tz)\s+(.+)$", cmd)
+    if tm:
+        raw = re.sub(r"^(?:soon\s+)?(?:my (?:time ?zone|tz) is|i live in|i'?m in|timezone|tz)\s+", "", text, flags=re.I).strip()
+        tz = extras.valid_tz(raw)
+        if not tz:
+            guess = await brain.write(f"Reply with ONLY the IANA time zone name (like America/New_York) for: {raw}. "
+                                      "If it's not a real place or zone, reply NONE.", max_tokens=12)
+            tz = extras.valid_tz(guess.strip().strip("`'\"."))
+        if not tz:
+            await message.reply(f"\"{raw}\" isn't a place. Try a city or something like `EST` or `UTC+10`.")
+            return True
+        p = await memory.get_player(gid, uid)
+        p.tz = tz
+        await memory.save_player(p)
+        await message.reply(f"Filed. You live in **{extras.tz_label(tz)}**, where it's {extras.tz_clock(tz)}. "
+                            "Now I'll know when you're up too late.")
         return True
 
     if cmd in ("budget", "status"):
@@ -330,9 +351,15 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     facts = []
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
     for person in people[:4]:
-        zf = extras.zone_fact(person)
-        if zf:
-            facts.append(zf)
+        pp = p if person == message.author else await memory.get_player(gid, person.id)
+        if pp.tz:
+            facts.append(extras.exact_time_fact(person.display_name, pp.tz))
+        else:
+            zf = extras.zone_fact(person)
+            facts.append(zf or f"{person.display_name} has NO zone role (zoneless) and you don't know their time zone")
+        habit = extras.active_summary(pp.hours, pp.tz)
+        if habit:
+            facts.append(f"{person.display_name} is {habit}")
         joined = getattr(person, "joined_at", None)
         if joined:
             when = joined.astimezone(extras.TZ).strftime("%B %-d, %Y")
@@ -343,6 +370,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     facts.append(f"it is {extras.local_now().strftime('%-I:%M %p')} Central time for FoxySprinkles (that's YOUR clock, not "
                  "everyone's: use each player's zone for their time of day, and roast them for being up at weird hours)")
     extra += "\nFACTS (true, use them instead of guessing): " + "; ".join(facts) + "."
+    if not p.tz and not butt_in and random.random() < 0.2 and await memory.get_kv(f"asktz:{gid}:{uid}") != extras.today_key():
+        await memory.set_kv(f"asktz:{gid}:{uid}", extras.today_key())
+        extra += ("\nYou don't know exactly where this player lives. Work in a question about what city or time zone "
+                  "they're in, nosy and in character (you 'keep files on everyone').")
     if random.random() < 0.3:
         extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
     async with message.channel.typing():
@@ -369,6 +400,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         extras.log_event(f"learned about {message.author.display_name}: {out['note']}")
     if tone == "rude":
         extras.log_event(f"{message.author.display_name} was rude to me: \"{message.clean_content[:120]}\"")
+    new_tz = extras.valid_tz(out.get("timezone", ""))
+    if new_tz and new_tz != p.tz:
+        p.tz = new_tz
+        extras.log_event(f"found out {message.author.display_name} lives in {new_tz}")
     if out["reply"] and not butt_in:
         p.chats += 1
     await memory.save_player(p)
@@ -443,6 +478,7 @@ async def on_message(message: discord.Message):
         return
     if not allowed_channel(message.channel):
         return
+    _activity[(message.guild.id, message.author.id)][discord.utils.utcnow().hour] += 1
     await ensure_intro(message.channel)
     if await handle_command(message):
         return
@@ -546,6 +582,13 @@ async def daily():
     try:
         now = extras.local_now()
         today = extras.today_key()
+        if now.minute % 10 == 0 and _activity:
+            pending = dict(_activity)
+            _activity.clear()
+            for (g, u), counts in pending.items():
+                pl = await memory.get_player(g, u)
+                pl.hours = [a + b for a, b in zip(pl.hours, counts)]
+                await memory.save_player(pl, touch=False)
         for guild in client.guilds:
             gk = str(guild.id)
 
@@ -574,8 +617,12 @@ async def daily():
                 pool = []
                 for p in await memory.all_players(guild.id):
                     m = guild.get_member(p.user_id)
-                    lh = extras.zone_local_hour(m) if m else None
-                    awake = lh is None or 9 <= lh <= 23
+                    habit = extras.usually_active_now(p.hours)
+                    if habit is not None:
+                        awake = habit
+                    else:
+                        lh = extras.zone_local_hour(m) if m else None
+                        awake = lh is None or 9 <= lh <= 23
                     if m and not m.bot and awake and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
                         pool += [m, m] if is_kor(m) else [m]
                 ch = extras.find_channel(guild, config.PESTER_CHANNEL)
