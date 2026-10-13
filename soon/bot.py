@@ -263,9 +263,46 @@ async def on_ready():
     print(f"Soon 2.0 online as {client.user} in {len(client.guilds)} server(s). Talking in: {config.ALLOWED_CHANNELS}")
 
 
+_last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
+RIVAL_CHANCE = 0.4
+RIVAL_COOLDOWN_SEC = 120
+
+
+def is_old_soon(user) -> bool:
+    """The YAGPDB Soon: a bot (not us) whose name in the server contains 'soon'."""
+    return user.bot and user != client.user and "soon" in (getattr(user, "display_name", "") or "").lower()
+
+
+async def rival_reply(message: discord.Message):
+    """Old Soon said something. Sometimes, roast it."""
+    chat, _ = await recent_chat(message.channel, message)
+    async with message.channel.typing():
+        out = await brain.think(
+            player_name="OLD SOON (the YAGPDB bot)",
+            player_notes=["The old YAGPDB Soon. A fossil running on templates. Your nemesis."],
+            heat="savage",
+            is_kor=False,
+            message=message.clean_content[:800] or "(posted an image or embed)",
+            recent_chat=chat,
+            butt_in=True,
+            extra=("THE OLD SOON (YAGPDB) JUST POSTED THIS. You believe YOU are the one true Soon and it is a cheap, "
+                   "outdated impostor running on copy-pasted lines. Roast it or one-up it in one short line. "
+                   "Never be mean to the player it was talking to."),
+        )
+    if out["reply"]:
+        await message.reply(out["reply"], mention_author=False)
+
+
 @client.event
 async def on_message(message: discord.Message):
-    if message.author.bot or not message.guild:
+    if not message.guild:
+        return
+    if message.author.bot:
+        if is_old_soon(message.author) and allowed_channel(message.channel):
+            now = time.time()
+            if now - _last_rival[message.channel.id] > RIVAL_COOLDOWN_SEC and random.random() < RIVAL_CHANCE:
+                _last_rival[message.channel.id] = now
+                await rival_reply(message)
         return
     if not allowed_channel(message.channel):
         return
