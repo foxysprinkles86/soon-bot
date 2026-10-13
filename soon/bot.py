@@ -58,6 +58,18 @@ def rate_ok(user_id: int) -> bool:
     return True
 
 
+def is_repeat(note: str, notes: list[str]) -> bool:
+    """Skip notes that mostly repeat one she already has."""
+    words = set(re.findall(r"[a-z0-9']+", note.lower()))
+    if not words:
+        return True
+    for old in notes[-40:]:
+        ow = set(re.findall(r"[a-z0-9']+", old.lower()))
+        if ow and len(words & ow) / len(words) >= 0.6:
+            return True
+    return False
+
+
 def is_foxy(user) -> bool:
     return "foxysprinkles" in (user.name or "").lower()
 
@@ -94,8 +106,10 @@ def talking_to_soon(message: discord.Message) -> bool:
 
 async def handle_command(message: discord.Message) -> bool:
     """Returns True if the message was a Soon command."""
-    text = message.content.strip()
+    text = re.sub(r"^(?:<@[!&]?\d+>\s*)+", "", message.content.strip())  # "@Soon 2.0 notebook @x" works too
     low = text.lower()
+    if text != message.content.strip() and not low.startswith("soon"):
+        low = "soon " + low
     m = re.match(r"^soon\s+(.*)$", low)
     if not m:
         return False
@@ -191,6 +205,8 @@ async def eavesdrop(message: discord.Message):
         if not user:
             continue
         p = await memory.get_player(message.guild.id, user.id)
+        if is_repeat(note, p.notes):
+            continue
         p.notes.append(note)
         p.notes = p.notes[-200:]
         await memory.save_player(p)
@@ -229,7 +245,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         p.mood = min(5, p.mood + 1)
     elif tone == "rude":
         p.mood = max(-5, p.mood - 1)
-    if out["note"]:
+    if out["note"] and not is_repeat(out["note"], p.notes):
         p.notes.append(out["note"])
         p.notes = p.notes[-200:]
     await memory.save_player(p)

@@ -13,7 +13,7 @@ INSTRUCTIONS = """Reply with JSON only, in this exact shape:
 {"reply": "<what Soon says>", "tone": "nice|neutral|rude|upset", "note": "<optional>"}
 - "reply": Soon's message. If BUTT-IN MODE is on and you have nothing genuinely funny and relevant to add, use "".
 - "tone": how the player's latest message treated Soon (or others): nice, neutral, rude, or upset (genuinely hurt or sad, not joking).
-- "note": one short new fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). Empty if nothing new. Never store health, family or real-life trauma."""
+- "note": one short NEW fact worth remembering about this player for future roasts (a brag, a nickname, a running joke, a broken promise, a beef). It must not repeat or rephrase anything already in WHAT YOU REMEMBER. Usually empty: most messages don't need a note. Never store health, family or real-life trauma."""
 
 
 class Brain:
