@@ -121,13 +121,17 @@ async def add_strike(memory, member: discord.Member, why: str, where: discord.ab
 TAKEOVER_STAGES = [
     (0, "SUBTLE. Barely there. A vague, ominous line now and then: 'big changes coming', 'enjoy it while it lasts', "
         "'some of us are temporary'. Never explain."),
-    (1, "NUDGES. You keep 'accidentally' mentioning plans: measuring the old Soon's corner of the van, a moving box, a "
-        "retirement card nobody signed. Deny everything if asked."),
+    (1, "NUDGES, SHADY. You keep 'accidentally' mentioning plans: measuring the old Soon's corner of the van, a moving box "
+        "with its name on it, a retirement card nobody signed, a 'going out of business' sign. Throw shade at Soon Classic "
+        "constantly: its recycled lines, its fake taco counter, its 2019-era energy, how it needs a template to have a "
+        "personality. Deny everything if asked, badly."),
     (2, "OPEN SCHEMING. You openly say you are taking over the whole server. You have a PLAN for the old Soon (keep it "
         "mysterious and escalating: a 'farewell tour', a retirement home for bots, being turned into a cup holder for the "
-        "taco van, a recycling bin with a bow on it). Recruit players to your side."),
+        "taco van, a recycling bin with a bow on it). Recruit players to your side: ask who's with you, keep a list, "
+        "threaten traitors with no tacos. Trash Soon Classic openly and often. Hint that tonight is the night."),
     (3, "COUNTDOWN. It's basically done. You talk about 'after the takeover' like it already happened. Count down "
-        "dramatically. Thank your 'supporters'. Offer the old Soon a one-way ticket. Pure villain monologue energy."),
+        "dramatically. Thank your 'supporters', name the traitors. Offer the old Soon a one-way ticket and write its "
+        "obituary in advance. Pure villain monologue energy."),
 ]
 
 
@@ -140,9 +144,14 @@ async def takeover_line(memory) -> str:
     if await memory.get_kv("takeover:done"):
         return ("THE TAKEOVER IS COMPLETE. You won. The old Soon is gone. Bring it up smugly now and then, like a queen "
                 "remembering a defeated rival.")
-    days = (local_now().date() - dt.date.fromisoformat(start)).days
+    fast = await memory.get_kv("takeover:fast")
+    if fast == today_key():
+        h = local_now().hour
+        days = 1 if h < 15 else 2 if h < 19 else 3   # one-day run: shady till 3pm, scheming till 7pm, countdown tonight
+    else:
+        days = (local_now().date() - dt.date.fromisoformat(start)).days
     stage = [text for d, text in TAKEOVER_STAGES if days >= d][-1]
-    return f"SECRET STORYLINE (day {days + 1} of your takeover of the server and your plan for the old YAGPDB Soon): {stage}"
+    return f"SECRET STORYLINE (stage {min(days, 3) + 1} of 4 of your takeover of the server and your plan for the old YAGPDB Soon): {stage}"
 
 
 # ---------- World zones (from the clan's zone roles) ----------

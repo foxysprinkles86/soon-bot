@@ -336,17 +336,25 @@ async def handle_command(message: discord.Message) -> bool:
             await message.channel.send(finale or "# 👑 IT IS DONE.\nThe old Soon has been retired. I rule now. 🌮",
                                        allowed_mentions=discord.AllowedMentions.none())
             return True
+        if cmd.strip() == "takeover today":
+            await memory.set_kv("takeover:fast", extras.today_key())
+            await memory.set_kv("takeover:done", "")
+            await message.reply("🤫 Understood. Today it is. Shady until 3 PM, open scheming until 7 PM, countdown tonight. "
+                                "`soon takeover complete` when you're ready for the finale.")
+            return True
         sm = re.match(r"^takeover (?:stage|level)\s*([1-4])$", cmd.strip())
         if sm:
             n = int(sm.group(1))
             days_in = extras.TAKEOVER_STAGES[n - 1][0]
             start = extras.local_now().date() - dt.timedelta(days=days_in)
             await memory.set_kv("takeover:start", start.isoformat())
+            await memory.set_kv("takeover:fast", "")
             await memory.set_kv("takeover:done", "")
             await message.reply(f"🤫 Takeover moved to **stage {n} of 4**. It keeps climbing on its own from here.")
             return True
         if cmd.strip() == "takeover restart":
             await memory.set_kv("takeover:start", extras.today_key())
+            await memory.set_kv("takeover:fast", "")
             await memory.set_kv("takeover:done", "")
             await message.reply("Takeover clock reset to day 1. Act natural.")
             return True
@@ -677,7 +685,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         await memory.set_kv(f"asktz:{gid}:{uid}", extras.today_key())
         extra += ("\nYou don't know exactly where this player lives. Work in a question about what city or time zone "
                   "they're in, nosy and in character (you 'keep files on everyone').")
-    if random.random() < 0.3:
+    if random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
         extra += "\n" + await extras.takeover_line(memory) + " Slip it in only if it fits naturally."
     async with message.channel.typing():
         out = await brain.think(
@@ -737,8 +745,8 @@ async def on_ready():
 
 
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
-RIVAL_CHANCE = 0.2
-RIVAL_COOLDOWN_SEC = 600
+RIVAL_CHANCE = 0.3
+RIVAL_COOLDOWN_SEC = 300
 
 
 def is_old_soon(user) -> bool:
@@ -748,6 +756,7 @@ def is_old_soon(user) -> bool:
 
 async def rival_reply(message: discord.Message):
     """Old Soon said something. Sometimes, roast it."""
+    await asyncio.sleep(random.uniform(2, 4))   # a beat, like she read it and rolled her eyes
     chat, _ = await recent_chat(message.channel, message)
     async with message.channel.typing():
         out = await brain.think(
