@@ -35,6 +35,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - `features.py` — Panda Fact archive, roast allowance, race/event reminders (manual + Discord scheduled events), Hall of Shame.
 - `economy.py` — the casino **Bank**: `wallets` (chips, tacobal, tacos, margs, eggcount, eggs, casnet, delivered — same names as Classic), `timers` (claimcd, cowin, bcwin…), `casino_day` (daily net), `econ_log` (every chip move), house pots in kv (`house:<gid>:jpot|jackpots|heistsubs`).
 - `casino.py` — typed casino commands (cashier so far: claim, chips, cash out, buy chips/loan, timers, cashier, casino board; mod give/take chips) + `soon import` / `soon import confirm` (reads Classic's `SX` export lines, checks totals, replaces all balances). `soon bank` = totals.
+- `games.py` — slots (progressive jackpot), taco toss (+side), roulette, blackjack (hand saved in kv `bj:<gid>:<uid>`, 10 min), scratch-offs, Wheel of Fortaco (1 in 40 plays; mods `spin wheel @name`), Soon's "on break" gag. Same odds/prices/lines as Classic.
 - `classic/export.txt` — YAGPDB custom command (`classic export`, mods) that prints Classic's balances for the import. Read-only.
 - `duel.py` — quick-draw button duel. `bot.py` — commands, AI replies, rivalry with Soon Classic, daily loop (Panda tag, regular summon, diary 11:30 PM, life events, Sunday awards, Monday mod report, event reminders).
 
@@ -53,7 +54,7 @@ Check: lines aimed at Soon Classic mistaken as hers; repeated phrases/sign-offs/
 
 ## Roadmap (next)
 Step-by-step tracker: **'Move Plan' tab** of the Classic Soon checklist sheet (tick boxes as steps finish).
-Phase 1 progress: economy core, export command, `soon import`, cashier = built (Oct 13). Next: slots, taco toss, roulette, blackjack, scratch…
+Phase 1 progress (built, not live yet): economy core, export command, `soon import`, cashier, slots, toss, roulette, blackjack, scratch, Wheel of Fortaco. Next: heists, chip duels + spectator bets, tips/rain/rob the bartender, crimes, menus + payouts.
 1. **Move the casino + economy** from Soon Classic: chips, tacobal (taco debt), tacos, margs, eggs/eggcount, casnet, hidden, jackpot (jpot), heistsubs. Plan: build all games in 2.0 first (same typed commands + buttons), test in #soon-lab, then cutover night: 🚧 construction notice → freeze Classic → YAGPDB export command prints balances → `soon import` → verify totals → enable casino channel → disable Classic (keep 2 weeks as rollback).
 2. Then: tips to Soon, chip bets on duels, race betting, race screenshot reading (needs a vision model), custom Soon emoji reactions (`SOON_EMOJIS`).
 3. Launch day: rename to Soon™, smug avatar, `soon takeover complete`.

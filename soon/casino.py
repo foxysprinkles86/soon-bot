@@ -71,9 +71,11 @@ async def cashier(message: discord.Message, bank: Bank):
         claim = await bank.timer(gid, uid, "claimcd")
         co = await bank.timer(gid, uid, "cowin")
         bc = await bank.timer(gid, uid, "bcwin")
+        sc = await bank.timer(gid, uid, "scratchcd")
         await send(
             f"⏰ **{message.author.display_name}'s Casa de Soon timers**\n"
             f"💵 Claim: {ts(claim[0]) if claim else '**ready!** Type `claim`'}\n"
+            f"🎟️ Free scratch: {ts(sc[0]) if sc else '**ready!** Type `scratch`'}\n"
             f"🧾 Cash out: {f'{co[1]}/{CASHOUT_LIMIT} tacos used, resets {ts(co[0])}' if co else f'{CASHOUT_LIMIT} tacos available'}\n"
             f"💳 Chip loans: {f'{bc[1]}/{LOAN_LIMIT} tacos used, resets {ts(bc[0])}' if bc else f'{LOAN_LIMIT} tacos available'}\n"
             f"-# Chips: {w.chips} {C} • Tacos: {w.tacobal} 🌮 • "
@@ -89,7 +91,7 @@ async def cashier(message: discord.Message, bank: Bank):
             f"💵 `claim`: {CLAIM_EVERY} {C} every 12 hours • {f'next {ts(claim[0])}' if claim else '**ready!**'}\n"
             f"🧾 `cash out 50`: **sell** {CASHOUT_RATE} {C} for 1 🌮 • {co[1] if co else 0}/{CASHOUT_LIMIT} used\n"
             f"💳 `buy chips`: **borrow** {LOAN_RATE} {C} for 1 🌮 • debt allowed • {bc[1] if bc else 0}/{LOAN_LIMIT} used\n"
-            f"⏰ `timers`: all cooldowns\n"
+            f"🎟️ `buy scratch`: 5 {C} a card • ⏰ `timers`: all cooldowns\n"
             f"-# How can I take your money today?", embed=pic("cashier.gif"))
 
     elif re.search(r"claim|daily chips", m):

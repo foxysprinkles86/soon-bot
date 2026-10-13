@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import casino, config, extras, features
+from . import casino, config, extras, features, games
 from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -820,7 +820,7 @@ async def on_message(message: discord.Message):
     await ensure_intro(message.channel)
     if await handle_command(message):
         return
-    if await casino.handle(message, bank, is_mod(message.author)):
+    if await casino.handle(message, bank, is_mod(message.author)) or await games.handle(message, bank, is_mod(message.author)):
         return
     if talking_to_soon(message):
         if rate_ok(message.author.id):
