@@ -175,8 +175,8 @@ def zone_fact(member) -> str | None:
         return None
     name, lo, hi = z
     now = dt.datetime.now(dt.timezone.utc)
-    return (f"{member.display_name} is in the {name} zone (UTC{lo:+d} to {hi:+d}): it's roughly "
-            f"{_clock(now, lo)} to {_clock(now, hi)} for them right now")
+    return (f"{member.display_name} is in the {name} zone (UTC{lo:+d} to {hi:+d}), so it's somewhere between "
+            f"{_clock(now, lo)} and {_clock(now, hi)} for them right now (you DON'T know exactly: don't state one time)")
 
 
 def zone_local_hour(member) -> int | None:
@@ -259,3 +259,15 @@ def usually_active_now(hours: list[int]) -> bool | None:
     h = dt.datetime.now(dt.timezone.utc).hour
     window = hours[h] + hours[(h - 1) % 24] + hours[(h + 1) % 24]
     return window >= sum(hours) / 24 * 3 * 0.6
+
+
+def tz_in_text(text: str) -> str | None:
+    """Spot a time zone someone just typed ('UTC+13', 'gmt-5', 'EST', 'AEST') so she can use it in THIS reply."""
+    import re
+    m = re.search(r"\b(?:utc|gmt)\s*[+-]\s*\d{1,2}\b", text, re.I)
+    if m:
+        return valid_tz(m.group(0).replace(" ", ""))
+    for word in re.findall(r"\b[A-Za-z]{3,4}\b", text):
+        if word.isupper() and word.lower() in TZ_ALIASES and len(word) <= 4:
+            return TZ_ALIASES[word.lower()]
+    return None

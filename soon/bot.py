@@ -427,6 +427,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     people = [message.author] + [m for m in message.mentions if m != client.user and not m.bot]
     for person in people[:4]:
         pp = p if person == message.author else await memory.get_player(gid, person.id)
+        if person == message.author and not pp.tz:
+            said = extras.tz_in_text(message.content)
+            if said:
+                pp.tz = said   # they just told us; use it right now (saved below)
         if pp.tz:
             facts.append(extras.exact_time_fact(person.display_name, pp.tz))
         else:
