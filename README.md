@@ -22,6 +22,18 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `soon notebook @name` | mods | See a player's page |
 | `soon forget @name` | mods | Wipe a player's page |
 | `soon budget` | mods | AI spend this month |
+| `soon my name is <in-game name>` | anyone | Link your in-game name |
+| `soon who is <in-game name>` / `soon ign @name` | anyone | Look up who's who |
+| `soon grudges` / `soon favorites` | anyone | Her current grudge and favorites lists |
+| `soon mood` | anyone | Her mood of the day |
+| `soon pardon @name` | mods | Wipe someone's strikes and lift their timeout |
+
+## Daily life
+- **Mood of the day** flavors every reply.
+- **Side-eye reactions** on ~8% of messages.
+- **Panda** gets tagged once a day (afternoon/evening), plus one random regular gets summoned (Kor twice as likely).
+- **Soon's Diary** posts nightly at 11:30 PM Central.
+- **Hard lines**: slurs or attacks on protected traits/real trauma toward another person get called out. Strike 1 = warning, then 10 min, 1 hour, 24 hour timeouts. Logged to the first channel with "mod" in its name. Strikes reset after 7 clean days.
 
 ## Railway variables
 | Variable | Required | Notes |
@@ -33,5 +45,10 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `AI_MONTHLY_CAP_USD` | no | Default `10` |
 | `DEEPSEEK_MODEL` | no | Default `deepseek-chat` |
 | `BUTT_IN_CHANCE` | no | Default `0.05` |
+| `DIARY_CHANNEL` / `PESTER_CHANNEL` | no | Default `soon-lab` |
+| `MOD_LOG_CHANNEL` | no | Default `mod` |
+| `PANDA_NAME` | no | Part of Panda's Discord name. Default `panda` |
+| `DIARY_TIME` | no | Default `23:30` (Central) |
+| `SOON_EMOJIS` | no | Extra custom emoji codes for reactions, comma-separated |
 
 Her personality lives in `soon/personality.py`.

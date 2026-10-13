@@ -37,3 +37,16 @@ AI_REPLIES_PER_MINUTE = int(_float("AI_REPLIES_PER_MINUTE", 4))
 
 # Role names that count as mods (any role whose name contains one of these words).
 MOD_ROLE_WORDS = [w.strip().lower() for w in os.environ.get("MOD_ROLE_WORDS", "mod,admin,leader").split(",") if w.strip()]
+
+# Where she logs warnings/timeouts (first channel whose name contains this word).
+MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
+# Where the nightly diary and daily pestering go (channel name or part of it).
+DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "soon-lab").strip().lower()
+PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "soon-lab").strip().lower()
+# Panda gets tagged at least once a day: part of his Discord username or nickname.
+PANDA_NAME = os.environ.get("PANDA_NAME", "panda").strip().lower()
+TIMEZONE = os.environ.get("TIMEZONE", "America/Chicago")
+DIARY_TIME = os.environ.get("DIARY_TIME", "23:30")  # local time, 24h
+# Side-eye reactions: chance per message, and extra emoji codes like <:soon_smug:123> (comma-separated).
+REACT_CHANCE = _float("REACT_CHANCE", 0.08)
+SOON_EMOJIS = [e.strip() for e in os.environ.get("SOON_EMOJIS", "").split(",") if e.strip()]

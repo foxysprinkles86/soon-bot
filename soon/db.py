@@ -1,4 +1,4 @@
-"""Soon's memory: player notebooks, mood scores, heat levels and the AI budget.
+"""Soon's memory: player notebooks, mood scores, heat levels, in-game names, strikes and the AI budget.
 
 Every row carries the server (guild) id, so other clans can be added later without a rebuild.
 If no database is connected, everything is kept in memory instead (fine for testing, forgotten on restart).
@@ -23,12 +23,22 @@ CREATE TABLE IF NOT EXISTS players (
     last_seen   TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (guild_id, user_id)
 );
+ALTER TABLE players ADD COLUMN IF NOT EXISTS ign TEXT;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS chats INT NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS strikes INT NOT NULL DEFAULT 0;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS last_strike TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS ai_usage (
     month   TEXT PRIMARY KEY,
     cost    DOUBLE PRECISION NOT NULL DEFAULT 0,
     calls   INT NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS kv (
+    k TEXT PRIMARY KEY,
+    v TEXT NOT NULL
+);
 """
+
+FIELDS = ["mood", "heat_lock", "pester", "notes", "last_seen", "ign", "chats", "strikes", "last_strike"]
 
 
 def mood_to_heat(mood: int) -> str:
@@ -43,15 +53,24 @@ def mood_to_heat(mood: int) -> str:
     return "unhinged"
 
 
+def now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
 class Player:
-    def __init__(self, guild_id, user_id, mood=0, heat_lock=None, pester=True, notes=None, last_seen=None):
+    def __init__(self, guild_id, user_id, mood=0, heat_lock=None, pester=True, notes=None, last_seen=None,
+                 ign=None, chats=0, strikes=0, last_strike=None):
         self.guild_id = guild_id
         self.user_id = user_id
         self.mood = mood
         self.heat_lock = heat_lock
         self.pester = pester
         self.notes = list(notes or [])
-        self.last_seen = last_seen or dt.datetime.now(dt.timezone.utc)
+        self.last_seen = last_seen or now()
+        self.ign = ign
+        self.chats = chats or 0
+        self.strikes = strikes or 0
+        self.last_strike = last_strike
 
     @property
     def heat(self) -> str:
@@ -61,7 +80,7 @@ class Player:
         """Quiet players drift back toward 0 (one step per 2 days away). Rude ones don't get the drift."""
         if rude:
             return
-        days = (dt.datetime.now(dt.timezone.utc) - self.last_seen).days
+        days = (now() - self.last_seen).days
         steps = days // 2
         if steps and self.mood:
             if self.mood > 0:
@@ -70,13 +89,24 @@ class Player:
                 self.mood = min(0, self.mood + steps)
 
 
+def _from_row(row) -> Player:
+    notes = row["notes"]
+    if isinstance(notes, str):
+        notes = json.loads(notes)
+    return Player(row["guild_id"], row["user_id"], row["mood"], row["heat_lock"], row["pester"], notes,
+                  row["last_seen"], row["ign"], row["chats"], row["strikes"], row["last_strike"])
+
+
 class Memory:
     def __init__(self):
         self.pool = None
         self._players = {}
         self._usage = {}
+        self._kv = {}
 
     async def connect(self):
+        if self.pool:
+            return
         if not config.DATABASE_URL:
             print("No DATABASE_URL set: using temporary memory (forgotten on restart).")
             return
@@ -85,30 +115,29 @@ class Memory:
             await con.execute(SCHEMA)
         print("Database connected.")
 
+    # ----- players -----
+
     async def get_player(self, guild_id: int, user_id: int) -> Player:
         if not self.pool:
             return self._players.setdefault((guild_id, user_id), Player(guild_id, user_id))
-        row = await self.pool.fetchrow(
-            "SELECT * FROM players WHERE guild_id=$1 AND user_id=$2", guild_id, user_id)
-        if not row:
-            return Player(guild_id, user_id)
-        notes = row["notes"]
-        if isinstance(notes, str):
-            notes = json.loads(notes)
-        return Player(guild_id, user_id, row["mood"], row["heat_lock"], row["pester"], notes, row["last_seen"])
+        row = await self.pool.fetchrow("SELECT * FROM players WHERE guild_id=$1 AND user_id=$2", guild_id, user_id)
+        return _from_row(row) if row else Player(guild_id, user_id)
 
-    async def save_player(self, p: Player):
-        p.last_seen = dt.datetime.now(dt.timezone.utc)
+    async def save_player(self, p: Player, touch: bool = True):
+        if touch:
+            p.last_seen = now()
         if not self.pool:
             self._players[(p.guild_id, p.user_id)] = p
             return
         await self.pool.execute(
-            """INSERT INTO players (guild_id, user_id, mood, heat_lock, pester, notes, last_seen)
-               VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7)
+            """INSERT INTO players (guild_id, user_id, mood, heat_lock, pester, notes, last_seen, ign, chats, strikes, last_strike)
+               VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11)
                ON CONFLICT (guild_id, user_id) DO UPDATE SET
                  mood=EXCLUDED.mood, heat_lock=EXCLUDED.heat_lock, pester=EXCLUDED.pester,
-                 notes=EXCLUDED.notes, last_seen=EXCLUDED.last_seen""",
-            p.guild_id, p.user_id, p.mood, p.heat_lock, p.pester, json.dumps(p.notes), p.last_seen)
+                 notes=EXCLUDED.notes, last_seen=EXCLUDED.last_seen, ign=EXCLUDED.ign, chats=EXCLUDED.chats,
+                 strikes=EXCLUDED.strikes, last_strike=EXCLUDED.last_strike""",
+            p.guild_id, p.user_id, p.mood, p.heat_lock, p.pester, json.dumps(p.notes), p.last_seen,
+            p.ign, p.chats, p.strikes, p.last_strike)
 
     async def forget_player(self, guild_id: int, user_id: int):
         if not self.pool:
@@ -116,9 +145,38 @@ class Memory:
             return
         await self.pool.execute("DELETE FROM players WHERE guild_id=$1 AND user_id=$2", guild_id, user_id)
 
+    async def all_players(self, guild_id: int) -> list[Player]:
+        if not self.pool:
+            return [p for (g, _), p in self._players.items() if g == guild_id]
+        rows = await self.pool.fetch("SELECT * FROM players WHERE guild_id=$1", guild_id)
+        return [_from_row(r) for r in rows]
+
+    async def find_by_ign(self, guild_id: int, ign: str) -> Player | None:
+        ign = ign.strip().lower()
+        for p in await self.all_players(guild_id):
+            if p.ign and p.ign.lower() == ign:
+                return p
+        return None
+
+    # ----- small key/value store (diary dates, mood of the day...) -----
+
+    async def get_kv(self, k: str) -> str | None:
+        if not self.pool:
+            return self._kv.get(k)
+        return await self.pool.fetchval("SELECT v FROM kv WHERE k=$1", k)
+
+    async def set_kv(self, k: str, v: str):
+        if not self.pool:
+            self._kv[k] = v
+            return
+        await self.pool.execute(
+            "INSERT INTO kv (k, v) VALUES ($1,$2) ON CONFLICT (k) DO UPDATE SET v=EXCLUDED.v", k, v)
+
+    # ----- AI budget -----
+
     @staticmethod
     def _month() -> str:
-        return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m")
+        return now().strftime("%Y-%m")
 
     async def month_spend(self) -> tuple[float, int]:
         m = self._month()
