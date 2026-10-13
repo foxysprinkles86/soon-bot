@@ -387,7 +387,8 @@ async def handle_command(message: discord.Message) -> bool:
         return True
 
     if cmd in ("events", "races", "race schedule", "schedule"):
-        await message.reply(features.events_list(await features.get_events(memory, gid)))
+        await message.reply(features.events_list(await features.get_events(memory, gid)
+                                                 + features.discord_events(message.guild)))
         return True
 
     em = re.match(r"^event(?:s)?\s+(remove|delete|cancel)\s+(.+)$", cmd)
@@ -878,6 +879,16 @@ async def daily():
                 due, changed = features.due_events(events, now)
                 if changed:
                     await features.save_events(memory, guild.id, events)
+            else:
+                due = []
+            # Plus the server's own Discord Events (recurring ones included).
+            for e in features.discord_events(guild):
+                start = dt.datetime.fromisoformat(e["start"])
+                key = f"evwarn:{e['id']}:{start.isoformat()}"
+                if start - dt.timedelta(hours=1) <= now < start and not await memory.get_kv(key):
+                    await memory.set_kv(key, "1")
+                    due.append(e)
+            if due:
                 ch = extras.find_channel(guild, config.RACE_CHANNEL)
                 for e in due:
                     if ch:

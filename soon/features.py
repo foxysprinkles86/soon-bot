@@ -98,12 +98,24 @@ async def parse_event(brain, text: str) -> dict | None:
     return {"name": name, "start": start.isoformat(), "repeat": repeat, "warned": False}
 
 
+def discord_events(guild) -> list[dict]:
+    """Upcoming events from the server's own Discord Events tab (recurring ones show their next date)."""
+    out = []
+    for e in getattr(guild, "scheduled_events", []) or []:
+        status = str(getattr(e, "status", "")).lower()
+        if "scheduled" not in status or not e.start_time:
+            continue
+        out.append({"name": e.name[:60], "start": e.start_time.astimezone(extras.TZ).isoformat(),
+                    "repeat": "discord", "id": e.id, "about": (e.description or "")[:200]})
+    return out
+
+
 def events_list(events: list[dict]) -> str:
     if not events:
         return ("🏁 **Upcoming events**\nNothing scheduled. Mods: `soon event Kraken starts Saturday 2pm every week`.")
     rows = sorted(events, key=lambda e: e["start"])
     lines = [f"• **{e['name']}** · {_fmt(dt.datetime.fromisoformat(e['start']))}"
-             + (" · weekly" if e.get("repeat") == "weekly" else "") for e in rows]
+             + (" · weekly" if e.get("repeat") == "weekly" else "") for e in rows[:12]]
     return "🏁 **Upcoming events**\n" + "\n".join(lines) + "\n-# I'll yell about each one an hour before it starts."
 
 
@@ -149,6 +161,8 @@ def event_task(e: dict) -> str:
     if sleepy:
         task += (f" At start time it's the middle of the night for {', '.join(sleepy)}: roast that zone for "
                  "sleeping through it (one jab, not the whole post).")
+    if e.get("about"):
+        task += f" The event's own description, for context: {e['about']}"
     if "kraken" in e["name"].lower():
         task += (" Kraken tip to include: log in and COLLECT your Kraken tickets before the battle begins. They don't "
                  "vanish when missions refresh anymore, but uncollected ones don't help anybody.")

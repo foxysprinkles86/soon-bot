@@ -46,7 +46,7 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 - **Soon's Diary** posts nightly at 11:30 PM Central.
 - **Weekly Soon Awards** post Sundays at 7 PM Central. **Mod report** (what confused people, who talks to her, AI spend) Mondays at 9 AM in the mod channel.
 - **Join anniversaries, birthdays, and 1-week recruit check-ins** around noon.
-- **Race reminders** an hour before each event (roasting whichever zone will be asleep). Kraken reminders include the collect-your-tickets tip.
+- **Race reminders** an hour before each event (from the server's Discord Events tab, including recurring ones, plus any added with `soon event`) (roasting whichever zone will be asleep). Kraken reminders include the collect-your-tickets tip.
 - **Hall of Shame**: react 🤡 to any message and she frames it. Shame quotes feed her diary and the weekly awards.
 - **Panda facts** she invents get saved, and she quotes them back as established truth.
 - **Help desk**: she knows every casino/clan command and tells confused players exactly what to type.
