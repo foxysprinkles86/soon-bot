@@ -1,4 +1,5 @@
 """Soon 2.0: the Discord side. v0.1 = AI Soon with player notebooks, mood scores and heat levels."""
+import asyncio
 import random
 import re
 import time
@@ -23,6 +24,10 @@ brain = Brain(memory)
 
 _recent_ai = defaultdict(deque)      # user_id -> timestamps of AI replies (rate limit)
 _last_butt_in = defaultdict(float)   # channel_id -> last time Soon butted in
+_last_chat_with = {}                 # (channel_id, user_id) -> last time Soon replied to them
+_since_notes = defaultdict(list)     # channel_id -> messages heard since her last eavesdrop
+NOTES_EVERY = 25                     # read regular chat for notebook facts every 25 messages per channel
+FOLLOWUP_SEC = 180                   # keep listening to someone for 3 minutes after she answers them
 
 
 def allowed_channel(channel) -> bool:
@@ -58,9 +63,9 @@ def is_foxy(user) -> bool:
 
 
 async def recent_chat(channel, before) -> tuple[list[str], bool]:
-    """Last 12 messages, plus whether Kor has chatted in the last 15 minutes."""
+    """Last 30 messages, plus whether Kor has chatted in the last 15 minutes."""
     lines, kor_here = [], False
-    async for m in channel.history(limit=12, before=before):
+    async for m in channel.history(limit=30, before=before):
         if is_kor(m.author) and (discord.utils.utcnow() - m.created_at).total_seconds() < 900:
             kor_here = True
         who = "Soon" if m.author == client.user else m.author.display_name
@@ -159,7 +164,39 @@ async def handle_command(message: discord.Message) -> bool:
 
 # ---------- AI chat ----------
 
-async def ai_reply(message: discord.Message, butt_in: bool = False):
+def maybe_for_soon(message: discord.Message) -> bool:
+    """Not tagged, but she might be the one being talked to: her name anywhere, or a follow-up within 3 minutes."""
+    if re.search(r"(?i)\bsoon\b", message.content):
+        return True
+    last = _last_chat_with.get((message.channel.id, message.author.id), 0)
+    return time.time() - last < FOLLOWUP_SEC
+
+
+async def eavesdrop(message: discord.Message):
+    """Every 25 messages in a channel, skim them for notebook facts about each player."""
+    buf = _since_notes[message.channel.id]
+    buf.append(message)
+    if len(buf) < NOTES_EVERY:
+        return
+    _since_notes[message.channel.id] = []
+    by_name = {}
+    lines = []
+    for m in buf:
+        text = m.clean_content.replace("\n", " ")[:300]
+        if text:
+            by_name[m.author.display_name] = m.author
+            lines.append(f"{m.author.display_name}: {text}")
+    for name, note in await brain.extract_notes(lines, list(by_name)):
+        user = by_name.get(name)
+        if not user:
+            continue
+        p = await memory.get_player(message.guild.id, user.id)
+        p.notes.append(note)
+        p.notes = p.notes[-200:]
+        await memory.save_player(p)
+
+
+async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False):
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
     chat, kor_here = await recent_chat(message.channel, message)
@@ -183,6 +220,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False):
             message=message.clean_content[:1000],
             recent_chat=chat,
             butt_in=butt_in,
+            maybe=maybe,
             extra=extra,
         )
     tone = out["tone"]
@@ -196,6 +234,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False):
         p.notes = p.notes[-200:]
     await memory.save_player(p)
     if out["reply"]:
+        _last_chat_with[(message.channel.id, message.author.id)] = time.time()
         if butt_in:
             await message.channel.send(out["reply"])
         else:
@@ -219,6 +258,11 @@ async def on_message(message: discord.Message):
     if talking_to_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message)
+        return
+    asyncio.create_task(eavesdrop(message))
+    if maybe_for_soon(message):
+        if rate_ok(message.author.id):
+            await ai_reply(message, maybe=True)
         return
     # Butting in: rare, only on real sentences, with a cooldown per channel.
     if len(message.content.split()) >= 4 and random.random() < config.BUTT_IN_CHANCE:

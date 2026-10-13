@@ -26,19 +26,27 @@ class Brain:
         return spent < config.AI_MONTHLY_CAP_USD
 
     async def think(self, *, player_name: str, player_notes: list[str], heat: str, is_kor: bool,
-                    message: str, recent_chat: list[str], butt_in: bool = False, extra: str = "") -> dict:
+                    message: str, recent_chat: list[str], butt_in: bool = False, maybe: bool = False, extra: str = "") -> dict:
         """Returns {"reply", "tone", "note", "ok"}. ok=False means a fallback line was used."""
         if not config.DEEPSEEK_API_KEY or not await self.budget_left():
-            return self._fallback(butt_in)
+            return self._fallback(butt_in or maybe)
 
+        if butt_in:
+            mode = "BUTT-IN - nobody asked you. Only reply if you have something relevant, short and funny. Otherwise reply \"\"."
+        elif maybe:
+            mode = ("MAYBE - they might be talking to you (they said your name, or they're continuing a chat with you). "
+                    "Reply only if the message is meant for you; if they're clearly talking to someone else or just saying "
+                    "'coming soon', reply \"\".")
+        else:
+            mode = "DIRECT - they are talking to you. Always reply."
         notes = "\n".join(f"- {n}" for n in player_notes[-15:]) or "- (nothing yet)"
-        chat = "\n".join(recent_chat[-12:]) or "(quiet)"
+        chat = "\n".join(recent_chat[-30:]) or "(quiet)"
         situation = (
             f"PLAYER: {player_name}{' (this is KOR, your crush)' if is_kor else ''}\n"
             f"HEAT LEVEL FOR THIS PLAYER: {heat}\n"
             f"WHAT YOU REMEMBER ABOUT THEM:\n{notes}\n\n"
             f"RECENT CHAT IN THE CHANNEL (oldest first):\n{chat}\n\n"
-            f"BUTT-IN MODE: {'ON - nobody asked you, only reply if it is relevant, short and funny' if butt_in else 'off - they are talking to you'}\n"
+            f"MODE: {mode}\n"
             f"{extra}\n"
             f"THEIR LATEST MESSAGE: {message}"
         )
@@ -70,7 +78,7 @@ class Brain:
             out = json.loads(data["choices"][0]["message"]["content"])
         except Exception as e:  # network, budget, bad JSON: never show an error to players
             print(f"AI error: {e!r}")
-            return self._fallback(butt_in)
+            return self._fallback(butt_in or maybe)
 
         reply = str(out.get("reply") or "").strip()
         tone = str(out.get("tone") or "neutral").lower()
@@ -78,6 +86,38 @@ class Brain:
             tone = "neutral"
         note = str(out.get("note") or "").strip()[:200]
         return {"reply": reply[:1900], "tone": tone, "note": note, "ok": True}
+
+    async def extract_notes(self, chat_lines: list[str], names: list[str]) -> list[tuple[str, str]]:
+        """Eavesdropping: read a chunk of regular chat and pull out notebook-worthy facts per player."""
+        if not config.DEEPSEEK_API_KEY or not await self.budget_left() or not chat_lines:
+            return []
+        body = {
+            "model": config.DEEPSEEK_MODEL,
+            "messages": [
+                {"role": "system", "content": (
+                    "You are Soon's memory. Read this Discord chat from a Mob Control clan and pull out facts worth "
+                    "remembering for future roasts or banter: brags, scores, nicknames, running jokes, promises, beefs, "
+                    "game milestones, what they're bad at. Skip boring small talk. Never store health, family, money "
+                    "trouble or real-life trauma. Return JSON: {\"notes\": [{\"player\": \"<exact name>\", \"note\": \"<short fact>\"}]}. "
+                    "Use only these player names: " + ", ".join(names) + ". At most 6 notes. Empty list if nothing.")},
+                {"role": "user", "content": "\n".join(chat_lines)},
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0.3,
+            "max_tokens": 300,
+        }
+        try:
+            r = await self.client.post(f"{config.DEEPSEEK_BASE_URL}/chat/completions",
+                                       headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"}, json=body)
+            r.raise_for_status()
+            data = r.json()
+            await self.memory.add_spend(self._cost(data.get("usage", {})))
+            out = json.loads(data["choices"][0]["message"]["content"])
+            return [(str(n.get("player", "")), str(n.get("note", ""))[:200])
+                    for n in out.get("notes", []) if n.get("player") and n.get("note")]
+        except Exception as e:
+            print(f"Notes error: {e!r}")
+            return []
 
     @staticmethod
     def _cost(usage: dict) -> float:
