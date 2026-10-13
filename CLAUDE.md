@@ -10,11 +10,13 @@ Read this first in every new conversation. It replaces the long history of the o
 - Command guide sheet ("Soon Command Guide", YAGPDB Setup tab): `1ZrGqFEhFJT3Iu1s8IkGpsv9Jfec8YZCD7LKkQzcS__k`.
 
 ## House rules (important)
-- **Never push until Shannon says "push it"** (or clearly approves). Build, commit locally, then tell her what changed and wait.
-- Commit as `FoxySprinkles <slabiche524@gmail.com>`; `git push -q origin main`; verify with `git ls-remote origin main`. Railway auto-deploys in ~2 min.
+- **Never put anything live until Shannon says "push it"** (or clearly approves). Live = `main` (Railway deploys it).
+- Back up work-in-progress to the session's own `claude/...` branch any time (not live). On "push it": merge into `main`, `git push -q origin main`, verify with `git ls-remote origin main`. Railway auto-deploys in ~2 min.
+- Always commit as `FoxySprinkles <slabiche524@gmail.com>` (keep this author even if a tool asks otherwise).
 - **Never ask for or paste secrets.** DISCORD_TOKEN and DEEPSEEK_API_KEY live only in Railway → worker → Variables.
 - Check the actual code before blaming her setup. (She was right once when I wasn't.)
 - Keep replies short and plain. She's often on her phone.
+- **End every update with these sections:** **TL;DR** (plain words, what was done) · **Your next step:** (exactly what she must do, or "nothing, I'm still working.") · **Tips & lessons** (optional, 1–3 short bullets: a recommendation or a bit of how-it-works; she wants to learn, so explain any tech word used).
 - She's on Claude Pro with weekly limits: avoid re-reading/re-sending big files; prefer targeted edits.
 - **Keep this file current without being asked.** Whenever Shannon makes a lasting decision (new lore, a personality change, a rule, a finished roadmap item, a new setting or channel), update the matching section here in the same commit as the code. Edit in place and keep it short; don't append a diary. Tell her in one line that the notes were updated.
 
