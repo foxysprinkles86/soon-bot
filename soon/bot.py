@@ -66,6 +66,12 @@ async def recent_chat(channel, before) -> list[str]:
 def talking_to_soon(message: discord.Message) -> bool:
     if client.user in message.mentions:
         return True
+    # Typing "@Soon 2.0" often picks her bot ROLE (same name) instead of her user. Count that too.
+    for role in message.role_mentions:
+        if role.tags and role.tags.bot_id == client.user.id:
+            return True
+        if message.guild and message.guild.me and role in message.guild.me.roles and role.managed:
+            return True
     ref = message.reference
     if ref and isinstance(ref.resolved, discord.Message) and ref.resolved.author == client.user:
         return True

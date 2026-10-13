@@ -42,6 +42,12 @@ class Brain:
             f"{extra}\n"
             f"THEIR LATEST MESSAGE: {message}"
         )
+        length = random.choices(
+            ["ONE short sentence, under 20 words. Punchy.",
+             "One or two short sentences, under 35 words.",
+             "Up to four sentences. This one can be a little dramatic."],
+            weights=[60, 30, 10])[0]
+        situation += f"\n\nLENGTH FOR THIS REPLY: {length}"
         body = {
             "model": config.DEEPSEEK_MODEL,
             "messages": [
@@ -50,7 +56,7 @@ class Brain:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 1.1,
-            "max_tokens": 300,
+            "max_tokens": 220,
         }
         try:
             r = await self.client.post(
