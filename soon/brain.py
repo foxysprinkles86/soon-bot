@@ -77,10 +77,10 @@ class Brain:
             f"PLAYER: {player_name}{' (this is KOR, your crush)' if is_kor else ''}\n"
             f"HEAT LEVEL FOR THIS PLAYER: {heat}\n"
             f"WHAT YOU REMEMBER ABOUT THEM:\n{notes}\n\n"
-            f"RECENT CHAT (oldest first):\n{chat}\n\n"
+            f"RECENT CHAT (oldest first; background, so you know what's going on):\n{chat}\n\n"
             f"MODE: {mode}\n"
             + (f"{extra}\n" if extra else "")
-            + f"THEIR LATEST MESSAGE: {message}"
+            + f"THEIR LATEST MESSAGE (this is what you're answering): {message}"
         )
         length, max_sentences = random.choices(
             [("ONE short sentence, under 20 words. Punchy.", 1),

@@ -115,8 +115,8 @@ async def pop_list(key: str) -> list[str]:
     return json.loads(raw) if raw else []
 
 
-def human_age(when) -> str:
-    secs = (discord.utils.utcnow() - when).total_seconds()
+def human_age(when, until=None) -> str:
+    secs = ((until or discord.utils.utcnow()) - when).total_seconds()
     if secs < 3600:
         return f"{max(1, int(secs // 60))} minutes"
     if secs < 86400 * 2:
@@ -156,7 +156,11 @@ def is_foxy(user) -> bool:
 async def recent_chat(channel, before) -> tuple[list[str], bool]:
     """Last 30 messages, plus whether Kor has chatted in the last 15 minutes."""
     lines, kor_here = [], False
+    newer = before.created_at if getattr(before, "created_at", None) else None
     async for m in channel.history(limit=30, before=before):
+        if newer and (newer - m.created_at).total_seconds() > 1200:   # mark pauses so old chatter reads as old
+            lines.append(f"--- {human_age(m.created_at, newer)} pass ---")
+        newer = m.created_at
         if is_kor(m.author) and (discord.utils.utcnow() - m.created_at).total_seconds() < 900:
             kor_here = True
         if m.author == client.user:
@@ -712,8 +716,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((4, "foxy-trash", "If it fits naturally, a little trash talk about Foxy behind her back."))
     takeover_day = (await memory.get_kv("takeover:fast") == extras.today_key()
                     and not await memory.get_kv("takeover:done"))
-    if takeover_day:     # one-day takeover run: ~1 in 3 replies, ahead of the small stuff so the countdown stays alive
-        if random.random() < 0.36:
+    if takeover_day:     # one-day takeover run: ~45% of replies, ahead of the small stuff so the countdown stays alive
+        if random.random() < 0.46:
             specials.append((1.5, "takeover", await extras.takeover_line(memory)))
     elif random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
         specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
@@ -726,6 +730,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     lines = [f"SPECIAL FOR THIS REPLY: {t}" for _, _, t in chosen]
     if mine:
         lines.append("YOUR LAST LINES (find a fresh angle): " + " | ".join(m[:120] for m in mine[-3:]))
+    ref = message.reference.resolved if message.reference else None
+    if isinstance(ref, discord.Message) and ref.clean_content:
+        who = "you (Soon)" if ref.author == client.user else ref.author.display_name
+        lines.append(f"THEY'RE REPLYING TO {who}: {ref.clean_content[:300]}")
     facts = await relevant_facts(message, p)
     if facts:
         lines.append("FACTS (true, use if useful): " + "; ".join(facts) + ".")
