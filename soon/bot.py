@@ -310,7 +310,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         kor_here = True
     extra = ""
     if is_foxy(message.author):
-        extra = ("THIS IS FOXYSPRINKLES, YOUR BOSS, TALKING TO YOU DIRECTLY. "
+        extra = ("THIS IS FOXYSPRINKLES (the clan leader who built you) TALKING TO YOU DIRECTLY. "
                  + ("KOR IS AROUND RIGHT NOW: be openly mean and dismissive to her to look cool in front of him."
                     if kor_here else
                     "Kor isn't around: suck up to her a little (lightly, still sarcastic, never gushing)."))
