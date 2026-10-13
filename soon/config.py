@@ -9,8 +9,8 @@ def _float(name: str, default: float) -> float:
         return default
 
 
-DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "")
-DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN", "").strip()
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "").strip().strip("\"'")
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
