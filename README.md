@@ -32,7 +32,7 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `soon my birthday is <month day>` | anyone | Birthday shout-out every year |
 | `soon duel @name` | anyone | Quick-draw duel (bragging rights) |
 | `soon duel record` / `soon duel record @name` | anyone | Win-loss record |
-| `soon takeover` | mods | Takeover storyline (`restart` / `complete`) |
+| `soon takeover` | mods | Takeover storyline (`stage 1-4` / `restart` / `complete`) |
 | `soon roast @name` / `soon roast me` | anyone | Roast on demand (3 a day each) |
 | `soon panda facts` | anyone | The Verified Panda Facts™ archive |
 | `soon hall of shame` / `soon shame @name` | anyone | What Soon framed (she picks, max 2 a day) |

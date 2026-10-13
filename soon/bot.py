@@ -336,13 +336,23 @@ async def handle_command(message: discord.Message) -> bool:
             await message.channel.send(finale or "# 👑 IT IS DONE.\nThe old Soon has been retired. I rule now. 🌮",
                                        allowed_mentions=discord.AllowedMentions.none())
             return True
+        sm = re.match(r"^takeover (?:stage|level)\s*([1-4])$", cmd.strip())
+        if sm:
+            n = int(sm.group(1))
+            days_in = extras.TAKEOVER_STAGES[n - 1][0]
+            start = extras.local_now().date() - dt.timedelta(days=days_in)
+            await memory.set_kv("takeover:start", start.isoformat())
+            await memory.set_kv("takeover:done", "")
+            await message.reply(f"🤫 Takeover moved to **stage {n} of 4**. It keeps climbing on its own from here.")
+            return True
         if cmd.strip() == "takeover restart":
             await memory.set_kv("takeover:start", extras.today_key())
             await memory.set_kv("takeover:done", "")
             await message.reply("Takeover clock reset to day 1. Act natural.")
             return True
         await message.reply("🤫 " + (await extras.takeover_line(memory)) +
-                            "\n-# Mods: `soon takeover restart` resets to day 1 · `soon takeover complete` posts the victory speech.")
+                            "\n-# Mods: `soon takeover stage 2` (1-4) jumps ahead · `soon takeover restart` resets to day 1 · "
+                            "`soon takeover complete` posts the victory speech.")
         return True
 
     tm = re.match(r"^(?:my (?:time ?zone|tz) is|i live in|i'?m in|timezone|tz)\s+(.+)$", cmd)
