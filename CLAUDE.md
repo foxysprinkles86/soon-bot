@@ -16,6 +16,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - Check the actual code before blaming her setup. (She was right once when I wasn't.)
 - Keep replies short and plain. She's often on her phone.
 - She's on Claude Pro with weekly limits: avoid re-reading/re-sending big files; prefer targeted edits.
+- **Keep this file current without being asked.** Whenever Shannon makes a lasting decision (new lore, a personality change, a rule, a finished roadmap item, a new setting or channel), update the matching section here in the same commit as the code. Edit in place and keep it short; don't append a diary. Tell her in one line that the notes were updated.
 
 ## Hosting / stack
 - Railway project: service **worker** (`python -u main.py`, restart ALWAYS) + **Postgres** (`DATABASE_URL=${{Postgres.DATABASE_URL}}`).
