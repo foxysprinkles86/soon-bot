@@ -172,6 +172,18 @@ def event_task(e: dict) -> str:
 # ---------- Hall of Shame (🤡 reactions) ----------
 
 SHAME_EMOJI = "🤡"
+SHAME_PER_DAY = 2
+
+
+async def shame_allowed(memory, gid: int) -> bool:
+    """Soon only frames a couple a day so it stays special. Counts it if allowed."""
+    raw = await memory.get_kv(f"shameday:{gid}") or ""
+    day, _, n = raw.partition(",")
+    used = int(n) if day == extras.today_key() and n.isdigit() else 0
+    if used >= SHAME_PER_DAY:
+        return False
+    await memory.set_kv(f"shameday:{gid}", f"{extras.today_key()},{used + 1}")
+    return True
 
 
 async def shame_list(memory, gid: int) -> list[dict]:
@@ -192,6 +204,6 @@ def shame_text(items: list[dict], who: str | None = None) -> str:
     if who:
         items = [i for i in items if i.get("uid") == who]
     if not items:
-        return "🤡 **Hall of Shame**\nEmpty. React 🤡 to a message and I'll frame it forever."
+        return "🤡 **Hall of Shame**\nEmpty. For now. I'm watching. When you embarrass yourself, I'll frame it."
     lines = [f"🤡 **{i['who']}**: \"{i['text'][:140]}\" · {i['date']}" for i in items[-10:]]
     return "🏛️ **The Hall of Shame**\n" + "\n".join(lines)

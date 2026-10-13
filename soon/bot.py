@@ -486,7 +486,11 @@ async def eavesdrop(message: discord.Message):
             by_name[m.author.display_name] = m.author
             lines.append(f"{m.author.display_name}: {text}")
             msgs.append(m)
-    notes, bad = await brain.extract_notes(lines, list(by_name))
+    notes, bad, shame = await brain.extract_notes(lines, list(by_name))
+    bad_lines = {i for i, _ in bad}
+    for idx, why in shame:
+        if 0 <= idx < len(msgs) and idx not in bad_lines:
+            await hall_of_shame(msgs[idx], why)
     for idx, why in bad:
         if 0 <= idx < len(msgs) and isinstance(msgs[idx].author, discord.Member):
             target = msgs[idx]
@@ -510,6 +514,36 @@ async def eavesdrop(message: discord.Message):
         p.notes = p.notes[-200:]
         extras.log_event(f"overheard about {name}: {note}")
         await memory.save_player(p, touch=False)
+
+
+async def hall_of_shame(msg: discord.Message, why: str):
+    """Soon (and only Soon) frames a message: 🤡 reaction, a one-liner, and it goes on the wall."""
+    gid = msg.guild.id
+    text = msg.clean_content.replace("\n", " ").strip()
+    if not text or msg.author.bot:
+        return
+    if any(i.get("id") == msg.id for i in await features.shame_list(memory, gid)):
+        return
+    if not await features.shame_allowed(memory, gid):
+        return
+    await features.add_shame(memory, gid, {"id": msg.id, "uid": str(msg.author.id), "who": msg.author.display_name,
+                                           "text": text[:300], "why": why, "date": extras.local_now().strftime("%b %-d")})
+    extras.log_event(f"put {msg.author.display_name} in the Hall of Shame for saying \"{text[:120]}\" ({why})")
+    try:
+        await msg.add_reaction(features.SHAME_EMOJI)
+    except discord.HTTPException:
+        pass
+    line = await brain.write(
+        f"{msg.author.display_name} said: \"{text[:300]}\". You just put it in the HALL OF SHAME ({why}). "
+        "Announce it in ONE short line, smug, like you're framing it on the wall of the taco van. No @ mentions.",
+        max_tokens=60)
+    try:
+        await msg.reply(line or random.choice([
+            "📸 Framed. Hall of Shame. Forever.", "🏛️ That one's going on the wall.",
+            "🤡 Hall of Shame. No appeals. The judge is me.", "📸 Got it. Your family will be notified."]),
+            mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+    except discord.HTTPException:
+        pass
 
 
 async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False):
@@ -733,39 +767,6 @@ async def on_message(message: discord.Message):
         if now - _last_butt_in[message.channel.id] > config.BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
             _last_butt_in[message.channel.id] = now
             await ai_reply(message, butt_in=True)
-
-
-@client.event
-async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-    """🤡 on a message = it goes in the Hall of Shame."""
-    if str(payload.emoji) != features.SHAME_EMOJI or not payload.guild_id or payload.user_id == client.user.id:
-        return
-    if payload.member and payload.member.bot:
-        return
-    guild = client.get_guild(payload.guild_id)
-    channel = guild.get_channel_or_thread(payload.channel_id) if guild else None
-    if not channel:
-        return
-    try:
-        msg = await channel.fetch_message(payload.message_id)
-    except discord.HTTPException:
-        return
-    text = msg.clean_content.replace("\n", " ").strip()
-    if not text or msg.author.id == payload.user_id or (msg.author.bot and msg.author != client.user):
-        return
-    entry = {"id": msg.id, "uid": str(msg.author.id), "who": msg.author.display_name, "text": text[:300],
-             "by": payload.member.display_name if payload.member else "", "date": extras.local_now().strftime("%b %-d")}
-    if not await features.add_shame(memory, guild.id, entry):
-        return
-    extras.log_event(f"{msg.author.display_name} got put in the Hall of Shame for saying \"{text[:120]}\"")
-    if allowed_channel(channel):
-        try:
-            await msg.reply(random.choice([
-                "📸 Framed. Hall of Shame. Forever.", "🤡 Filed in the Hall of Shame. No appeals.",
-                "🏛️ Added to the Hall of Shame. Your family will be told.", "📸 Got it. This one's going on the wall.",
-            ]), mention_author=False)
-        except discord.HTTPException:
-            pass
 
 
 @client.event

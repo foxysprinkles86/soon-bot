@@ -126,10 +126,11 @@ class Brain:
             print(f"Write error: {e!r}")
             return ""
 
-    async def extract_notes(self, chat_lines: list[str], names: list[str]) -> tuple[list[tuple[str, str]], list[tuple[int, str]]]:
-        """Eavesdropping: read a chunk of regular chat. Returns (notes per player, hard-line violations by line number)."""
+    async def extract_notes(self, chat_lines: list[str], names: list[str]):
+        """Eavesdropping: read a chunk of regular chat.
+        Returns (notes per player, hard-line violations by line number, Hall of Shame picks by line number)."""
         if not config.DEEPSEEK_API_KEY or not await self.budget_left() or not chat_lines:
-            return [], []
+            return [], [], []
         body = {
             "model": config.DEEPSEEK_MODEL,
             "messages": [
@@ -140,7 +141,11 @@ class Brain:
                     "trouble or real-life trauma. Also flag hard-line violations: a line that attacks ANOTHER PERSON with a slur, or over "
                     "race, religion, sexuality, gender or disability, or mocks real trauma or health someone shared. Swearing, "
                     "trash talk and game roasts are NOT violations. Return JSON: {\"notes\": [{\"player\": \"<exact name>\", "
-                    "\"note\": \"<short fact>\"}], \"violations\": [{\"line\": <line number>, \"why\": \"<short>\"}]}. "
+                    "\"note\": \"<short fact>\"}], \"violations\": [{\"line\": <line number>, \"why\": \"<short>\"}], "
+                    "\"shame\": [{\"line\": <line number>, \"why\": \"<short>\"}]}. "
+                    "\"shame\" is for the Hall of Shame: at most ONE line, and only if it's truly iconic and embarrassing in a "
+                    "funny, game-related way (a cocky brag right before losing, a hilariously bad score, a 'trust me I never miss', "
+                    "a spectacular self-own). Usually empty. Never pick anything about real life, health, family, or anything sad. "
                     "Use only these player names: " + ", ".join(names) + ". At most 6 notes. Empty lists if nothing.")},
                 {"role": "user", "content": "\n".join(f"{i}. {l}" for i, l in enumerate(chat_lines))},
             ],
@@ -163,10 +168,16 @@ class Brain:
                     bad.append((int(v.get("line")), str(v.get("why", ""))[:200]))
                 except (TypeError, ValueError):
                     pass
-            return notes, bad
+            shame = []
+            for v in (out.get("shame") or [])[:1]:
+                try:
+                    shame.append((int(v.get("line")), str(v.get("why", ""))[:150]))
+                except (TypeError, ValueError, AttributeError):
+                    pass
+            return notes, bad, shame
         except Exception as e:
             print(f"Notes error: {e!r}")
-            return [], []
+            return [], [], []
 
     @staticmethod
     def _cost(usage: dict) -> float:

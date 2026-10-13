@@ -34,7 +34,7 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 | `soon takeover` | mods | Takeover storyline (`restart` / `complete`) |
 | `soon roast @name` / `soon roast me` | anyone | Roast on demand (3 a day each) |
 | `soon panda facts` | anyone | The Verified Panda Facts™ archive |
-| `soon hall of shame` / `soon shame @name` | anyone | Messages people reacted 🤡 to |
+| `soon hall of shame` / `soon shame @name` | anyone | What Soon framed (she picks, max 2 a day) |
 | `soon events` | anyone | Upcoming race reminders |
 | `soon event <name + day + time>` | mods | Add one, e.g. `soon event Kraken starts Saturday 2pm every week` |
 | `soon event remove <name>` | mods | Delete one |
@@ -47,7 +47,7 @@ The TnT clan's sarcastic taco bot, self-hosted on Railway with an AI brain (Deep
 - **Weekly Soon Awards** post Sundays at 7 PM Central. **Mod report** (what confused people, who talks to her, AI spend) Mondays at 9 AM in the mod channel.
 - **Join anniversaries, birthdays, and 1-week recruit check-ins** around noon.
 - **Race reminders** an hour before each event (from the server's Discord Events tab, including recurring ones, plus any added with `soon event`) (roasting whichever zone will be asleep). Kraken reminders include the collect-your-tickets tip.
-- **Hall of Shame**: react 🤡 to any message and she frames it. Shame quotes feed her diary and the weekly awards.
+- **Hall of Shame**: Soon alone decides. While skimming chat she picks the truly iconic self-owns (max 2 a day), reacts 🤡 and frames them. Shame quotes feed her diary and the weekly awards.
 - **Panda facts** she invents get saved, and she quotes them back as established truth.
 - **Help desk**: she knows every casino/clan command and tells confused players exactly what to type.
 - **Hard lines**: slurs or attacks on protected traits/real trauma toward another person get called out. Strike 1 = warning, then 10 min, 1 hour, 24 hour timeouts. Logged to the first channel with "mod" in its name. Strikes reset after 7 clean days.
