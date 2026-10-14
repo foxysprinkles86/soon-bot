@@ -338,7 +338,8 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
             p.heat_lock = None
             await memory.save_player(p)
             text = (f"🔄 Auto mood is back on. Right now you've earned **{p.heat}**. 😈" if was_locked else
-                    "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me.")
+                    "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me." if self.choice == "auto"
+                    else f"🔄 You're already on auto (**{p.heat}** right now). I treat you how you treat me.")
         else:
             p.heat_lock = choice
             await memory.save_player(p)
@@ -408,7 +409,7 @@ async def handle_command(message: discord.Message) -> bool:
         else:                                   # `soon heat`: show the setting + a button for every choice
             view = discord.ui.View(timeout=None)
             for lv in HEAT_LEVELS + ["auto"]:
-                if not (lv == "auto" and not p.heat_lock) and lv != p.heat_lock:
+                if lv != p.heat_lock:                     # Auto always shows (Shannon's call)
                     view.add_item(NiceButton(gid, uid, "h" + lv))
             if uid not in _ignored:
                 view.add_item(NiceButton(gid, uid, "hignore"))
