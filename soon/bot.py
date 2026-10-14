@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, talk, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -390,6 +390,12 @@ async def handle_command(message: discord.Message) -> bool:
         return False
     cmd = m.group(1).strip()
     gid, uid = message.guild.id, message.author.id
+
+    if cmd.startswith("says ") and is_mod(message.author):           # Classic's Soon Says
+        return await talk.soon_says(message)
+    if re.fullmatch(r"answer(?:\s+<@!?\d+>)?[.!?]*", cmd) and is_mod(message.author):   # Classic's Soon Answer (8-ball)
+        await talk.soon_answer(message, lambda p: brain.write(p, max_tokens=80))
+        return True
 
     if cmd in ("ping", "are you alive", "you there?"):
         await message.reply("I'm awake. Unfortunately. 🌮")
@@ -1138,7 +1144,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = fallback                                             # AI busy/broke: the canned van line
     if tone == "rude" and reply:
         reply += await tacovan.surprise_audit(message, bank)        # a mod's scheduled "van audit surprise"
-    if reply and not butt_in and not special:
+    if reply and not butt_in and not special and out.get("at_you"):
+        reply += await talk.mouth(message, bank, tone, True)         # Classic's disrespect tax / kindness log
         reply += await eggs.tone_egg(message, bank, tone)           # eggs 5/6: nice / mean to Soon
     if out.get("line_crossed") and isinstance(message.author, discord.Member):
         footer = await extras.add_strike(memory, message.author, "hard line crossed in chat", message)
@@ -1266,7 +1273,7 @@ async def on_message(message: discord.Message):
         if not rate_ok(message.author.id):
             return False
         return await ai_reply(message, special=special, footer=footer, fallback=fallback)
-    if await eggs.handle(message, bank, mod, reply=taco_reply) or await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
+    if await talk.apology(message, bank, reply=taco_reply) or await eggs.handle(message, bank, mod, reply=taco_reply) or await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
         return
     if NICE_RE.search(message.content) and (talking_to_soon(message) or maybe_for_soon(message)):
         key = f"niceask:{message.guild.id}:{message.author.id}"
