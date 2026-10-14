@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, talk, welcome, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, report, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1271,11 +1271,13 @@ async def on_message(message: discord.Message):
     if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
             or await heists.handle(message, bank, mod) or await duels.handle(message, bank, mod) or await tips.handle(message, bank, mod)
             or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
-            or await menus.handle(message, bank, mod) or await boards.handle(message, bank, mod)):
+            or await menus.handle(message, bank, mod) or await boards.handle(message, bank, mod)
+            or await zones.handle(message, bank, mod)):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
     tacovan.note_speaker(message)
+    await zones.nudge(message, bank)                            # Classic's zone nudge (zoneless people)
     to_soon = talking_to_soon(message)
     async def taco_reply(special, footer, fallback):          # taco requests: Soon answers as herself
         if not rate_ok(message.author.id):
