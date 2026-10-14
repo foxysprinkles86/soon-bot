@@ -110,6 +110,7 @@ async def challenge(message, bank: Bank):
             await message.channel.send(f"⚔️ {u} They already accepted. It's happening. Kor locked the doors.")
         elif d and d["c"] == me:
             await save(bank, gid, None)
+            await buttons.retire(f"duel:{gid}"); await buttons.retire(f"don:{gid}")
             await refund(bank, gid, d)
             await message.channel.send(f"🐔 {u} calls off the duel. " + random.choice([
                 "The crowd boos. The crowd is Kor.", "Chickening out of your own duel. A new low. I'm impressed."])
@@ -160,14 +161,14 @@ async def challenge(message, bank: Bank):
     d = {"c": me, "t": t, "a": a, "on": False, "bets": [], "until": time.time() + WAIT, "channel": message.channel.id}
     await save(bank, gid, d)
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (me, t))
-    await message.channel.send(
+    buttons.remember(f"duel:{gid}", await message.channel.send(
         (f"🔔 {subs}\n" if subs else "") +
         f"# ⚔️🤺⚔️ DUEL! ⚔️🤺⚔️\n{u} challenges <@{t}> to a **quick-draw duel** for **{a} {C}** each!{capped}\n"
         f"## <@{t}> type `accept` or `decline`\nThe challenge expires <t:{int(d['until'])}:R>.\n"
         f"🍿 **Everyone else:** `bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. Winners get double. "
         "Betting stays open 5 more minutes after they accept.\n"
         f"-# Pot: {a * 2} {C} • Fastest finger wins. Tap before DRAW and you lose.",
-        view=bet_buttons(d, False))
+        view=bet_buttons(d, False)))
 
 
 async def answer(message, bank: Bank, word: str) -> bool:
@@ -192,13 +193,14 @@ async def answer(message, bank: Bank, word: str) -> bool:
                 return True
             d["on"], d["until"] = True, time.time() + BETTING
             await save(bank, gid, d)
-            await message.channel.send(
+            await buttons.retire(f"duel:{gid}")         # Accept/Decline are done
+            buttons.remember(f"duel:{gid}", await message.channel.send(
                 f"# ⚔️ DUEL ACCEPTED! ⚔️\n<@{d['c']}> vs {u} for **{d['a']} {C}** each. " + random.choice([
                     "Brave. Foolish. Mostly foolish.", "Somebody call a medic. Or Kor. Kor is not a medic.",
                     "The crowd gasps. The crowd is three people and a raccoon."]) +
                 f"\n## 🍿 Bets are open for 5 more minutes!\n`bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. "
                 f"Winners get double. The draw starts <t:{int(d['until'])}:R>.\n-# Bets so far: {len(d['bets'])}/{MAX_BETS}",
-                view=bet_buttons(d, True))
+                view=bet_buttons(d, True)))
         elif from_button:
             await message.channel.send(f"⚔️ {u} This isn't your duel to accept. Bet on it instead.")
         else:
@@ -209,6 +211,7 @@ async def answer(message, bank: Bank, word: str) -> bool:
         await message.channel.send(f"⚔️ {u} Too late. You already accepted. No backing out now. Kor locked the doors.")
     elif me == d["t"]:
         await save(bank, gid, None)
+        await buttons.retire(f"duel:{gid}"); await buttons.retire(f"don:{gid}")
         await refund(bank, gid, d)
         await message.channel.send(f"🐔 {u} declines the duel from <@{d['c']}>. " + random.choice([
             "Bawk bawk.", "Coward. Smart coward, but coward.", "Running away is also a strategy. A bad one. But a strategy."])
@@ -280,6 +283,7 @@ async def tick(client: discord.Client, bank: Bank):
         if d.get("stage") == "fighting":
             if time.time() > d["until"] + 120:       # Soon restarted mid-draw: give everything back
                 await save(bank, guild.id, None)
+                await buttons.retire(f"duel:{guild.id}"); await buttons.retire(f"don:{guild.id}")
                 await refund(bank, guild.id, d)
                 if ch:
                     await ch.send(f"⚠️ The duel between <@{d['c']}> and <@{d['t']}> got interrupted. Stakes and bets refunded.")
@@ -290,6 +294,7 @@ async def tick(client: discord.Client, bank: Bank):
             asyncio.create_task(fight(ch, bank, guild.id, d))
             continue
         await save(bank, guild.id, None)
+        await buttons.retire(f"duel:{guild.id}"); await buttons.retire(f"don:{guild.id}")
         if d.get("stage") == "don":
             for uid in d["don"]:
                 await bank.add(guild.id, uid, "double or nothing refund", chips=d["a"])
@@ -317,6 +322,7 @@ async def fight(ch, bank: Bank, gid: int, d: dict):
     """The quick-draw: WAIT... then DRAW! First fighter to tap wins. Tapping early is a misfire (you lose)."""
     c, t, a = d["c"], d["t"], d["a"]
     r2 = d.get("round") == 2
+    await buttons.retire(f"duel:{gid}")                  # betting is closed
     head = (("🎲 **DOUBLE OR NOTHING** • " if r2 else "") +
             f"⚔️🤺⚔️ **BETTING IS CLOSED** • <@{c}> vs <@{t}> for **{a} {C}** each\n")
     draw = DrawView(Fighter(c), Fighter(t))
@@ -366,6 +372,8 @@ async def fight(ch, bank: Bank, gid: int, d: dict):
                               f"for a rematch at **{a * 2} {C}** each. Bets reopen at {DON_BET} {C}."),
                    view=buttons.view(ALERTS_BTN) if r2 else buttons.view(
                        ("double or nothing", "Double or Nothing", "🎲", discord.ButtonStyle.danger), ALERTS_BTN))
+    if not r2:
+        buttons.remember(f"don:{gid}", msg)
     if r2:
         await save(bank, gid, None)
     else:                                            # open the double-or-nothing window
@@ -409,12 +417,13 @@ async def double_or_nothing(message, bank: Bank) -> bool:
         return True
     d.update(stage="", until=time.time() + DON_BETTING)
     await save(bank, gid, d)
+    await buttons.retire(f"don:{gid}")
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (d["c"], d["t"]))
-    await message.channel.send(
+    buttons.remember(f"duel:{gid}", await message.channel.send(
         (f"🔔 {subs}\n" if subs else "") +
         f"# 🎲 DOUBLE OR NOTHING! 🎲\n<@{d['c']}> vs <@{d['t']}> for **{d['a']} {C}** each. " + random.choice([
             "Nobody learned anything. I love it.", "Greed: the family business.", "Kor is hiding behind the van."]) +
         f"\n## 🍿 Bets reopen for 3 minutes: **{DON_BET} {C}** a bet, winners get double!\n"
         f"`bet {DON_BET} on @name` or use the buttons. The draw starts <t:{int(d['until'])}:R>.",
-        view=bet_buttons(d, True))
+        view=bet_buttons(d, True)))
     return True

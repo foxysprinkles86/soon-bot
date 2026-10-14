@@ -222,8 +222,8 @@ def is_taco_gif(message) -> bool:
     return any("taco" in (n or "").lower() for n in names)
 
 
-async def handle(message, bank: Bank, mod: bool, quiet: bool = False) -> bool:
-    """quiet=True: the message was talking to Soon, so count the request but let her answer it herself."""
+async def handle(message, bank: Bank, mod: bool, reply=None) -> bool:
+    """reply: Soon's AI reply function (special, footer, fallback) -> bool. Without it (buttons), canned lines are used."""
     if not taco_channel(message.channel):
         return False
     text = message.content or ""
@@ -233,18 +233,17 @@ async def handle(message, bank: Bank, mod: bool, quiet: bool = False) -> bool:
             return True
         return False
     if STATUS_RE.search(text):
-        if quiet:
-            return False
         await status(message, bank)
         return True
     gif = is_taco_gif(message) and not TACO_RE.search(text)
     if not (TACO_RE.search(text) or gif) or SKIP_RE.search(text):
         return False
-    await request(message, bank, gif=gif, quiet=quiet)
-    return not quiet
+    await request(message, bank, gif=gif, reply=reply)
+    return True
 
 
-async def request(message, bank: Bank, gif: bool = False, quiet: bool = False):
+async def request(message, bank: Bank, gif: bool = False, reply=None):
+    """Count the request, then Soon answers it herself (denial/excuse in her voice) with Classic's stats line."""
     gid, uid, u = message.guild.id, message.author.id, message.author.mention
     w = await bank.add(gid, uid, "taco request", tacos=1)
     n = w.tacos
@@ -252,25 +251,31 @@ async def request(message, bank: Bank, gif: bool = False, quiet: bool = False):
     day = await bank.get_house(gid, f"tacoday:{casino_day()}", {}) or {}
     day[str(uid)] = day.get(str(uid), 0) + 1                       # for the Van Daily Report
     await bank.set_house(gid, f"tacoday:{casino_day()}", day)
+    footer = f"\n-# {rank} • Taco request #{n} • Status: Coming Soon™"
     order = ORDER_RE.search(message.content or "")
     if random.randrange(500) == 0:
         await deliver(message, bank, n)
-    elif quiet:
-        pass
-    elif order:
-        flavor = order.group(0).lower()
-        await message.channel.send(
-            f"{u} 🧾 **Order #{random.randint(10000, 99999)}: 1 {flavor.title()}**\n"
-            f"Position in line: {random.choice(['behind Kor', 'behind everyone', 'behind a raccoon', 'behind 48,212 people', 'behind Devo’s bar tab', 'somewhere in Narnia', 'behind your own Piggy score', 'after the Kraken’s order'])} • ETA: Soon™\n"
-            + random.choice(["Chef has been notified. Chef does not exist.", "Ingredients ordered from the future.",
-                             "Kor has been asked not to touch it.", "Prepared with love, care, and zero urgency.",
-                             "Your order has been laminated and hung on the wall of shame.", "Order accepted. Order ignored."])
-            + f"\n-# {rank} • Taco request #{n} • Status: Coming Soon™")
-    elif not gif and random.randrange(2):
-        await message.channel.send(f"{u} {await pool_line(message, bank)}\n-# {rank} • Taco request #{n} • Status: Coming Soon™")
     else:
-        line = await fresh(bank, gid, uid, "seenr", len(lines), 4)
-        await message.channel.send(f"{u} {lines[line]}\n-# {rank} • Taco request #{n} • Status: Coming Soon™")
+        if order:
+            flavor = order.group(0).lower()
+            fallback = (f"🧾 **Order #{random.randint(10000, 99999)}: 1 {flavor.title()}**\n"
+                        f"Position in line: {random.choice(['behind Kor', 'behind everyone', 'behind a raccoon', 'behind 48,212 people', 'somewhere in Narnia', 'behind your own Piggy score', 'after the Kraken’s order'])} • ETA: Soon™\n"
+                        + random.choice(["Chef has been notified. Chef does not exist.", "Ingredients ordered from the future.",
+                                         "Kor has been asked not to touch it.", "Prepared with love, care, and zero urgency.",
+                                         "Your order has been laminated and hung on the wall of shame.", "Order accepted. Order ignored."]))
+            special = (f"TACO ORDER: they just ordered a {flavor} from the taco van (taco request #{n}, rank {rank}). "
+                       "The kitchen doesn't exist and tacos never come. Take the order anyway: an absurd order status "
+                       "(order number, ridiculous place in line, ETA Soon™), in your own words.")
+        else:
+            fallback = (await pool_line(message, bank)) if not gif and random.randrange(2) else \
+                lines[await fresh(bank, gid, uid, "seenr", len(lines), 4)]
+            special = (f"TACO REQUEST: they just asked the taco van for tacos" + (" by posting a taco GIF" if gif else "") +
+                       f" (taco request #{n}, rank {rank}). Tacos are always 'coming soon' and never come. "
+                       "Deny it or give an excuse, your way, short, aimed at them. "
+                       f"If it fits, riff on this old taco-van line (don't just repeat it): \"{fallback}\"")
+        sent = await reply(special, footer, fallback) if reply else False
+        if not sent:
+            await message.channel.send(f"{u} {fallback}{footer}")
     if n in LEVELS or n == 1:
         await set_rank_role(message.author, role)
     if n in LEVELS and n > 0:

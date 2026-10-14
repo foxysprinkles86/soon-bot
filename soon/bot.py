@@ -837,7 +837,10 @@ async def relevant_facts(message: discord.Message, p) -> list[str]:
     return facts
 
 
-async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False):
+async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False,
+                   special: str = "", footer: str = "", fallback: str = "") -> bool:
+    """special: a top-priority instruction (taco requests). footer: stats line added under her reply.
+    fallback: what to say if the AI can't answer. Returns True if she replied."""
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
     chat, kor_here = await recent_chat(message.channel, message)
@@ -883,6 +886,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             specials.append((1.5, "takeover", await extras.takeover_line(memory)))
     elif random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
         specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
+    if special:
+        specials.append((-1, "special", special))
     specials.sort(key=lambda x: x[0])
     chosen = specials[:2]
     tags = {t for _, t, _ in chosen}
@@ -946,6 +951,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         p.chats += 1
     await memory.save_player(p)
     reply = out["reply"]
+    if special and (not out.get("ok") or not reply):
+        reply = fallback                                             # AI busy/broke: the canned van line
     if tone == "rude" and reply:
         reply += await tacovan.surprise_audit(message, bank)        # a mod's scheduled "van audit surprise"
     if out.get("line_crossed") and isinstance(message.author, discord.Member):
@@ -956,12 +963,15 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         # Kor only gets pinged when she's actually talking to him (she talks ABOUT him constantly)
         people = [message.author] + list(message.mentions) + [m for m in _participants.get(message.channel.id, []) if not is_kor(m)]
         reply = ping_names(reply, people)
+        reply += footer
         if butt_in and not out.get("line_crossed"):
             if f"<@{message.author.id}>" not in reply:
                 reply = f"{message.author.mention} {reply}"
             await message.channel.send(reply, allowed_mentions=PING)
         else:
             await message.reply(reply, allowed_mentions=PING)
+        return True
+    return False
 
 
 @client.event
@@ -1061,7 +1071,11 @@ async def on_message(message: discord.Message):
         return          # they asked her to ignore them: commands and casino still work, nothing else
     tacovan.note_speaker(message)
     to_soon = talking_to_soon(message)
-    if await tacovan.handle(message, bank, mod, quiet=to_soon) or await bar.handle(message, bank, mod, quiet=to_soon):
+    async def taco_reply(special, footer, fallback):          # taco requests: Soon answers as herself
+        if not rate_ok(message.author.id):
+            return False
+        return await ai_reply(message, special=special, footer=footer, fallback=fallback)
+    if await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
         return
     if talking_to_soon(message):
         if rate_ok(message.author.id):

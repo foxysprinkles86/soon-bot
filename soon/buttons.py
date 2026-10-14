@@ -58,3 +58,28 @@ def view(*buttons: tuple) -> discord.ui.View:
         style = b[3] if len(b) > 3 else discord.ButtonStyle.secondary
         v.add_item(PlayButton(cmd, label, emoji, style))
     return v
+
+
+# ---------- retiring old buttons: only the newest message keeps a live button ----------
+
+_live: dict[str, list] = {}       # key -> messages whose buttons are still showing
+
+
+def remember(key: str, msg):
+    if msg is not None:
+        _live.setdefault(key, []).append(msg)
+
+
+async def retire(key: str):
+    """Take the buttons off every message filed under this key (the game moved on, or it's over)."""
+    for msg in _live.pop(key, []):
+        try:
+            await msg.edit(view=None)
+        except Exception:
+            pass
+
+
+async def replace(key: str, msg):
+    """New message with buttons: take them off the previous one, keep them on this one."""
+    await retire(key)
+    remember(key, msg)

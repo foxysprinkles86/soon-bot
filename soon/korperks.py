@@ -10,7 +10,7 @@ import time
 
 import discord
 
-from . import heists
+from . import buttons, heists
 from .casino import C, casino_channel, test_note
 from .economy import Bank
 
@@ -106,12 +106,12 @@ async def honk(message, bank: Bank):
         await bank.add(gid, uid, "honk bonus", chips=15)
     if h["crew"]:
         bonus = f"\n📯 Already in the van: +15 {C} each to " + " ".join(f"<@{x}>" for x in h["crew"])
-    await message.channel.send(
+    buttons.remember(f"heist:{gid}", await message.channel.send(
         "@here\n# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
             "It plays La Cucaracha. Badly.", "It sounds like a goose being stepped on.",
             "Every car alarm in the parking lot goes off in solidarity."]) +
         f"\n## Everyone who joins the heist <t:{int(time.time()) + win}:R> gets **+15 {C}**! Type `join`.{bonus}",
-        view=heists.join_view(h["ty"]), allowed_mentions=HERE)
+        view=heists.join_view(h["ty"]), allowed_mentions=HERE))
 
 
 async def churro(message, bank: Bank):

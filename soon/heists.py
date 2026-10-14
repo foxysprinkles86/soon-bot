@@ -105,8 +105,8 @@ async def start(message, bank: Bank, ty: str):
     p = PLANS[ty]
     h = await state(bank, gid)
     if h:
-        await message.channel.send(f"🦹 {u} A heist is already running. Type `join`. The van leaves <t:{int(h['end'])}:R>.",
-                                   view=join_view(h["ty"]))
+        buttons.remember(f"heist:{gid}", await message.channel.send(
+            f"🦹 {u} A heist is already running. Type `join`. The van leaves <t:{int(h['end'])}:R>.", view=join_view(h["ty"])))
         return
     cd = await bank.timer(gid, HOUSE, p["ck"])
     if cd:
@@ -128,14 +128,15 @@ async def start(message, bank: Bank, ty: str):
     else:
         head = (f"# 🦹 HEIST ALERT! 🦹\n{u} is planning to rob the **Taco Vault**. Kor is driving the getaway van. "
                 "That's already a problem.\n## ⏰ 10 MINUTES TO JOIN • Type `join`")
-    await message.channel.send(
+    await buttons.retire(f"heistboard:{gid}")          # the board's Start buttons are stale now
+    buttons.remember(f"heist:{gid}", await message.channel.send(
         "@here" + (f" 🔔 {subs}" if subs else "") + "\n" + head +
         f"\n# 🚐 The van leaves <t:{int(end)}:R>\n## 📣 @mention your friends to join! Every new crew member = +10% odds\n"
         f"💰 Buy-in: {p['buy']} {C} • Success pays **{p['win']} {C} to EVERYONE**\n"
         f"📊 Odds: {odds(p, 1, False)}% solo, +10% for every crew member (max {MAX_ODDS}%) • Van seats {SEATS}\n"
         f"-# {'One Grand Heist every 12 hours.' if ty == 'g' else 'One Vault Heist per hour.'} "
         "`heist alerts on` to get tagged next time.",
-        view=join_view(ty), allowed_mentions=HERE)
+        view=join_view(ty), allowed_mentions=HERE))
 
 
 async def join(message, bank: Bank):
@@ -168,13 +169,15 @@ async def join(message, bank: Bank):
     else:
         line = random.choice(["squeezes into the getaway van!", "joins the crew!",
                               "is in. Kor hands them a ski mask. It's used.", "climbs in the back with the taco sacks."])
-    await message.channel.send(
+    buttons.remember(f"heist:{gid}", await message.channel.send(
         f"🦹 {u} {line}" + (f" 📯 **Honk bonus: +{honk} {C}!**" if honk else "") +
         f"\n### {p['n']} • Crew: {len(h['crew'])} • Odds: {o}%{' (MAX!)' if o >= MAX_ODDS else ''}"
         f"{' 🚐💨' if h.get('boost') else ''} • Seats left: {SEATS - len(h['crew'])} • Van leaves <t:{int(h['end'])}:R>\n"
         + ("📣 @mention more friends to raise the odds!\n" if o < MAX_ODDS else "")
         + f"-# Buy-in: -{p['buy']} {C} • Chips: {w.chips} {C}",
-        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None)
+        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None))
+    if len(h["crew"]) >= SEATS:
+        await buttons.retire(f"heist:{gid}")            # van's full: no more Join buttons
 
 
 async def board(message, bank: Bank):
@@ -200,7 +203,7 @@ async def board(message, bank: Bank):
                     btns.append((word, f"Start {p['n']}", "🏦" if ty == "v" else "💰", discord.ButtonStyle.primary))
     subs = await bank.get_house(gid, "heistsubs", [])
     lines.append(f"🔔 `heist alerts on`: get tagged when any heist starts ({len(subs)} on the list)")
-    await message.channel.send("\n".join(lines), view=buttons.view(*btns, ALERTS_BTN))
+    await buttons.replace(f"heistboard:{gid}", await message.channel.send("\n".join(lines), view=buttons.view(*btns, ALERTS_BTN)))
 
 
 # ---------- the clock: warnings and getaways (runs every few seconds from bot.py) ----------
@@ -226,7 +229,7 @@ async def tick(client: discord.Client, bank: Bank):
 async def warn(ch, bank: Bank, gid: int, h: dict):
     p = PLANS[h["ty"]]
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
-    await ch.send(
+    buttons.remember(f"heist:{gid}", await ch.send(
         "@here" + (f" 🔔 {subs}" if subs else "") + "\n" +
         f"## ⏰ 5 MINUTES LEFT TO JOIN THE {p['n'].upper()}! ⏰\n# 🚐 The van leaves <t:{int(h['end'])}:R>\n"
         f"Crew: **{len(h['crew'])}** • Odds: **{odds(p, len(h['crew']), h.get('boost'))}%**"
@@ -234,11 +237,12 @@ async def warn(ch, bank: Bank, gid: int, h: dict):
         "## 📣 Tag your friends! Every new crew member = +10% odds\n"
         f"**Type `join` to jump in!** Buy-in: {p['buy']} {C} • Pays **{p['win']} {C} each**\n"
         f"-# {random.choice(['Kor is revving the engine. It sounds like a blender.', 'Kor has already eaten the getaway snacks.'])}",
-        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None, allowed_mentions=HERE)
+        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None, allowed_mentions=HERE))
 
 
 async def getaway(ch, bank: Bank, gid: int, h: dict):
     p, crew = PLANS[h["ty"]], h["crew"]
+    await buttons.retire(f"heist:{gid}")                 # the van left: every Join button goes away
     o = odds(p, len(crew), h.get("boost"))
     await bank.set_timer(gid, HOUSE, p["ck"], p["cd"])
     nxt = int(time.time() + p["cd"])
