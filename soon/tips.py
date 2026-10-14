@@ -147,3 +147,54 @@ async def rob(message, bank: Bank):
                 "Go think about what you did. Sober.", "Sit in the corner. The dry corner.",
                 "Your margarita privileges have been revoked. Cry into a water."]) +
             f"\n-# Ban lifts <t:{int((await bank.timer(gid, me, 'barban'))[0].timestamp())}:R>")
+
+
+# ---------- "soon make it rain": the house rains chips. Stingy... unless Kor asks. ----------
+
+ASK_CD, HOUSE_CD = 3600, 600          # once an hour per person; the house rains at most every 10 minutes
+
+
+async def soon_rain(message, bank: Bank, kor: bool):
+    gid, me, u = message.guild.id, message.author.id, message.author.mention
+    mine = await bank.timer(gid, me, "soonrain")
+    if mine:
+        if kor:
+            await message.channel.send(f"🌂 {u} Again? Kor, I can't keep doing this for you. People will TALK. "
+                                       f"...Ask me again <t:{int(mine[0].timestamp())}:R>. Not that I'm counting.")
+        else:
+            await message.channel.send(f"🌂 {u} I already made it rain for you. Next favor <t:{int(mine[0].timestamp())}:R>. "
+                                       "Favors are rationed. Like tacos.")
+        return
+    house = None if kor else await bank.timer(gid, 0, "soonrain")      # Kor skips the line. Obviously.
+    if house:
+        await message.channel.send(f"🌂 {u} I JUST made it rain. My wallet needs a nap. Ask again <t:{int(house[0].timestamp())}:R>.")
+        return
+    pool = [uid for uid, _ in await bank.day_results(gid, casino_day())]
+    if not pool:
+        await message.channel.send(f"🌂 {u} Make it rain on who? Nobody has gambled today. I'm not throwing chips at an empty room.")
+        return
+    random.shuffle(pool)
+    pool = pool[:RAIN_SPLIT]
+    await bank.set_timer(gid, me, "soonrain", ASK_CD)
+    if not kor:
+        await bank.set_timer(gid, 0, "soonrain", HOUSE_CD)
+    lines, total = "", 0
+    for uid in pool:
+        each = random.randint(20, 40) if kor else random.randint(1, 3)
+        total += each
+        await bank.add(gid, uid, "Soon made it rain" + (" (Kor asked)" if kor else ""), chips=each)
+        lines += f"\n💸 <@{uid}> +{each} {C}"
+    if kor:
+        head = (f"# 💸🌧️ FOR KOR, IT POURS 🌧️💸\n{ARMS} I'm throwing **{total} {C}** around because Kor asked. "
+                "Not because I like him. Because it's good for business. Shut up. {ARMS}".replace("{ARMS}", ARMS))
+        tail = random.choice([
+            "Don't look at me like that. It's a business expense.", "Kor said please. Kor never says please. I panicked.",
+            "This never happened. Kor, you owe me a ride.", "I'm not blushing. The neon is pink. That's the neon."])
+    else:
+        head = f"# 🌦️ Soon makes it... drizzle. 🌦️\n{u} asked nicely, so I'm throwing **{total} {C}** around. Try not to faint."
+        tail = random.choice([
+            "Don't spend it all in one place. You can't. It's like three chips.",
+            "That's the house being generous. Mark the date.",
+            "If you wanted a real storm, you should've been Kor.",
+            "It's not stingy. It's 'responsible.' Look it up."])
+    await message.channel.send(f"{head}{lines}\n{tail}\n-# Rain falls on whoever gambled today" + test_note(message.channel))

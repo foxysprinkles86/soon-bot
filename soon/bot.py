@@ -341,6 +341,13 @@ async def handle_command(message: discord.Message) -> bool:
             await casino.import_classic(message, bank, cmd.endswith("confirm"), client.user)
         return True
 
+    if re.fullmatch(r"(?:please |can you |could you )?make it rain(?: please| for us| on us)?[!.?]*", cmd):
+        if casino.casino_channel(message.channel):
+            await tips.soon_rain(message, bank, is_kor(message.author))
+        else:
+            await message.reply("I only make it rain in the casino. Come find me there.")
+        return True
+
     if cmd in ("bank", "bank totals", "totals"):
         t = await bank.totals(gid)
         await message.reply(f"🏦 Casa de Soon books: **{t['players']}** players • **{t['chips']}** {casino.C} • "
