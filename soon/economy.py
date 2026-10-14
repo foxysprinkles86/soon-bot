@@ -169,9 +169,8 @@ class Bank:
 
     async def record_play(self, gid: int, uid: int, net: int):
         """A game finished: net win (+) or loss (-). Feeds the casino board and the daily casino report."""
-        if not net:
-            return
-        await self.add(gid, uid, "casino result", casnet=net)
+        if net:
+            await self.add(gid, uid, "casino result", casnet=net)   # break-even plays still count as "gambled today"
         day = casino_day()
         if not self.pool:
             self._day[(gid, day, uid)] = self._day.get((gid, day, uid), 0) + net
