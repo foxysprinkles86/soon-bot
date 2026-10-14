@@ -10,12 +10,13 @@ from .economy import Bank
 from .tacovan import taco_channel
 
 BOARD_RE = re.compile(r"(?i)\b(taco|bar|egg) ?board\b")
-TOTAL_EGGS = 23
+TOTAL_EGGS = 24                  # Classic's 23 + Soon 2.0's "Epic meltdown" (egg m)
 EGG_NAMES = {"1": "When are the tacos coming?", "2": "Who ate them?", "3": "Burrito", "4": "Hungry", "5": "Being nice",
              "6": "Being mean", "7": "Dips", "8": "Open the van", "9": "Taco Tuesday", "10": "The competition",
              "11": "Free tacos", "12": "Quitting", "13": "Beep boop", "14": "Is Soon real?", "15": "Are we there yet?",
              "16": "Hot sauce", "17": "Delivery apps", "18": "Pineapple", "19": "Nachos", "20": "Good morning/night",
-             "21": "Taco emoji spam", "g": "The glitch", "b": "Bedtime"}
+             "21": "Taco emoji spam", "g": "The glitch", "b": "Bedtime", "m": "Epic meltdown"}
+KEEP_EGGS = {"m"}               # Soon 2.0-only eggs: the cutover import keeps these (Classic never had them)
 FOOTER = "-# Boards: taco board • bar board • egg board"
 
 

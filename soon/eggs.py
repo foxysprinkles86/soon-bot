@@ -123,7 +123,8 @@ HINTS = {"1": "Ask the question everyone asks. The one with no answer. *When?*",
          "18": "Suggest the fruit that starts holy wars. It will cost you.", "19": "Name the taco's crunchy, cheesy cousin.",
          "20": "Greet Soon at the start or end of your day.", "21": "Say taco without using words. Several times.",
          "g": "Keep asking for tacos. One day, the system might... glitch.",
-         "b": "Stay up way too late. The van notices night owls."}
+         "b": "Stay up way too late. The van notices night owls.",
+         "m": "Gang up on Soon with your friends until she short-circuits. It takes a crew."}
 EGG_WORD = re.compile(r"(?i)\beggs?\b")
 ASK_HINT = re.compile(r"(?i)^\s*(?:<@!?\d+>\s*)?eggs?\s*[?!.]*\s*$|\begg ?hints?\b|\bi want (?:an |some |the )?eggs?\b|"
                       r"\bwhere (?:are|is) (?:the )?eggs?\b")
@@ -267,6 +268,16 @@ async def glitch(message, bank: Bank):
     foot = await found(bank, message.guild.id, message.author.id, "g")
     await message.channel.send("### ⚠️ ERROR: TACO FOUND. Initiating delivery sequence... 🌮🚦\n"
                                "Loading... ██████████ 100%\n### ...just kidding. Soon." + foot)
+
+
+async def meltdown_egg(message, bank: Bank, crew: set[int]) -> str:
+    """Egg m (Soon 2.0's own): everyone in the gang-up that pushed her into an EPIC meltdown. Works in every channel
+    she talks in (trash-talk too), not just the taco channels. Footer names the crew members who got it new."""
+    new = [u for u in crew if await bank.add_egg(message.guild.id, u, "m")]
+    if not new:
+        return ""
+    return ("\n## 🥚 NEW EASTER EGG FOUND! 🥚\n" + " ".join(f"<@{u}>" for u in new)
+            + " broke Soon. **Epic meltdown** egg unlocked.")
 
 
 async def tone_egg(message, bank: Bank, tone: str) -> str:

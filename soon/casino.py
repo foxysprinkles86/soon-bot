@@ -335,9 +335,19 @@ async def import_classic(message: discord.Message, bank: Bank, confirm: bool, me
     if not ok:
         await message.reply(summary + "\n\nNumbers don't match, so I didn't load anything.")
         return
+    from .boards import KEEP_EGGS                       # Soon 2.0-only eggs (Epic meltdown) survive the import
+    for old in await bank.top(message.guild.id, "eggcount", 100000):
+        keep = [e for e in old.eggs if e in KEEP_EGGS]
+        if keep:
+            w = wallets.setdefault(old.user_id, Wallet(0, old.user_id))
+            w.eggs = list(dict.fromkeys(w.eggs + keep))
+            w.eggcount = 0
+    ws = list(wallets.values())
     for w in ws:
         w.guild_id = message.guild.id
         w.eggcount = w.eggcount or len(w.eggs)
+        if any(e in KEEP_EGGS for e in w.eggs):
+            w.eggcount = len(w.eggs)
     await bank.replace_all(message.guild.id, ws, house)
     t = await bank.totals(message.guild.id)
     await message.reply(f"✅ **Imported.** {t['players']} players • {t['chips']} {C} • {t['tacobal']} 🌮\n"

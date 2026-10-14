@@ -1186,7 +1186,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if tone == "rude" and out.get("at_you"):
         _rude_at_her[message.channel.id].append((time.time(), message.author.id))
     if melt == 3 and reply:
+        crew = {u for _, u in _rude_at_her[message.channel.id]} | {message.author.id}
         _rude_at_her[message.channel.id].clear()              # she "reboots": the next pile-on starts small again
+        footer += await eggs.meltdown_egg(message, bank, crew)  # egg m: the gang that broke her
     if reply and not butt_in and not special and out.get("at_you"):
         reply += await talk.mouth(message, bank, tone, True)         # Classic's disrespect tax / kindness log
         reply += await eggs.tone_egg(message, bank, tone)           # eggs 5/6: nice / mean to Soon
