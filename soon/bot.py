@@ -124,15 +124,24 @@ def human_age(when, until=None) -> str:
     return f"{int(secs // 86400)} days"
 
 
+_panda_ids: set[int] = set()   # remembered by account, so a nickname from Soon ("Gerald") doesn't hide him
+
+
 def is_panda(user) -> bool:
+    if getattr(user, "id", None) in _panda_ids:
+        return True
     n = config.PANDA_NAME
-    return bool(n) and not getattr(user, "bot", False) and (
+    found = bool(n) and not getattr(user, "bot", False) and (
         n in (user.name or "").lower() or n in (getattr(user, "display_name", "") or "").lower())
+    if found:
+        _panda_ids.add(user.id)
+        asyncio.get_event_loop().create_task(memory.set_kv("panda_ids", json.dumps(sorted(_panda_ids))))
+    return found
 
 
-PANDA_FACT = ("Panda bit: tell Panda one NEW absurd made-up 'fact' about himself as settled truth (like his real name is "
-              "Gerald, or he sleeps in a hammock in the van). Stand by it forever; if he denies it, add fake evidence. "
-              "Silly only, never hurtful.")
+PANDA_FACT = ("Panda bit: tell Panda one NEW absurd made-up 'fact' about himself as settled truth: specific and "
+              "ridiculous (a secret job, a weird record, a strange habit, a fake real name). Invent your own; never reuse "
+              "an example you've seen. Stand by it forever; if he denies it, add fake evidence. Silly only, never hurtful.")
 _last_panda_fact = defaultdict(float)
 KOR_MOVES = [
     "ask him something about himself (the Netherlands, how he drives the van, his worst race) and pretend it's 'for the files'",
@@ -655,6 +664,74 @@ async def hall_of_shame(msg: discord.Message, why: str):
         pass
 
 
+NICK_BACK_RE = re.compile(r"(?i)\b(?:change|put|set|switch|give|turn|undo|revert|restore)\b.{0,25}\b(?:my\s+)?(?:nick(?:name)?|name)\b.{0,15}\bback\b"
+                          r"|\b(?:my|old|real) (?:nick(?:name)?|name) back\b|\bundo (?:my )?(?:nick(?:name)?|name)\b")
+NICK_STOP_RE = re.compile(r"(?i)\b(?:stop|quit|don'?t|do not|never)\b.{0,10}\bcall(?:ing)? me\b|\bstop (?:with )?the (?:nick)?names?\b"
+                          r"|\bno more nicknames?\b")
+
+
+async def get_nick(gid: int, uid: int) -> dict:
+    return json.loads(await memory.get_kv(f"nick:{gid}:{uid}") or "{}")
+
+
+async def set_server_nick(member, name: str | None) -> bool:
+    """Change their server nickname (None = back to no nickname). False if Discord won't let her."""
+    try:
+        await member.edit(nick=name[:32] if name else None, reason="Soon's nickname for them")
+        return True
+    except (discord.Forbidden, discord.HTTPException, AttributeError) as e:
+        print(f"Nickname change failed for {getattr(member, 'name', '?')}: {e!r}")
+        return False
+
+
+async def nick_requests(message: discord.Message) -> tuple[str, str]:
+    """Handle 'change my name back' / 'stop calling me that' before she replies.
+    Returns (special instruction for her reply, line about what she calls them)."""
+    gid, uid = message.guild.id, message.author.id
+    rec = await get_nick(gid, uid)
+    if not rec.get("name"):
+        return "", ""
+    special = ""
+    if NICK_STOP_RE.search(message.content) and not rec.get("stop"):
+        if rec.get("renamed") and getattr(message.author, "nick", None) == rec["name"][:32]:
+            await set_server_nick(message.author, rec.get("prev"))
+        rec.update(stop=True, renamed=False)
+        special = (f"They asked you to stop calling them '{rec['name']}'. You agree, with attitude, and drop it "
+                   "(their server name is back to normal too). Use their real name from now on.")
+        extras.log_event(f"{message.author.display_name} made me stop calling them {rec['name']}")
+    elif NICK_BACK_RE.search(message.content) and rec.get("renamed"):
+        await set_server_nick(message.author, rec.get("prev"))
+        rec.update(back=True, renamed=False)
+        special = (f"You just changed their server nickname back like they asked (grudgingly). But you're still "
+                   f"calling them '{rec['name']}' anyway. That's your name for them.")
+    if special:
+        await memory.set_kv(f"nick:{gid}:{uid}", json.dumps(rec))
+    if rec.get("stop"):
+        return special, "They asked you not to give them nicknames: use their real name."
+    return special, f"YOUR NICKNAME FOR THEM: '{rec['name']}' (keep calling them that)."
+
+
+async def apply_nickname(message: discord.Message, name: str):
+    """She just made up a name for them: it becomes their server nickname (max one new name per 12 hours each)."""
+    name = re.sub(r"[@#`*_~|<>]", "", name).strip()[:32]
+    if not name or len(name) < 2 or not hasattr(message.author, "edit"):
+        return
+    gid, uid = message.guild.id, message.author.id
+    rec = await get_nick(gid, uid)
+    if rec.get("stop") or rec.get("back"):
+        return                                   # they opted out (stop) or took their name back: no more renames
+    if rec.get("name", "").lower() == name.lower():
+        return
+    if rec.get("at", 0) > time.time() - 12 * 3600:
+        return
+    if "prev" not in rec:
+        rec["prev"] = message.author.nick        # their own nickname before Soon touched it (None = none)
+    rec.update(name=name, at=time.time())
+    rec["renamed"] = await set_server_nick(message.author, name)
+    await memory.set_kv(f"nick:{gid}:{uid}", json.dumps(rec))
+    extras.log_event(f"named {message.author.display_name} '{name}'" + ("" if rec["renamed"] else " (couldn't change their server nickname)"))
+
+
 HELP_RE = re.compile(r"(?i)\bhow (?:do|can|to|does)\b|\bhelp\b|\bcommands?\b|what do i (?:type|say)|(?:is ?n.?t|does ?n.?t|not|won.?t) work"
                      r"|\bbroken\b|\bwhere do i\b|\b(?:claim|chips|cash ?out|spin|slots|toss|roulette|blackjack|scratch|heist|duel|tip|crimes?"
                      r"|zone|eggs?|margs?|margaritas?|taco board|payouts?|timers?)\b")
@@ -760,7 +837,12 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     panda_bit = "panda" in tags
     if "asktz" in tags:
         await memory.set_kv(f"asktz:{gid}:{uid}", extras.today_key())
+    nick_special, nick_line = await nick_requests(message)
+    if nick_special:     # they asked about their nickname: that comes first
+        chosen = [(-1, "nick", nick_special)] + chosen[:1]
     lines = [f"SPECIAL FOR THIS REPLY: {t}" for _, _, t in chosen]
+    if nick_line:
+        lines.append(nick_line)
     if mine:
         lines.append("YOUR LAST LINES (find a fresh angle): " + " | ".join(m[:120] for m in mine[-3:]))
     ref = message.reference.resolved if message.reference else None
@@ -806,6 +888,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if panda_bit and out.get("panda_fact") and out["reply"]:
         if await features.add_panda_fact(memory, gid, out["panda_fact"]):
             extras.log_event(f"established a new Panda fact: {out['panda_fact']}")
+    if out.get("nickname") and out["reply"] and not out.get("line_crossed"):
+        await apply_nickname(message, out["nickname"])
     if out["reply"] and not butt_in:
         p.chats += 1
     await memory.save_player(p)
@@ -829,6 +913,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
 async def on_ready():
     await memory.connect()
     await bank.setup()
+    _panda_ids.update(json.loads(await memory.get_kv("panda_ids") or "[]"))
     if not daily.is_running():
         daily.start()
     print(f"Soon 2.0 online as {client.user} in {len(client.guilds)} server(s). Talking in: {config.ALLOWED_CHANNELS}")

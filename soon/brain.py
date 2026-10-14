@@ -12,14 +12,15 @@ from .personality import FALLBACK_LINES, SHEET
 TONES = {"nice", "neutral", "rude", "upset"}
 
 INSTRUCTIONS = """Reply with JSON only:
-{"reply": "", "tone": "nice|neutral|rude|upset", "note": "", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": ""}
+{"reply": "", "tone": "nice|neutral|rude|upset", "note": "", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": "", "nickname": ""}
 - reply: what Soon says ("" allowed only in BUTT-IN or MAYBE mode when there's nothing worth saying).
 - tone: how their latest message treated Soon or others (upset = genuinely hurt, not joking).
 - note: usually "". One short NEW thing they actually said or did worth remembering for future banter, in your voice. Never health, family or trauma, never a repeat of what you remember.
 - line_crossed: true only if they attacked another person with a slur, over race/religion/sexuality/gender/disability, or mocked real trauma. Trash talk, swearing and roasting Soon are fine. If true, call it out in character.
 - timezone: IANA zone (like "America/New_York") only if they just said where they live, else "".
 - struggle: a few words if they're confused or a command isn't working for them, else "".
-- panda_fact: only if your reply states a NEW made-up Panda fact, that fact in a few words, else ""."""
+- panda_fact: only if your reply states a NEW made-up Panda fact, that fact in a few words, else "".
+- nickname: only if your reply calls THIS player by a NEW made-up name you invented for them (a fake name like a person's name or a title), that name (max 32 characters). Not their real name, not your existing nickname for them, not pet words like "sweetie" or "driver". Usually ""."""
 
 
 def trim_sentences(text: str, limit: int) -> str:
@@ -121,8 +122,9 @@ class Brain:
         tz = str(out.get("timezone") or "").strip()
         struggle = str(out.get("struggle") or "").strip()[:150]
         panda_fact = str(out.get("panda_fact") or "").strip()[:160]
+        nickname = str(out.get("nickname") or "").strip()[:32]
         return {"reply": reply[:1900], "tone": tone, "note": note, "line_crossed": crossed, "timezone": tz,
-                "struggle": struggle, "panda_fact": panda_fact, "ok": True}
+                "struggle": struggle, "panda_fact": panda_fact, "nickname": nickname, "ok": True}
 
     async def write(self, task: str, max_tokens: int = 350) -> str:
         """Free-form writing in Soon's voice (diary entries, pestering, announcements). '' if unavailable."""
@@ -213,4 +215,4 @@ class Brain:
     @staticmethod
     def _fallback(butt_in: bool) -> dict:
         return {"reply": "" if butt_in else random.choice(FALLBACK_LINES), "tone": "neutral", "note": "",
-                "line_crossed": False, "timezone": "", "struggle": "", "panda_fact": "", "ok": False}
+                "line_crossed": False, "timezone": "", "struggle": "", "panda_fact": "", "nickname": "", "ok": False}
