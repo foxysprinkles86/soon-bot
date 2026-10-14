@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1240,6 +1240,8 @@ async def on_message(message: discord.Message):
     if message.type == discord.MessageType.new_member:      # "X joined the server": Classic's welcome (WELCOME=1)
         await welcome.on_join_message(message)
         return
+    if not message.author.bot and await schedules.command(message, bank, is_mod(message.author)):
+        return                                              # mods' kraken go/date/test (any channel, e.g. #kraken-clash)
     if message.author.bot:
         if is_old_soon(message.author) and allowed_channel(message.channel):
             now = time.time()
@@ -1418,6 +1420,7 @@ async def daily():
             gk = str(guild.id)
             if report.due():                     # Classic's Van Daily Report + casino report, 11:55 PM (UTC-5)
                 await report.post(guild, bank)
+            await schedules.tick(guild, bank)    # Classic's race reminders + Kraken schedule (SCHEDULES=1)
 
             # Panda gets tagged at least once a day.
             panda = next((m for m in guild.members if not m.bot and config.PANDA_NAME

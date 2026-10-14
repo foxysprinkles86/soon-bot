@@ -34,6 +34,11 @@ REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or TACO_CH
 # New-member welcome (Classic's). Off until cutover night so new people don't get welcomed twice: then WELCOME=1.
 WELCOME = os.environ.get("WELCOME", "0").strip() in ("1", "true", "on", "yes")
 
+# Classic's scheduled clan posts (weekly race reminders + the 5-week Kraken schedule) and the Kraken mod commands.
+# Off until cutover night (Classic still posts them): then SCHEDULES=1. They ping the clan role below.
+SCHEDULES = os.environ.get("SCHEDULES", "0").strip() in ("1", "true", "on", "yes")
+CLAN_ROLE_ID = int(os.environ.get("CLAN_ROLE_ID", "1534266078941679736") or 0)
+
 # Casino pictures (animated slot machine, roulette wheel, cards...). Set GRAPHICS=0 in Railway to go back to text.
 GRAPHICS = os.environ.get("GRAPHICS", "1").strip() not in ("0", "false", "off", "no")
 
