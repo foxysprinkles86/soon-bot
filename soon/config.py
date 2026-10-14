@@ -27,6 +27,10 @@ CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", 
 # the same list as ALLOWED_CHANNELS).
 TACO_CHANNELS = [c.strip().lower() for c in os.environ.get("TACO_CHANNELS", "soon-lab").split(",") if c.strip()]
 
+# Where the Van Daily Report posts at 11:55 PM (Classic posts its own in get-in-the-van until cutover, so this
+# defaults to the first taco channel, #soon-lab). On cutover night set REPORT_CHANNEL=get-in-the-van.
+REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or TACO_CHANNELS[0]
+
 # Casino pictures (animated slot machine, roulette wheel, cards...). Set GRAPHICS=0 in Railway to go back to text.
 GRAPHICS = os.environ.get("GRAPHICS", "1").strip() not in ("0", "false", "off", "no")
 

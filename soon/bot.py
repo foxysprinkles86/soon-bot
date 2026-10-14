@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, talk, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, report, talk, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1406,6 +1406,8 @@ async def daily():
                 await memory.save_player(pl, touch=False)
         for guild in client.guilds:
             gk = str(guild.id)
+            if report.due():                     # Classic's Van Daily Report + casino report, 11:55 PM (UTC-5)
+                await report.post(guild, bank)
 
             # Panda gets tagged at least once a day.
             panda = next((m for m in guild.members if not m.bot and config.PANDA_NAME
