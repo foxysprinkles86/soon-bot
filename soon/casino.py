@@ -80,12 +80,18 @@ async def cashier(message: discord.Message, bank: Bank):
         co = await bank.timer(gid, uid, "cowin")
         bc = await bank.timer(gid, uid, "bcwin")
         sc = await bank.timer(gid, uid, "scratchcd")
+        crime = ""
+        for k, label in (("stealh", "🚨 House job"), ("stealp", "🤏 Pickpocketing"), ("hidden", "🫣 Chips hidden until")):
+            t = await bank.timer(gid, uid, k)
+            if t:
+                crime += f"{label}: {ts(t[0])}\n"
         await send(
             f"⏰ **{message.author.display_name}'s Casa de Soon timers**\n"
             f"💵 Claim: {ts(claim[0]) if claim else '**ready!** Type `claim`'}\n"
             f"🎟️ Free scratch: {ts(sc[0]) if sc else '**ready!** Type `scratch`'}\n"
             f"🧾 Cash out: {f'{co[1]}/{CASHOUT_LIMIT} tacos used, resets {ts(co[0])}' if co else f'{CASHOUT_LIMIT} tacos available'}\n"
             f"💳 Chip loans: {f'{bc[1]}/{LOAN_LIMIT} tacos used, resets {ts(bc[0])}' if bc else f'{LOAN_LIMIT} tacos available'}\n"
+            f"🦹 Heists: type `heist` for the heist board\n{crime}"
             f"-# Chips: {w.chips} {C} • Tacos: {w.tacobal} 🌮 • "
             f"{random.choice(['Tick tock.', 'Patience is a virtue. You have neither.'])}")
 
