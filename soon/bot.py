@@ -156,6 +156,7 @@ def is_foxy(user) -> bool:
 async def recent_chat(channel, before) -> tuple[list[str], bool]:
     """Last 30 messages, plus whether Kor has chatted in the last 15 minutes."""
     lines, kor_here = [], False
+    seen = {}
     newer = before.created_at if getattr(before, "created_at", None) else None
     async for m in channel.history(limit=30, before=before):
         if newer and (newer - m.created_at).total_seconds() > 1200:   # mark pauses so old chatter reads as old
@@ -163,6 +164,8 @@ async def recent_chat(channel, before) -> tuple[list[str], bool]:
         newer = m.created_at
         if is_kor(m.author) and (discord.utils.utcnow() - m.created_at).total_seconds() < 900:
             kor_here = True
+        if not m.author.bot:
+            seen.setdefault(m.author.id, m.author)
         if m.author == client.user:
             who = "Soon (you)"
         elif is_old_soon(m.author):
@@ -174,7 +177,37 @@ async def recent_chat(channel, before) -> tuple[list[str], bool]:
         text = m.clean_content.replace("\n", " ")[:300]
         if text:
             lines.append(f"{who}: {text}")
+    _participants[getattr(channel, "id", 0)] = list(seen.values())
     return list(reversed(lines)), kor_here
+
+
+_participants: dict[int, list] = {}   # channel id -> people in the recent chat (for turning names into @mentions)
+PING = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
+
+
+def ping_names(text: str, people, case_sensitive: bool = False) -> str:
+    """Turn the first time she names someone into a real @mention (nicknames, usernames, plus "Kor" and "Foxy")."""
+    flags = 0 if case_sensitive else re.IGNORECASE
+    done = set()
+    for person in people:
+        if person is None or person.bot or person.id in done or person == client.user:
+            continue
+        names = {getattr(person, "display_name", ""), getattr(person, "global_name", "") or "", person.name}
+        if is_kor(person):
+            names.add("Kor")
+        if is_foxy(person):
+            names.add("Foxy")
+        for name in sorted((n for n in names if n and len(n) >= 3), key=len, reverse=True):
+            if f"<@{person.id}>" in text or f"<@!{person.id}>" in text:
+                break
+            pat = re.compile(rf"(?<![\w@#-]){re.escape(name)}(?![\w-])", flags)
+            # a plain-word name ("Rain") only counts when written like a name, so "make it rain" stays a ping-free joke
+            hit = next((m for m in pat.finditer(text) if m.group()[0].isupper() or not name.isalpha()), None)
+            if hit:
+                text = text[:hit.start()] + person.mention + text[hit.end():]
+                done.add(person.id)
+                break
+    return text
 
 
 def talking_to_soon(message: discord.Message) -> bool:
@@ -617,7 +650,7 @@ async def hall_of_shame(msg: discord.Message, why: str):
         await msg.reply(line or random.choice([
             "📸 Framed. Hall of Shame. Forever.", "🏛️ That one's going on the wall.",
             "🤡 Hall of Shame. No appeals. The judge is me.", "📸 Got it. Your family will be notified."]),
-            mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+            mention_author=True, allowed_mentions=PING)
     except discord.HTTPException:
         pass
 
@@ -782,10 +815,14 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = (reply or "Nope. Not that. Not here.") + "\n" + footer
     if reply:
         _last_chat_with[(message.channel.id, message.author.id)] = time.time()
+        people = [message.author] + list(message.mentions) + _participants.get(message.channel.id, [])
+        reply = ping_names(reply, people)
         if butt_in and not out.get("line_crossed"):
-            await message.channel.send(reply)
+            if f"<@{message.author.id}>" not in reply:
+                reply = f"{message.author.mention} {reply}"
+            await message.channel.send(reply, allowed_mentions=PING)
         else:
-            await message.reply(reply)
+            await message.reply(reply, allowed_mentions=PING)
 
 
 @client.event
@@ -1132,7 +1169,8 @@ async def weekly_jobs(guild: discord.Guild, now, today: str, gk: str):
                 "(flustered justification). Only give awards to people who actually appear in the events. No @ mentions.",
                 max_tokens=600)
             if text:
-                await ch.send(text, allowed_mentions=discord.AllowedMentions.none())
+                text = ping_names(text, [m for m in guild.members if not m.bot], case_sensitive=True)
+                await ch.send(text, allowed_mentions=PING)
                 extras.log_event("hosted the weekly Soon Awards")
     if now.weekday() == 0 and now.hour >= 9 and await memory.get_kv(f"modreport:{gk}") != today:
         await memory.set_kv(f"modreport:{gk}", today)
