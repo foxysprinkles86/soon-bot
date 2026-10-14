@@ -253,7 +253,10 @@ async def request(message, bank: Bank, gif: bool = False, reply=None):
     await bank.set_house(gid, f"tacoday:{casino_day()}", day)
     footer = f"\n-# {rank} • Taco request #{n} • Status: Coming Soon™"
     order = ORDER_RE.search(message.content or "")
-    if random.randrange(500) == 0:
+    if random.randrange(1000) == 0:                                # Classic's glitch egg (fake delivery)
+        from . import eggs
+        await eggs.glitch(message, bank)
+    elif random.randrange(500) == 0:
         await deliver(message, bank, n)
     else:
         if order:

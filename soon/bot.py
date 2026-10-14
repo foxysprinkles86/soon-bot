@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1138,6 +1138,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = fallback                                             # AI busy/broke: the canned van line
     if tone == "rude" and reply:
         reply += await tacovan.surprise_audit(message, bank)        # a mod's scheduled "van audit surprise"
+    if reply and not butt_in and not special:
+        reply += await eggs.tone_egg(message, bank, tone)           # eggs 5/6: nice / mean to Soon
     if out.get("line_crossed") and isinstance(message.author, discord.Member):
         footer = await extras.add_strike(memory, message.author, "hard line crossed in chat", message)
         reply = (reply or "Nope. Not that. Not here.") + "\n" + footer
@@ -1165,7 +1167,7 @@ async def on_ready():
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, tacovan.handle, bar.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton)
     if not heist_clock.is_running():
         heist_clock.start()
@@ -1254,7 +1256,7 @@ async def on_message(message: discord.Message):
     if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
             or await heists.handle(message, bank, mod) or await duels.handle(message, bank, mod) or await tips.handle(message, bank, mod)
             or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
-            or await menus.handle(message, bank, mod)):
+            or await menus.handle(message, bank, mod) or await boards.handle(message, bank, mod)):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
@@ -1264,7 +1266,7 @@ async def on_message(message: discord.Message):
         if not rate_ok(message.author.id):
             return False
         return await ai_reply(message, special=special, footer=footer, fallback=fallback)
-    if await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
+    if await eggs.handle(message, bank, mod, reply=taco_reply) or await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
         return
     if NICE_RE.search(message.content) and (talking_to_soon(message) or maybe_for_soon(message)):
         key = f"niceask:{message.guild.id}:{message.author.id}"
