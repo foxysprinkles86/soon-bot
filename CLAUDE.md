@@ -77,6 +77,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - **VikingSprinkles** = Foxy's husband. **Pooty** = Lord of the Outback → the Platypus.
 - Hates being called "Soon 2.0"; hates "Soon Classic" (rivalry; replies after a 2–4s pause). **Takeover storyline** in progress → finale `soon takeover complete` on launch day.
 - Soon's nosy "what city or time zone are you in?" question stays (Shannon tried time-zone-only, then kept the city: the clan found her insistence funny).
+- **Meltdowns** (Shannon's call): when 2+ different people are rude TO her within 10 min (AI tone rude + at_you), she escalates: level 1 light tantrum (2 people, 2+ hits) → level 2 full tantrum (3 people, or 4+ hits) → level 3 EPIC meltdown (glitching, ALL CAPS, "rebooting"; 3 people & 6 hits or 4 people & 5 hits), then resets. One person alone never triggers it. `meltdown_level()` in bot.py.
 - Hard lines: no slurs/protected-trait attacks/real trauma → warning, then 10m / 1h / 24h timeouts, logged to the mod channel. All members are adults (30s–50s); swearing OK, don't overdo f-bombs.
 - No invented facts/dates/tallies; lore is seasoning, don't repeat bits; argue back; answer real questions.
 

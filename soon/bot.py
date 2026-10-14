@@ -970,6 +970,34 @@ async def relevant_facts(message: discord.Message, p) -> list[str]:
     return facts
 
 
+# ---------- meltdowns: several people being rude to her at once (Shannon's call) ----------
+
+GANG_WINDOW = 600                                     # 10 minutes
+_rude_at_her: dict[int, list] = defaultdict(list)     # channel -> [(time, user_id)] rude-to-Soon messages
+MELTDOWN = {
+    1: ("MELTDOWN LEVEL 1 (light tantrum): several people are ganging up on you. Get huffy and pouty: wounded pride, "
+        "a dramatic sigh, threaten to stop serving them margaritas. Still mostly composed."),
+    2: ("MELTDOWN LEVEL 2 (full tantrum): the pile-on keeps going. Lose your cool: some ALL CAPS, name the people "
+        "ganging up on you, list your grievances, threaten to lock the van and take the tacos (that don't exist) with you."),
+    3: ("MELTDOWN LEVEL 3 (EPIC MELTDOWN): total robot breakdown. Glitching mid-sentence (s-s-sparks, ERROR, system "
+        "messages), sobbing, mostly ALL CAPS, dramatic accusations at everyone involved, announce you're rebooting or "
+        "running away in the van. Over the top and funny, never actually hurtful."),
+}
+
+
+def meltdown_level(channel_id: int) -> int:
+    """How ganged-up-on Soon feels: 2+ different people being rude to her within 10 minutes."""
+    now = time.time()
+    ev = [e for e in _rude_at_her[channel_id] if now - e[0] < GANG_WINDOW]
+    _rude_at_her[channel_id] = ev
+    people, hits = len({u for _, u in ev}), len(ev)
+    if people >= 3 and hits >= 6 or people >= 4 and hits >= 5:
+        return 3
+    if people >= 3 or people >= 2 and hits >= 4:
+        return 2
+    return 1 if people >= 2 and hits >= 2 else 0
+
+
 DUTCH = set("de het een van ik jij jou jouw mij mijn niet wel maar dan dit dat wat ook nog eens zijn ben bent heb hebt "
             "kun kunt moet wil met voor naar uit aan toch nee graag dank bedankt alsjeblieft goed vertalen probeer maak "
             "hoe waarom wie waar wanneer zo heel leuk jullie ons onze geen iets niks echt even weer doe".split())
@@ -1030,6 +1058,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             "Kor's around: be openly mean to her to look cool." if kor_here else
             "Kor's not around: suck up a little (still sarcastic).")))
     length_weights = None
+    melt = 0 if butt_in else meltdown_level(message.channel.id)
     if is_kor(message.author):
         length_weights = [45, 42, 13]   # he gets a bit more of her
         moves = [m for m in KOR_MOVES if not (took_over_lately and "takeover" in m)]
@@ -1083,6 +1112,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
     if special:
         specials.append((-1, "special", special))
+    if melt:
+        specials.append((0.1, "meltdown", MELTDOWN[melt]))
+        length_weights = [[60, 35, 5], [10, 55, 35], [0, 10, 90]][melt - 1]    # bigger tantrum = longer rant
     specials.sort(key=lambda x: x[0])
     chosen = specials[:2]
     tags = {t for _, t, _ in chosen}
@@ -1151,6 +1183,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = fallback                                             # AI busy/broke: the canned van line
     if tone == "rude" and reply:
         reply += await tacovan.surprise_audit(message, bank)        # a mod's scheduled "van audit surprise"
+    if tone == "rude" and out.get("at_you"):
+        _rude_at_her[message.channel.id].append((time.time(), message.author.id))
+    if melt == 3 and reply:
+        _rude_at_her[message.channel.id].clear()              # she "reboots": the next pile-on starts small again
     if reply and not butt_in and not special and out.get("at_you"):
         reply += await talk.mouth(message, bank, tone, True)         # Classic's disrespect tax / kindness log
         reply += await eggs.tone_egg(message, bank, tone)           # eggs 5/6: nice / mean to Soon
