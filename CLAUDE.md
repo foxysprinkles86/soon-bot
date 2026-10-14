@@ -5,7 +5,7 @@ Read this first in every new conversation. It replaces the long history of the o
 ## Who and what
 - Owner: **Shannon ("Foxy", Discord: FoxySprinkles)**, leader of the **TnT ("We Have Tacos") clan** for the mobile game **Mob Control**. Not a programmer: explain in plain words, give exact click-by-click steps, never assume she knows dev jargon.
 - **Soon™** is the clan's Discord taco-van mascot. Two versions exist:
-  - **Soon Classic** = the old **YAGPDB custom-command bot** (39 commands: taco van, bar, easter eggs, casino, heists, duels, crimes, Kraken, race reminders, zones). Its code + a full feature checklist live in Google Drive: *Case de Soon → Classic Soon* (folder `1XdE3-_aXa3_4ZkmNqsF7hfKoUHmSHbdK`; checklist sheet `1PX-iuF2foeZvVsDV2rsovxzgPApRTrlAiSh_ZO13BUE`; code folder `18bdXmo69Grc-kJzERAWUZuq6sYVIneom`). Missing from my files: #4 and #31 (Soon Says) — Shannon will upload.
+  - **Soon Classic** = the old **YAGPDB custom-command bot** (39 commands: taco van, bar, easter eggs, casino, heists, duels, crimes, Kraken, race reminders, zones). Its code + a full feature checklist live in Google Drive: *Case de Soon → Classic Soon* (folder `1XdE3-_aXa3_4ZkmNqsF7hfKoUHmSHbdK`; checklist sheet `1PX-iuF2foeZvVsDV2rsovxzgPApRTrlAiSh_ZO13BUE`; code folder `18bdXmo69Grc-kJzERAWUZuq6sYVIneom`). Soon Says is uploaded as "#32 Soon Says.txt"; there is no #4 (deleted and replaced).
   - **Soon 2.0** = THIS repo: a self-hosted **Python discord.py** bot with an AI brain. Goal: take over everything Soon Classic does, then retire it.
 - Command guide sheet ("Soon Command Guide", YAGPDB Setup tab): `1ZrGqFEhFJT3Iu1s8IkGpsv9Jfec8YZCD7LKkQzcS__k`.
 
