@@ -917,6 +917,31 @@ async def relevant_facts(message: discord.Message, p) -> list[str]:
     return facts
 
 
+DUTCH = set("de het een van ik jij jou jouw mij mijn niet wel maar dan dit dat wat ook nog eens zijn ben bent heb hebt "
+            "kun kunt moet wil met voor naar uit aan toch nee graag dank bedankt alsjeblieft goed vertalen probeer maak "
+            "hoe waarom wie waar wanneer zo heel leuk jullie ons onze geen iets niks echt even weer doe".split())
+
+
+def is_dutch(text: str) -> bool:
+    words = re.findall(r"[a-zà-ÿ']+", text.lower())
+    hits = sum(w in DUTCH for w in words)
+    return len(words) >= 2 and hits >= 2 and hits / len(words) >= 0.4
+
+
+def just_her_name(text: str) -> bool:
+    """"Soon" / "@Soon" / "hey soon?" on its own: they want her to look at what they said before."""
+    t = re.sub(r"<@[!&]?\d+>", "soon", text.lower())
+    return bool(re.fullmatch(r"\W*(?:hey |yo |oi |ok |hello )?soon\W*", t))
+
+
+async def answering_what(message: discord.Message) -> str:
+    """Their own message before this one (last 10 in the channel), for when they just say her name."""
+    async for m in message.channel.history(limit=10, before=message):
+        if m.author.id == message.author.id and m.content.strip():
+            return m.content.strip()[:300]
+    return ""
+
+
 async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool = False,
                    special: str = "", footer: str = "", fallback: str = "") -> bool:
     """special: a top-priority instruction (taco requests). footer: stats line added under her reply.
@@ -924,10 +949,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     gid, uid = message.guild.id, message.author.id
     p = await memory.get_player(gid, uid)
     chat, kor_here = await recent_chat(message.channel, message)
-    mine = [l[len("Soon (you): "):] for l in chat if l.startswith("Soon (you): ")][-5:]
+    mine = [l[len("Soon (you): "):] for l in chat if l.startswith("Soon (you): ")][-8:]
     if is_kor(message.author):
         kor_here = True
-    took_over_lately = any("takeover" in l.lower() or "take over" in l.lower() for l in mine)   # don't repeat the bit
+    took_over_lately = any("takeover" in l.lower() or "take over" in l.lower() for l in mine[-5:])   # don't repeat the bit
     # Special instructions for this reply. Many can apply; only the 2 most important are sent (less is more).
     specials: list[tuple[int, str, str]] = []      # (priority: lower wins, tag, text)
     if is_foxy(message.author):
@@ -958,6 +983,17 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((2, "panda-cite", "Panda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)))
     if not is_kor(message.author) and (any(is_kor(m) for m in message.mentions) or re.search(r"(?i)\bkor\b", message.content)):
         specials.append((2, "jealous", "Kor came up: if they're flirting with or gushing over him, get jealous. Otherwise ignore this."))
+    target = message.content
+    if just_her_name(message.content):
+        before = await answering_what(message)
+        if before:
+            target = before
+            specials.append((0.3, "pinged", f"They just said your name to get your attention. Answer THEIR PREVIOUS "
+                                            f"message instead: \"{before}\""))
+    if is_dutch(target):
+        specials.append((0.4, "dutch", "That message is in Dutch. You read Dutch perfectly: prove it by saying what it "
+                                       "means or answering it directly (you can throw in one simple Dutch phrase). "
+                                       "Never act like you can't read it, never mock it, never just repeat it."))
     if NICE_RE.search(message.content):
         specials.append((0.5, "be-nice", "They told you to be nice. They probably mean to someone in the chat you were just "
                                          "mean to (not themselves). Do it, grudgingly, toward that person."))
@@ -989,7 +1025,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if nick_line:
         lines.append(nick_line)
     if mine:
-        lines.append("YOUR LAST LINES (find a fresh angle): " + " | ".join(m[:120] for m in mine[-3:]))
+        lines.append("YOUR LAST LINES (never reuse a joke, phrase or comparison from these; find a fresh angle): "
+                     + " | ".join(m[:120] for m in mine))
     ref = message.reference.resolved if message.reference else None
     if isinstance(ref, discord.Message) and ref.clean_content:
         who = "you (Soon)" if ref.author == client.user else ref.author.display_name
