@@ -23,6 +23,9 @@ ALLOWED_CHANNELS = [c.strip().lower() for c in os.environ.get("ALLOWED_CHANNELS"
 # Where casino words (claim, chips, cash out...) work. Soon must also be allowed to talk there (ALLOWED_CHANNELS).
 CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", "casa,soon-lab").split(",") if c.strip()]
 
+# Test channels: casino wins there carry a "testing, chips reset later" note (remove the channel after cutover).
+TEST_CHANNELS = [c.strip().lower() for c in os.environ.get("TEST_CHANNELS", "soon-lab").split(",") if c.strip()]
+
 # Monthly AI budget in US dollars. When it runs out, Soon falls back to her written lines.
 AI_MONTHLY_CAP_USD = _float("AI_MONTHLY_CAP_USD", 10.0)
 

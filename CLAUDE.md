@@ -26,7 +26,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - Python 3.12, discord.py 2.5.2, asyncpg, httpx, tzdata. Time zone America/Chicago.
 - Talks only in channels matching `ALLOWED_CHANNELS` (currently `soon-lab,trash-talk`; casino channels contain "casa").
 - Casino words (claim, chips, cash out…) only work in `CASINO_CHANNELS` (default `casa,soon-lab`) and also need ALLOWED_CHANNELS.
-- **#soon-lab is the test channel**: Shannon adds testers there (no separate beta channel). Test chips there get wiped by `soon import` on cutover night.
+- **#soon-lab is the test channel**: Shannon adds testers there (no separate beta channel). Test chips there get wiped by `soon import` on cutover night. Every casino WIN there (games, wheel, scratch, heist success) carries a "🧪 Casino testing… reset when testing is complete" footer (`test_note()`, setting `TEST_CHANNELS`, default `soon-lab`).
 
 ## Code map (`soon/`)
 - `config.py` — env settings. `db.py` — Postgres `players` (mood, heat_lock, pester, notes, ign, chats, strikes, tz, hours, birthday), `ai_usage`, `kv` store; in-memory fallback.
@@ -42,7 +42,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - `casino.py` — typed casino commands (cashier so far: claim, chips, cash out, buy chips/loan, timers, cashier, casino board; mod give/take chips) + `soon import` / `soon import confirm` (reads Classic's `SX` export lines, checks totals, replaces all balances). `soon bank` = totals.
 - `games.py` — slots (progressive jackpot), taco toss (+side), roulette, blackjack (hand saved in kv `bj:<gid>:<uid>`, 10 min), scratch-offs, Wheel of Fortaco (1 in 40 plays; mods `spin wheel @name`), Soon's "on break" gag. Same odds/prices/lines as Classic.
 - `heists.py` — Vault + Grand heists (same numbers/lines as Classic), join, alerts list, 5-min warning, getaway. Saved in kv `heist:<gid>`; `heist_clock` in bot.py ticks every 10s so restarts are safe. Heist start + 5-min warning ping **@here** (Shannon's call, like Classic) plus the alerts list; Soon needs the "Mention @everyone, @here" permission in the casino channels. Sets kv `lastbust` for Kor's revenge; reads server timer `honk` for Kor's honk bonus.
-- `buttons.py` — persistent buttons (`PlayButton`, custom_id `soon:p:<command>`): a press just "types" that command for the presser (own chips). On: spin again, flip again, same bet, hit/stand/double, deal again, buy another scratch, join/start heist.
+- `buttons.py` — persistent buttons (`PlayButton`, custom_id `soon:p:<command>`): a press just "types" that command for the presser (own chips). On: spin again, flip again, same bet, hit/stand/double, deal again, buy another scratch, join/start heist, 🔔 heist alerts on/off (toggle).
 - **Ignore**: `soon ignore me` / `soon talk to me` (kv `ignored`): no AI replies, butt-ins, reactions, notes, pings, pestering for them. Commands + casino still work. (`soon stop pestering me` / `soon pester me` only toggle her daily tags.)
 - `classic/export.txt` — YAGPDB custom command (`classic export`, mods) that prints Classic's balances for the import. Read-only.
 - `duel.py` — quick-draw button duel. `bot.py` — commands, AI replies, rivalry with Soon Classic, daily loop (Panda tag, regular summon, diary 11:30 PM, life events, Sunday awards, Monday mod report, event reminders).

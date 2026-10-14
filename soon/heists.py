@@ -11,7 +11,7 @@ import time
 import discord
 
 from . import buttons
-from .casino import C, DANCE, casino_channel, pic
+from .casino import C, DANCE, casino_channel, pic, test_note
 from .economy import Bank
 
 ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
@@ -51,8 +51,15 @@ async def save(bank: Bank, gid: int, h: dict | None):
     await bank.m.set_kv(f"heist:{gid}", json.dumps(h) if h else "")
 
 
+ALERTS_BTN = ("heist alerts toggle", "Heist alerts on/off", "🔔", discord.ButtonStyle.secondary)
+
+
 def join_view(ty: str) -> discord.ui.View:
-    return buttons.view(("join", "Join the heist", "🦹", discord.ButtonStyle.success))
+    return buttons.view(("join", "Join the heist", "🦹", discord.ButtonStyle.success), ALERTS_BTN)
+
+
+def alerts_view() -> discord.ui.View:
+    return buttons.view(ALERTS_BTN)
 
 
 async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
@@ -78,7 +85,8 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
 async def alerts(message, bank: Bank):
     gid, me, u = message.guild.id, str(message.author.id), message.author.mention
     subs = await bank.get_house(gid, "heistsubs", [])
-    if re.search(r"(?i)\boff\b|\bstop\b|\bno\b|unsub", message.content):
+    toggle_off = "toggle" in message.content.lower() and me in subs     # the button flips it
+    if toggle_off or re.search(r"(?i)\boff\b|\bstop\b|\bno\b|unsub", message.content):
         await bank.set_house(gid, "heistsubs", [s for s in subs if s != me])
         await message.channel.send(f"🔔 {u} Heist alerts **off**. You'll miss everything.")
     elif me in subs:
@@ -191,7 +199,7 @@ async def board(message, bank: Bank):
                     btns.append((word, f"Start {p['n']}", "🏦" if ty == "v" else "💰", discord.ButtonStyle.primary))
     subs = await bank.get_house(gid, "heistsubs", [])
     lines.append(f"🔔 `heist alerts on`: get tagged when any heist starts ({len(subs)} on the list)")
-    await message.channel.send("\n".join(lines), view=buttons.view(*btns) if btns else None)
+    await message.channel.send("\n".join(lines), view=buttons.view(*btns, ALERTS_BTN))
 
 
 # ---------- the clock: warnings and getaways (runs every few seconds from bot.py) ----------
@@ -255,12 +263,14 @@ async def getaway(ch, bank: Bank, gid: int, h: dict):
                            "Tacos. Wall to wall tacos. Kor floors it and the van peels out, dropping tacos the whole way home.",
                            "Clean getaway! Kor waves out the window the whole way. Very subtle. Very professional.",
                            "You robbed MY vault. I'm not mad. I'm writing names down."]) +
-                       f"\n-# Crew: {tags}\n-# The cops are on high alert. Next {p['n']} <t:{nxt}:R>")
+                       f"\n-# Crew: {tags}\n-# The cops are on high alert. Next {p['n']} <t:{nxt}:R>" + test_note(ch),
+                       view=alerts_view())
         await ch.send(embed=pic("heist-win.gif"))
     else:
         await bank.set_house(gid, "lastbust", {"crew": crew, "buy": p["buy"], "until": time.time() + 86400})  # Kor's revenge
         await msg.edit(content=head + "## 🚨 BUSTED! 🚨\n" + random.choice([
             "It was me. I was waiting inside the vault the whole time. Sipping a margarita.",
             "Kor tripped the alarm reaching for a churro.", "Kor stopped for a drive-thru taco during the getaway."]) +
-            f"\nEveryone loses their **{p['buy']} {C}** buy-in.\n-# Crew: {tags}\n-# Lay low. Next {p['n']} <t:{nxt}:R>")
+            f"\nEveryone loses their **{p['buy']} {C}** buy-in.\n-# Crew: {tags}\n-# Lay low. Next {p['n']} <t:{nxt}:R>",
+            view=alerts_view())
         await ch.send(embed=pic("heist-busted.gif"))

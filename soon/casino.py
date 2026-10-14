@@ -34,6 +34,14 @@ def casino_channel(channel) -> bool:
     return any(w in name for w in config.CASINO_CHANNELS)
 
 
+def test_note(channel) -> str:
+    """Footer for wins in the test channel: the chips aren't real yet."""
+    name = (getattr(channel, "name", "") or "").lower()
+    if any(w in name for w in config.TEST_CHANNELS):
+        return "\n-# 🧪 Casino testing: all chips won or lost in #soon-lab reset when testing is complete."
+    return ""
+
+
 def ts(when, style: str = "R") -> str:
     return f"<t:{int(when.timestamp())}:{style}>"
 
