@@ -39,8 +39,9 @@ WELCOME = os.environ.get("WELCOME", "0").strip() in ("1", "true", "on", "yes")
 SCHEDULES = os.environ.get("SCHEDULES", "0").strip() in ("1", "true", "on", "yes")
 CLAN_ROLE_ID = int(os.environ.get("CLAN_ROLE_ID", "1534266078941679736") or 0)
 
-# Casino pictures (animated slot machine, roulette wheel, cards...). Set GRAPHICS=0 in Railway to go back to text.
-GRAPHICS = os.environ.get("GRAPHICS", "1").strip() not in ("0", "false", "off", "no")
+# Casino pictures (animated slot machine, roulette wheel, cards...). OFF until Shannon updates the art (she'll pick
+# GIFs or still pictures, not both). GRAPHICS=1 in Railway turns them back on.
+GRAPHICS = os.environ.get("GRAPHICS", "0").strip() in ("1", "true", "on", "yes")
 
 # Test channels: casino wins there carry a "testing, chips reset later" note (remove the channel after cutover).
 TEST_CHANNELS = [c.strip().lower() for c in os.environ.get("TEST_CHANNELS", "soon-lab").split(",") if c.strip()]

@@ -46,6 +46,23 @@ async def art(fn, *args):
         return None
 
 
+_SANS = {c: chr(0x1D5D4 + i) for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")}
+
+
+def title(text: str) -> str:
+    """Game titles in a bold modern sans (Unicode letters, so it works on every phone): SLOTS → 𝗦𝗟𝗢𝗧𝗦."""
+    return "".join(_SANS.get(c, c) for c in text.upper())
+
+
+def reels(*syms) -> str:
+    return "  ┃  ".join(syms)
+
+
+def cards(hand) -> str:
+    """Cards as little boxed tiles: `9♦` `Q♠`."""
+    return " ".join(f"`{c}`" for c in hand)
+
+
 def pic_file(data: bytes, name: str) -> discord.File:
     return discord.File(io.BytesIO(data), filename=name)
 
@@ -238,12 +255,13 @@ async def slots(message: discord.Message, bank: Bank):
         await asyncio.sleep(2.0)
         await reveal(msg, f"🎰 {u}\n{line}{tail}", still, "slots.png", view)
     else:
-        msg = await message.channel.send(f"🎰 {u} pulls the lever...\n# [ 🌀 | 🌀 | 🌀 ]")
-        for frame in (f"[ {a} | 🌀 | 🌀 ]", f"[ {a} | {b} | 🌀 ]"):
+        top = f"🎰 **{title('Slots')}** • {u}"
+        msg = await message.channel.send(f"{top} pulls the lever...\n# {reels('🌀', '🌀', '🌀')}")
+        for frame in (reels(a, "🌀", "🌀"), reels(a, b, "🌀")):
             await asyncio.sleep(1)
-            await msg.edit(content=f"🎰 {u} pulls the lever...\n# {frame}")
+            await msg.edit(content=f"{top} pulls the lever...\n# {frame}")
         await asyncio.sleep(1)
-        await msg.edit(content=f"🎰 {u}\n# [ {a} | {b} | {c} ]\n{line}{tail}", view=view)
+        await msg.edit(content=f"{top}\n# {reels(a, b, c)}\n{line}{tail}", view=view)
     await buttons.replace(f"spin:{message.channel.id}", msg)
     broke = await after_play(message, bank, net)
     if kind == "jackpot":
@@ -332,7 +350,7 @@ async def toss(message: discord.Message, bank: Bank):
             "Kor added `side` to his toss and won big. Kor. KOR. Think about that."])
     again = f"toss {bet} {call}" + (" side" if side else "")
     view = buttons.view((again, f"Flip again ({bet} on {call}{' + side' if side else ''})", "🪙", discord.ButtonStyle.primary))
-    final = (f"{C} {u} bet **{bet}** on **{call}**{sb}\n{res}{side_line}\n-# Chips: {ch} → **{w.chips}** {C}{note}{hint}"
+    final = (f"🪙 **{title('Taco Toss')}** • {u} bet **{bet}** on **{call}**{sb}\n{res}{side_line}\n-# Chips: {ch} → **{w.chips}** {C}{note}{hint}"
              f"{test_note(message.channel) if net > 0 else ''}")
     label = f"{bet} on {call}" + (" + side" if side else "")
     flip_gif = await art(graphics.toss_gif, landed, edge, label)
@@ -344,7 +362,7 @@ async def toss(message: discord.Message, bank: Bank):
         await asyncio.sleep(1.8)
         await reveal(msg, final, still, "toss.png", view)
     else:
-        msg = await message.channel.send(f"{C} {u} bets **{bet}** on **{call}**{sb} and flips...\n# 🌀")
+        msg = await message.channel.send(f"🪙 **{title('Taco Toss')}** • {u} bets **{bet}** on **{call}**{sb} and flips...\n# 🌀")
         await asyncio.sleep(2)
         await msg.edit(content=final, view=view)
     await buttons.replace(f"toss:{message.channel.id}:{uid}", msg)
@@ -429,7 +447,7 @@ async def roulette(message: discord.Message, bank: Bank):
             "That was painful to watch. I loved every second."])
     again = f"roulette {bet} {num if pick == 'number' else pick}"
     view = buttons.view((again, f"Same bet ({bet} on {label})", "🎡", discord.ButtonStyle.primary))
-    final = (f"🎡 {u} bet **{bet}** on **{label}**\n# {dot} {n}\n{res}\n-# Chips: {w.chips} {C}{capped}{dflt}"
+    final = (f"🎡 **{title('Roulette')}** • {u} bet **{bet}** on **{label}**\n# {dot} {n}\n{res}\n-# Chips: {w.chips} {C}{capped}{dflt}"
              f"{test_note(message.channel) if net > 0 else ''}")
     spun = await art(graphics.roulette_gif, n, f"{bet} on {label}")
     if spun:
@@ -441,9 +459,10 @@ async def roulette(message: discord.Message, bank: Bank):
         await asyncio.sleep(3.0)
         await reveal(msg, final, still, "roulette.png", view)
     else:
-        msg = await message.channel.send(f"🎡 {u} bets **{bet}** on **{label}**...\n# 🌀 spinning 🌀")
+        top = f"🎡 **{title('Roulette')}** • {u} bets **{bet}** on **{label}**..."
+        msg = await message.channel.send(f"{top}\n# 🌀 spinning 🌀")
         await asyncio.sleep(1)
-        await msg.edit(content=f"🎡 {u} bets **{bet}** on **{label}**...\n# 🌀 {random.choice(['🔴 7', '⚫ 22', '🔴 14', '⚫ 31'])} 🌀")
+        await msg.edit(content=f"{top}\n# 🌀 {random.choice(['🔴 7', '⚫ 22', '🔴 14', '⚫ 31'])} 🌀")
         await asyncio.sleep(2)
         await msg.edit(content=final, view=view)
     await buttons.replace(f"roulette:{message.channel.id}:{uid}", msg)
@@ -548,9 +567,9 @@ async def blackjack(message: discord.Message, bank: Bank):
     if state == "play":
         await bj_save(bank, gid, uid, h)
         table = await art(graphics.blackjack_png, p, d, pv, None, message.author.display_name, "", True)
-        bjmsg = await send(file=pic_file(table, "blackjack.png") if table else discord.utils.MISSING, content=f"## 🃏 Casa de Soon Blackjack • Bet: {bet} {C}\n"
+        bjmsg = await send(file=pic_file(table, "blackjack.png") if table else discord.utils.MISSING, content=f"## 🃏 {title('Blackjack')} • Bet: {bet} {C}\n"
                    + ("-# Max bet is 50, so I bet 50. You're welcome.\n" if capped else "")
-                   + f"**Your hand:** {' '.join(p)} → **{pv}**\n**Soon the dealer shows:** {d[0]} 🂠\n"
+                   + f"**Your hand:** {cards(p)} → **{pv}**\n**Soon the dealer shows:** {cards(d[:1])} `??`\n"
                    f"-# {u} Type `hit` or `stand`" + (" • `double` to double your bet and take one card" if len(p) == 2 else ""),
                    view=buttons.view(*[("hit", "Hit", "👊", discord.ButtonStyle.primary),
                                        ("stand", "Stand", "✋", discord.ButtonStyle.secondary)]
@@ -603,8 +622,8 @@ async def blackjack(message: discord.Message, bank: Bank):
     table = await art(graphics.blackjack_png, p, d, pv, dv, message.author.display_name, headline, False,
                       (40, 150, 80) if pay > bet else (70, 90, 160) if pay == bet else (110, 80, 120))
     final = await send(file=pic_file(table, "blackjack.png") if table else discord.utils.MISSING,
-                       content=f"🃏 **Casa de Soon Blackjack** • {u} • Bet: {bet} {C}{dbl_line}\n**You:** {' '.join(p)} → **{pv}**\n"
-               f"**Soon:** {' '.join(d)} → **{dv}**\n{res}{win_line}\n-# Chips: {w.chips} {C}"
+                       content=f"🃏 **{title('Blackjack')}** • {u} • Bet: {bet} {C}{dbl_line}\n**You:** {cards(p)} → **{pv}**\n"
+               f"**Soon:** {cards(d)} → **{dv}**\n{res}{win_line}\n-# Chips: {w.chips} {C}"
                f"{test_note(message.channel) if pay > bet else ''}",
                view=buttons.view((f"blackjack {h['b'] // 2 if dbl else h['b']}", "Deal again", "🃏", discord.ButtonStyle.primary)))
     await buttons.replace(f"bjagain:{message.channel.id}:{uid}", final)
@@ -680,12 +699,13 @@ async def scratch(message: discord.Message, bank: Bank):
         await asyncio.sleep(2.3)
         await reveal(msg, f"🎟️ {u}\n{res}{tail}", still, "scratch.png", view)
     else:
-        msg = await send(f"🎟️ {u} scratches {kind}...\n# [ 🟫 | 🟫 | 🟫 ]")
-        for frame in (f"[ {show[0]} | 🟫 | 🟫 ]", f"[ {show[0]} | {show[1]} | 🟫 ]"):
+        top = f"🎟️ **{title('Scratch-off')}** • {u}"
+        msg = await send(f"{top} scratches {kind}...\n# {reels('🟫', '🟫', '🟫')}")
+        for frame in (reels(show[0], "🟫", "🟫"), reels(show[0], show[1], "🟫")):
             await asyncio.sleep(1)
-            await msg.edit(content=f"🎟️ {u} scratches {kind}...\n# {frame}")
+            await msg.edit(content=f"{top} scratches {kind}...\n# {frame}")
         await asyncio.sleep(1)
-        await msg.edit(content=f"🎟️ {u}\n# [ {' | '.join(show)} ]\n{res}{tail}", view=view)
+        await msg.edit(content=f"{top}\n# {reels(*show)}\n{res}{tail}", view=view)
     await buttons.replace(f"scratch:{message.channel.id}", msg)
     if prize:
         await send(embed=pic("scratch.gif"))
@@ -720,7 +740,7 @@ async def wheel(channel, bank: Bank, gid: int, uid: int, forced: bool = False, d
         prize, land = 100, "🌮 +100 MEGA"
     elif r < 70:
         free, land = True, "🎟️ FREE SCRATCH-OFF"
-    head = f"{DANCE} **WHEEL OF FORTACO!** {DANCE}\n{u} I spin the Wheel of Fortaco for you. Against my will.\n# 🎡 ▶ "
+    head = f"{DANCE} **{title('Wheel of Fortaco')}!** {DANCE}\n{u} I spin the Wheel of Fortaco for you. Against my will.\n# 🎡 ▶ "
     member = channel.guild.get_member(uid) if getattr(channel, "guild", None) else None
     who = member.display_name if member else "You"
     land_idx = {5: 0, 10: 2, 20: 3, 40: 5, 100: 7}.get(prize, 6 if free else random.choice((1, 4)))
@@ -732,6 +752,7 @@ async def wheel(channel, bank: Bank, gid: int, uid: int, forced: bool = False, d
         await asyncio.sleep(3.0)
     else:
         still = None
+        await channel.send(embed=pic("wheel-of-fortaco.gif"))       # Classic's wheel GIF (text mode)
         msg = await channel.send(head + random.choice(SEGMENTS))
         for _ in range(4):
             await asyncio.sleep(1)
