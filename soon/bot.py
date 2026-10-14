@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, tips
+from . import buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -970,7 +970,7 @@ async def on_ready():
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle]
     client.add_dynamic_items(buttons.PlayButton)
     if not heist_clock.is_running():
         heist_clock.start()
@@ -1052,7 +1052,8 @@ async def on_message(message: discord.Message):
     mod = is_mod(message.author)
     if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
             or await heists.handle(message, bank, mod) or await duels.handle(message, bank, mod) or await tips.handle(message, bank, mod)
-            or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)):
+            or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
+            or await menus.handle(message, bank, mod)):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
