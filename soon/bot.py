@@ -1180,7 +1180,7 @@ async def on_ready():
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, eggs.handle, tacovan.handle, bar.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton)
     if not heist_clock.is_running():
         heist_clock.start()

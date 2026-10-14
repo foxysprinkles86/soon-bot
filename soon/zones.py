@@ -8,6 +8,7 @@ import re
 
 import discord
 
+from . import buttons
 from .economy import Bank
 from .extras import ZONES
 from .tacovan import taco_channel
@@ -42,6 +43,12 @@ NUDGES = ["Quick question. Where in the world are you? You don't have a zone yet
           "Every zone is accounted for except yours. I'm not mad. I'm just counting."]
 
 
+def zone_buttons():
+    """One tap = typing `zone raccoon` etc. for whoever taps (it changes THEIR zone)."""
+    return buttons.view(("zone raccoon", "Raccoons", "🦝"), ("zone lion", "Lions", "🦁"),
+                        ("zone panda", "Pandas", "🐼"), ("zone platypus", "Platypus", "🦆"))
+
+
 def _role(guild, key: str):
     return next((r for r in guild.roles if key in r.name.lower()), None)
 
@@ -56,7 +63,7 @@ async def handle(message, bank: Bank, mod: bool) -> bool:
     pick = next((k for k, rx in KEYS.items() if re.search(rf"(?i)\b(?:{rx})", rest)), None)
     u = message.author.mention
     if not pick:
-        await message.channel.send(MENU)
+        await message.channel.send(MENU + "\n-# Or tap yours below.", view=zone_buttons())
         return True
     new = _role(message.guild, pick)
     if not new:
@@ -95,4 +102,4 @@ async def nudge(message, bank: Bank):
     await bank.set_timer(gid, uid, "zonenag", 3 * 86400)
     await message.channel.send(f"🌍 {message.author.mention} {random.choice(NUDGES)}\n"
                                "-# Type `zone` to pick yours: 🦝 Raccoons & Capybaras • 🦁 Lions & Unicorns • "
-                               "🐼 Pandas & Peacocks • 🦆 Platypus & Kiwis")
+                               "🐼 Pandas & Peacocks • 🦆 Platypus & Kiwis", view=zone_buttons())
