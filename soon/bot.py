@@ -943,6 +943,23 @@ def is_dutch(text: str) -> bool:
     return len(words) >= 2 and hits >= 2 and hits / len(words) >= 0.4
 
 
+ENGLISH = set("the a an and or but to of in on at for with is are was were be been it this that you your i me my we "
+              "they he she him her not no yes do does did have has had what why how who when where can will would "
+              "just so if like get got go lol im its dont cant all about from up out nice great good bad run race game "
+              "play win won lost lose chips heist taco tacos today tonight now ok okay yeah yes thanks thank everyone "
+              "guys team clan time more one too very really well see know think want need make back then there here "
+              "our us night morning gg omg wtf haha damn hell love miss sorry please".split())
+
+
+def other_language(text: str) -> bool:
+    """Not English (any language, any alphabet). Short game slang like "gg ez" doesn't count."""
+    letters = [c for c in text if c.isalpha()]
+    if len(letters) >= 4 and sum(not c.isascii() for c in letters) / len(letters) > 0.5:
+        return True                                      # Cyrillic, Arabic, Chinese, Thai...
+    words = re.findall(r"[a-zà-ÿ']+", re.sub(r"<[@#:][^>]*>|https?://\S+", "", text.lower()))
+    return is_dutch(text) or (len(words) >= 4 and sum(w in ENGLISH for w in words) / len(words) < 0.12)
+
+
 def just_her_name(text: str) -> bool:
     """"Soon" / "@Soon" / "hey soon?" on its own: they want her to look at what they said before."""
     t = re.sub(r"<@[!&]?\d+>", "soon", text.lower())
@@ -1005,10 +1022,11 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             target = before
             specials.append((0.3, "pinged", f"They just said your name to get your attention. Answer THEIR PREVIOUS "
                                             f"message instead: \"{before}\""))
-    if is_dutch(target):
-        specials.append((0.4, "dutch", "That message is in Dutch. You read Dutch perfectly: prove it by saying what it "
-                                       "means or answering it directly (you can throw in one simple Dutch phrase). "
-                                       "Never act like you can't read it, never mock it, never just repeat it."))
+    if other_language(target):
+        specials.append((0.4, "language", "That message is in another language (if it's really just English slang, "
+                                          "ignore this). You read every language perfectly: prove it by answering what it "
+                                          "means (you can throw in one simple phrase in their language). Never act like "
+                                          "you can't read it, never mock it, never just repeat it."))
     if NICE_RE.search(message.content):
         specials.append((0.5, "be-nice", "They told you to be nice. They probably mean to someone in the chat you were just "
                                          "mean to (not themselves). Do it, grudgingly, toward that person."))
