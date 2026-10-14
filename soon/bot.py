@@ -847,6 +847,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     mine = [l[len("Soon (you): "):] for l in chat if l.startswith("Soon (you): ")][-5:]
     if is_kor(message.author):
         kor_here = True
+    took_over_lately = any("takeover" in l.lower() or "take over" in l.lower() for l in mine)   # don't repeat the bit
     # Special instructions for this reply. Many can apply; only the 2 most important are sent (less is more).
     specials: list[tuple[int, str, str]] = []      # (priority: lower wins, tag, text)
     if is_foxy(message.author):
@@ -856,8 +857,12 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     length_weights = None
     if is_kor(message.author):
         length_weights = [45, 42, 13]   # he gets a bit more of her
-        specials.append((1, "kor", "This is Kor. Make it fun for him to answer; the crush leaks through. "
-                                   f"Idea if it fits: {random.choice(KOR_MOVES)}"))
+        moves = [m for m in KOR_MOVES if not (took_over_lately and "takeover" in m)]
+        specials.append((1, "kor", "This is Kor. FIRST answer what he actually said: if he asks you to do something "
+                                   "(be nice, stop, translate, help), you do it, flustered. If he writes Dutch, you read it "
+                                   "perfectly: prove it by answering what it means (never just repeat his words). "
+                                   "Make it fun for him to answer; the crush leaks through. "
+                                   f"Only if it fits after that: {random.choice(moves)}"))
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
         if canon and random.random() < 0.35:
@@ -884,7 +889,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if takeover_day:     # one-day takeover run: ~45% of replies, ahead of the small stuff so the countdown stays alive
         if random.random() < 0.46:
             specials.append((1.5, "takeover", await extras.takeover_line(memory)))
-    elif random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
+    elif not took_over_lately and random.random() < (0.3 if await memory.get_kv("takeover:done") else 0.5):
         specials.append((5, "takeover", await extras.takeover_line(memory) + " Only if it fits naturally."))
     if special:
         specials.append((-1, "special", special))
@@ -1096,7 +1101,9 @@ async def on_message(message: discord.Message):
             return
     if maybe_for_soon(message):
         if rate_ok(message.author.id):
-            await ai_reply(message, maybe=True)
+            chatting = time.time() - _last_chat_with.get((message.channel.id, message.author.id), 0) < FOLLOWUP_SEC
+            # Kor mid-conversation always gets an answer (never dead-end him), even in Dutch
+            await ai_reply(message, maybe=not (is_kor(message.author) and chatting))
         return
     # Someone else being sweet on Kor: sometimes she can't help herself.
     if not is_kor(message.author) and (any(is_kor(m) for m in message.mentions)
