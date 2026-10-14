@@ -1,7 +1,7 @@
 """Kor-only perks, moved over from Soon Classic. Anyone can view `kor menu`; only Kor (username has "korehaan")
 can use the perks, and only in casino channels.
-floor it (+10% heist odds, once per heist) • honk honk (+15 chips to everyone who joins the heist in the next
-5 minutes) • churro break (every 12h) • it was me (refund the last busted crew 5 each) • kor's revenge (once a day).
+floor it (+10% heist odds, once per heist) • honk honk (+15 chips to everyone in the heist, plus anyone who joins in
+the next 5 minutes) • churro break (every 12h) • it was me (refund the last busted crew 10 each) • kor's revenge (once a day).
 `soon make it rain` is on his menu too. It's listed like any other perk. (It's generous for him. Don't tell.)"""
 import json
 import random
@@ -18,6 +18,7 @@ ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
 MENU_RE = re.compile(r"(?i)^\s*kor'?s?\s+(?:menu|commands|perks)\s*[!?.]*\s*$")
 PERK_RE = re.compile(r"(?i)^\s*(?:floor\s+it|honk(?:\s+honk)*|churro\s+break|it\s+was\s+me|kor'?s\s+revenge)\s*[!.]*\s*$")
 HERE = discord.AllowedMentions(everyone=True, users=True, roles=False)
+APOLOGY = 10     # "it was me": chips Kor pays each busted crew member (Shannon raised it from Classic's 5)
 
 
 def is_kor(user) -> bool:
@@ -59,9 +60,9 @@ async def menu(message):
         "## 🚐 Kor's Driver's Seat\n*VIP perks for one (1) getaway driver. Everyone else: hands off.*\n"
         "**⌨️ Kor: type a gray command in the casino to use it.**\n"
         "💨 `floor it`: **+10% odds** on the heist he's in (once per heist)\n"
-        f"📯 `honk honk`: everyone who joins the heist in the next 5 minutes gets **+15 {C}** (Kor too)\n"
+        f"📯 `honk honk`: everyone in the heist gets **+15 {C}**, plus anyone who joins in the next 5 minutes\n"
         "🥖 `churro break`: raid the churro stash every 12 hours. Don't get caught.\n"
-        f"🙋 `it was me`: confess to the last busted heist. Kor refunds the crew 5 {C} each.\n"
+        f"🙋 `it was me`: confess to the last busted heist. Kor refunds the crew {APOLOGY} {C} each.\n"
         f"😈 `kor's revenge`: once a day, rob Soon herself. 60% chance at **100 {C}**.\n"
         "🌧️ `soon make it rain`: make it rain on everyone who gambled today.\n"
         "-# " + ("Welcome back, driver. The van missed you. I didn't." if is_kor(message.author)
@@ -101,9 +102,10 @@ async def honk(message, bank: Bank):
     await bank.set_timer(gid, 0, "honk", win)
     await bank.set_timer(gid, 0, "honkdone", win + 600)
     bonus = ""
-    if me in h["crew"]:
-        w = await bank.add(gid, me, "honk bonus", chips=15)
-        bonus = f"\n-# Kor's already in the van, so Kor gets +15 {C} too. Chips: {w.chips} {C}"
+    for uid in h["crew"]:                      # everyone already in the van gets the honk bonus too
+        await bank.add(gid, uid, "honk bonus", chips=15)
+    if h["crew"]:
+        bonus = f"\n📯 Already in the van: +15 {C} each to " + " ".join(f"<@{x}>" for x in h["crew"])
     await message.channel.send(
         "@here\n# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
             "It plays La Cucaracha. Badly.", "It sounds like a goose being stepped on.",
@@ -150,14 +152,14 @@ async def it_was_me(message, bank: Bank):
         await message.channel.send(f"🙋 {u} You were the only one in that heist, Kor. You owe yourself an apology. Accepted. Moving on.")
         return
     for c in others:
-        await bank.add(gid, c, "Kor Apology Fund", chips=5)
-    w = await bank.add(gid, me, "it was me (Kor Apology Fund)", chips=-5 * len(others))
+        await bank.add(gid, c, "Kor Apology Fund", chips=APOLOGY)
+    w = await bank.add(gid, me, "it was me (Kor Apology Fund)", chips=-APOLOGY * len(others))
     await message.channel.send(
         f"# 🙋 IT WAS ME. — Kor\n{u} confesses to the last busted heist. " + random.choice([
             "He tripped the alarm. He ate the getaway snacks. He parked in a fire lane.",
             "He honked during the stealth part. Twice.", "He used his real name on the ski mask."]) +
-        f"\n**The Kor Apology Fund pays out:** +5 {C} each to " + " ".join(f"<@{c}>" for c in others) +
-        f"\n-# Kor paid {5 * len(others)} {C} • Kor's chips: {w.chips} {C} • Honesty is expensive.")
+        f"\n**The Kor Apology Fund pays out:** +{APOLOGY} {C} each to " + " ".join(f"<@{c}>" for c in others) +
+        f"\n-# Kor paid {APOLOGY * len(others)} {C} • Kor's chips: {w.chips} {C} • Honesty is expensive.")
 
 
 async def revenge(message, bank: Bank):

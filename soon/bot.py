@@ -12,7 +12,7 @@ from discord.ext import tasks
 import json
 
 from . import buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, tips
-from .duel import record_text, run_duel
+from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
 from .economy import Bank
@@ -180,7 +180,7 @@ _last_panda_fact = defaultdict(float)
 KOR_MOVES = [
     "ask him something about himself (the Netherlands, how he drives the van, his worst race) and pretend it's 'for the files'",
     "accidentally reveal you've been keeping track of something he did, then panic and deny it",
-    "dare him: a duel (`soon duel @you`), a bet, or a race score challenge",
+    "dare him: a duel (`duel @name 20` in the casino), a bet, or a race score challenge",
     "offer him a secret perk nobody else gets (extra chips, the good margarita, front seat of the van), then deny you offered",
     "blame him for something absurd that happened in the van and make him defend himself",
     "get jealous of someone or something he mentioned",
@@ -521,21 +521,8 @@ async def handle_command(message: discord.Message) -> bool:
         return True
 
     if cmd.startswith("duel") or cmd.startswith("quickdraw") or cmd.startswith("quick draw"):
-        targets = [m for m in message.mentions if m != client.user and not m.bot]
-        if not targets:
-            await message.reply("Duel WHO? `soon duel @name`. Bring a target, not vibes.")
-            return True
-        if targets[0].id == uid:
-            await message.reply("You can't duel yourself. Well, you can. You'd lose.")
-            return True
-        if message.channel.id in _duels:
-            await message.reply("One duel at a time. This isn't a western, it's a taco van.")
-            return True
-        _duels.add(message.channel.id)
-        try:
-            await run_duel(message.channel, message.author, targets[0], memory, brain, extras.log_event)
-        finally:
-            _duels.discard(message.channel.id)
+        await message.reply("Duels live in the casino now, with chips and bets: type `duel @name 20` there. "
+                            "Fastest finger on **DRAW!** wins. `soon duel record` shows your record.")
         return True
 
     if cmd in ("panda facts", "panda fact", "pandafacts", "facts about panda"):

@@ -11,14 +11,14 @@ Everything is typed as a plain message in the casino channel (casa-de-soon-casin
 - roulette 20 red (red/black/odd/even) · roulette 5 17 (one number pays 35:1) · default bet is 5
 - blackjack 20, then hit / stand / double · "bet 20 blackjack" also works
 - heist: choose a Vault Heist or Grand Heist (500 chip payouts), others type join · heist alerts on/off
-- duel @name 20: taco-toss duel, they type accept or decline, then 5 minutes for spectators: bet 10 on @name · duel alerts on/off: get tagged when a duel starts
+- duel @name 20: quick-draw duel for chips (fastest tap on DRAW! wins, tapping early = misfire), they type accept or decline, then 5 minutes for spectators: bet 10 on @name; after it, both fighters can press Double or Nothing · duel alerts on/off: get tagged when a duel starts
 - tip @name 10 (max 100) · make it rain 50: splits chips between people who gambled today
 - crimes: secret menu sent by DM (steal chips, steal chips @name, snitch @name, hide chips, bribe soon 30, rob the bartender, pickpocket kor)
 - kor menu: Kor-only perks (floor it, honk honk, churro break, it was me, kor's revenge)
 - zone raccoon / lion / panda / platypus (or a country): pick your world zone role
 - tacos, margaritas, eggs: the taco van classics (taco board, bar board, egg board, taco status)
 YOUR OWN COMMANDS (Soon 2.0): soon heat, soon be nice, soon my name is <in-game name>, soon who is <name>, soon my timezone is <zone>,
-soon my birthday is <month day>, soon grudges, soon favorites, soon mood, soon duel @name / soon quickdraw @name (the Quick-Draw: reflex game, first to tap DRAW wins, bragging rights only), soon duel record, soon stop pestering me / soon pester me,
+soon my birthday is <month day>, soon grudges, soon favorites, soon mood, soon duel record, soon stop pestering me / soon pester me,
 soon roast @name (or soon roast me, 3 a day), soon make it rain (casino: Soon throws a few chips at today's gamblers, once an hour each; she pours for Kor), soon ignore me / soon talk to me (she goes silent for them, casino still works), soon panda facts, soon hall of shame (you alone decide who goes in it), soon events (upcoming race reminders).
 
 HELP DESK RULES
