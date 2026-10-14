@@ -135,6 +135,29 @@ async def save_ignored():
     await memory.set_kv("ignored", json.dumps(sorted(_ignored)))
 
 
+_lab_welcomed: set[int] = set()   # testers who got the #soon-lab welcome (kv "labwelcome")
+
+
+async def lab_welcome(message: discord.Message):
+    """First message from someone in a test channel: tell them what they're testing (once per person, ever)."""
+    name = (message.channel.name or "").lower()
+    if message.author.id in _lab_welcomed or not any(w in name for w in config.TEST_CHANNELS):
+        return
+    _lab_welcomed.add(message.author.id)
+    await memory.set_kv("labwelcome", json.dumps(sorted(_lab_welcomed)))
+    if is_foxy(message.author):
+        return
+    await message.channel.send(
+        f"🧪 **Welcome to the lab, {message.author.mention}.** You're here to test the new me: the Soon that will soon "
+        "be running in every channel, not just this one. Talk to me, roast me, try to break me. I'll remember it.\n"
+        "🎰 The upgraded **Casa de Soon Casino** is open in here for testing: type `claim` for test chips, then try "
+        "`spin`, `toss 10 heads`, `roulette 10 red`, `blackjack 20`, `scratch` or `heist` (or use the buttons).\n"
+        "-# 🧪 All chips won or lost in #soon-lab reset when testing is complete and the Casa de Soon Casino upgrade goes live.",
+        view=buttons.view(("claim", "Claim test chips", "💵", discord.ButtonStyle.success),
+                          ("spin", "Spin", "🎰"), ("heist", "Heists", "🦹")),
+        allowed_mentions=PING)
+
+
 _panda_ids: set[int] = set()   # remembered by account, so a nickname from Soon ("Gerald") doesn't hide him
 
 
@@ -951,6 +974,7 @@ async def on_ready():
     await bank.setup()
     _panda_ids.update(json.loads(await memory.get_kv("panda_ids") or "[]"))
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
+    _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle]
     client.add_dynamic_items(buttons.PlayButton)
@@ -1024,6 +1048,7 @@ async def on_message(message: discord.Message):
         return
     _activity[(message.guild.id, message.author.id)][discord.utils.utcnow().hour] += 1
     await ensure_intro(message.channel)
+    await lab_welcome(message)
     if await handle_command(message):
         return
     mod = is_mod(message.author)

@@ -26,7 +26,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - Python 3.12, discord.py 2.5.2, asyncpg, httpx, tzdata. Time zone America/Chicago.
 - Talks only in channels matching `ALLOWED_CHANNELS` (currently `soon-lab,trash-talk`; casino channels contain "casa").
 - Casino words (claim, chips, cash out…) only work in `CASINO_CHANNELS` (default `casa,soon-lab`) and also need ALLOWED_CHANNELS.
-- **#soon-lab is the test channel**: Shannon adds testers there (no separate beta channel). Test chips there get wiped by `soon import` on cutover night. Every casino WIN there (games, wheel, scratch, heist success) carries a "🧪 Casino testing… reset when testing is complete" footer (`test_note()`, setting `TEST_CHANNELS`, default `soon-lab`).
+- **#soon-lab is the test channel**: Shannon adds testers there (no separate beta channel). Test chips there get wiped by `soon import` on cutover night. Every casino WIN there (games, wheel, scratch, heist success) carries a "🧪 Casino testing… reset when testing is complete" footer (`test_note()`, setting `TEST_CHANNELS`, default `soon-lab`). Each person's first message there gets a one-time welcome (`lab_welcome`, kv `labwelcome`; Foxy skipped) explaining the test, the chip reset, and Claim/Spin/Heists buttons.
 
 ## Code map (`soon/`)
 - `config.py` — env settings. `db.py` — Postgres `players` (mood, heat_lock, pester, notes, ign, chats, strikes, tz, hours, birthday), `ai_usage`, `kv` store; in-memory fallback.
