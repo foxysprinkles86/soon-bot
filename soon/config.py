@@ -23,6 +23,10 @@ ALLOWED_CHANNELS = [c.strip().lower() for c in os.environ.get("ALLOWED_CHANNELS"
 # Where casino words (claim, chips, cash out...) work. Soon must also be allowed to talk there (ALLOWED_CHANNELS).
 CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", "casa,soon-lab").split(",") if c.strip()]
 
+# Where the taco van / bar / eggs answer (Classic still does everywhere else until cutover; then set this to
+# the same list as ALLOWED_CHANNELS).
+TACO_CHANNELS = [c.strip().lower() for c in os.environ.get("TACO_CHANNELS", "soon-lab").split(",") if c.strip()]
+
 # Test channels: casino wins there carry a "testing, chips reset later" note (remove the channel after cutover).
 TEST_CHANNELS = [c.strip().lower() for c in os.environ.get("TEST_CHANNELS", "soon-lab").split(",") if c.strip()]
 

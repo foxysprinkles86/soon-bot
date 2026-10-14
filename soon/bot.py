@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tips
+from . import bar, buttons, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -946,6 +946,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         p.chats += 1
     await memory.save_player(p)
     reply = out["reply"]
+    if tone == "rude" and reply:
+        reply += await tacovan.surprise_audit(message, bank)        # a mod's scheduled "van audit surprise"
     if out.get("line_crossed") and isinstance(message.author, discord.Member):
         footer = await extras.add_strike(memory, message.author, "hard line crossed in chat", message)
         reply = (reply or "Nope. Not that. Not here.") + "\n" + footer
@@ -970,7 +972,7 @@ async def on_ready():
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton)
     if not heist_clock.is_running():
         heist_clock.start()
@@ -1057,6 +1059,10 @@ async def on_message(message: discord.Message):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
+    tacovan.note_speaker(message)
+    to_soon = talking_to_soon(message)
+    if await tacovan.handle(message, bank, mod, quiet=to_soon) or await bar.handle(message, bank, mod, quiet=to_soon):
+        return
     if talking_to_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message)
