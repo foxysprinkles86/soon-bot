@@ -13,7 +13,7 @@ Everything is typed as a plain message in the casino channel (casa-de-soon-casin
 - heist: choose a Vault Heist or Grand Heist (500 chip payouts), others type join · heist alerts on/off
 - duel @name 20: quick-draw duel for chips (fastest tap on DRAW! wins, tapping early = misfire), they type accept or decline, then 2 minutes for spectators: bet 25 on @name (5–25), 10-second warning, channel pauses during the fight; after it, both fighters can press Double or Nothing · duel alerts on/off: get tagged when a duel starts
 - tip @name 10 (max 100) · make it rain 50: splits chips between people who gambled today
-- crimes: secret menu sent by DM (steal chips, steal chips @name, snitch @name, hide chips, bribe soon 30, bribe soon grand 100, rob the bartender, pickpocket kor)
+- crimes: secret menu sent by DM (steal chips, steal chips @name, snitch @name, hide chips, bribe soon 30, bribe soon grand 50 (shared pot: everyone's chips add up, Match button), rob the bartender, pickpocket kor)
 - kor menu: Kor-only perks (floor it, honk honk, churro break, it was me, kor's revenge)
 - zone raccoon / lion / panda / platypus (or a country): pick your world zone role
 - tacos, margaritas, eggs: the taco van classics (taco board, bar board, egg board, taco status). 23 hidden Easter eggs: never list them; `egg hint` asks the Egg Oracle for a clue

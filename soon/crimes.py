@@ -6,6 +6,7 @@ import re
 
 import discord
 
+from . import buttons
 from .casino import C, DANCE, casino_channel, test_note
 from .economy import Bank
 
@@ -60,7 +61,7 @@ async def menu(message):
             f"🫣 `hide chips`: {HIDE_COST} {C}. Nobody can rob you for an hour.\n"
             "🐀 `snitch @name`: rat out a recent thief for a reward. Lie and you pay.\n"
             "💸 `bribe soon 30`: the more you bribe, the more likely I forget your cooldowns.\n"
-            "💰 `bribe soon grand 100`: make me forget the Grand Heist cooldown. For everyone. I'm harder to buy for that.\n"
+            "💰 `bribe soon grand 50`: feed the shared bribe pot. Big enough pot and I forget the Grand Heist cooldown. For everyone.\n"
             f"🍹 `rob the bartender`: a free margarita and 25 {C}. Or a bar ban.\n"
             "🤝 `pickpocket kor`: go ahead. Try it.\n\n-# Rules? There are rules. I just don't tell anyone what they are.")
         sent = True
@@ -247,38 +248,57 @@ GRAND_BRIBE_RE = re.compile(r"(?i)\b(?:grand|heist)\b")
 
 
 async def grand_bribe(message, bank: Bank, n: int):
-    """Shannon's add: bribe Soon to forget the server-wide Grand Heist cooldown. Harder than the normal bribe:
-    every 2 chips = 1% (max 75%). Only charges you if there's a cooldown to forget. Chips are kept either way."""
+    """Shannon's add: a SHARED bribe pot to make Soon forget the server-wide Grand Heist cooldown.
+    Everyone's chips go into one pot; each time someone adds, Soon rolls with the WHOLE pot: every 2 chips = 1%
+    (max 75%). No = the pot stays and keeps growing. Yes = the cooldown is gone for everyone, the crew is named,
+    the pot empties. If the cooldown runs out on its own first, Soon keeps the pot. A "Match" button chips in the
+    first briber's amount. Only charges you while a cooldown is running. Pot in house kv `gbribe`."""
     from .heists import HOUSE, PLANS
     gid, me, u = message.guild.id, message.author.id, message.author.mention
     ck = PLANS["g"]["ck"]
     cd = await bank.timer(gid, HOUSE, ck)
     if not cd:
+        await bank.set_house(gid, "gbribe", None)
         await message.channel.send(f"💰 {u} There's no Grand Heist cooldown to forget. Go rob something. `grand`")
         return
     if n < 2:
         await message.channel.send(f"💰 {u} Making the cops forget a Grand Heist costs real chips. `bribe soon grand 100`. "
-                                   "Every 2 chips buys 1% of my silence.")
+                                   "Every 2 chips in the pot buys 1% of my silence. Your crew can chip in too.")
         return
-    w = await bank.pay(gid, me, n, "bribed Soon (grand heist cooldown)")
+    until = int(cd[0].timestamp())
+    pot = await bank.get_house(gid, "gbribe") or {}
+    if pot.get("until") != until:                      # a new cooldown: Soon kept the old pot
+        pot = {"until": until, "pot": 0, "first": n, "who": {}}
+    w = await bank.pay(gid, me, n, "grand heist bribe pot")
     if w is None:
         have = (await bank.get(gid, me)).chips
         await message.channel.send(f"💰 {u} You're offering {n} {C} and you have {have}. The cops can count. So can I.")
         return
-    odds = min(n // 2, 75)
+    pot["pot"] += n
+    pot["who"][str(me)] = pot["who"].get(str(me), 0) + n
+    odds = min(pot["pot"] // 2, 75)
+    crew = " ".join(f"<@{x}>" for x in pot["who"])
     if random.randrange(100) < odds:
         await bank.clear_timer(gid, HOUSE, ck)
+        await bank.set_house(gid, "gbribe", None)
+        await buttons.retire(f"gbribe:{gid}")
         await message.channel.send(
-            f"💰 {u} slides me **{n} {C}**. I make a phone call. I whisper. I hang up.\n# 🚔 The cops just... left.\n"
-            "The **Grand Heist** is open again. For everyone. " + random.choice([
+            f"💰 {u} slides me **{n} {C}**. That makes **{pot['pot']} {C}** in the pot. I make a phone call. I whisper. "
+            "I hang up.\n# 🚔 The cops just... left.\nThe **Grand Heist** is open again. For everyone. " + random.choice([
                 "Nobody saw anything.", "The donut shop across town had a sudden emergency.", "I have friends in low places."])
-            + f" Type `grand`.\n-# Grand bribe: -{n} {C} ({odds}% odds) • Chips: {w.chips} {C}")
-    else:
-        await message.channel.send(
-            f"💰 {u} slides me **{n} {C}**. I count it twice. I look at the cops. The cops look at me.\n# 🙅 Not today.\n"
-            + random.choice(["The cops want more than that. So do I.", "I'm keeping it. Consider it a consulting fee.",
-                             "That's not silence money. That's a tip."])
-            + f" Cooldown still ends <t:{int(cd[0].timestamp())}:R>.\n-# Grand bribe: -{n} {C} ({odds}% odds) • Chips: {w.chips} {C}")
+            + f" Type `grand`.\n🦹 **The bribe crew:** {crew}\n-# Pot: {pot['pot']} {C} ({odds}% odds) • Your chips: {w.chips} {C}")
+        return
+    await bank.set_house(gid, "gbribe", pot)
+    match = pot["first"]
+    msg = await message.channel.send(
+        f"💰 {u} slides **{n} {C}** into the bribe pot. I count it twice. I look at the cops. The cops look at me.\n"
+        f"# 🙅 Not yet.\n" + random.choice(["The cops want more. So do I.", "Getting warmer. Keep feeding the pot.",
+                                            "That's not silence money yet. That's a tip."])
+        + f"\n💰 **Bribe pot: {pot['pot']} {C}** • next try rolls at **{min((pot['pot'] + match) // 2, 75)}%** if someone "
+        f"matches {match}\n🦹 Chipped in: {crew}\n-# Every 2 chips in the pot = 1% (max 75%). If the cooldown ends first "
+        f"(<t:{until}:R>), I keep the pot. • Your chips: {w.chips} {C}",
+        view=buttons.view((f"bribe soon grand {match}", f"Match {match}", "💰", discord.ButtonStyle.success)))
+    await buttons.replace(f"gbribe:{gid}", msg)
 
 
 async def bribe(message, bank: Bank):
