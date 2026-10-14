@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import casino, config, extras, features, games
+from . import buttons, casino, config, extras, features, games, heists
 from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -124,6 +124,17 @@ def human_age(when, until=None) -> str:
     return f"{int(secs // 86400)} days"
 
 
+_ignored: set[int] = set()     # players who asked Soon to ignore them (kv "ignored")
+
+
+def ignored(user) -> bool:
+    return getattr(user, "id", None) in _ignored
+
+
+async def save_ignored():
+    await memory.set_kv("ignored", json.dumps(sorted(_ignored)))
+
+
 _panda_ids: set[int] = set()   # remembered by account, so a nickname from Soon ("Gerald") doesn't hide him
 
 
@@ -199,7 +210,7 @@ def ping_names(text: str, people, case_sensitive: bool = False) -> str:
     flags = 0 if case_sensitive else re.IGNORECASE
     done = set()
     for person in people:
-        if person is None or person.bot or person.id in done or person == client.user:
+        if person is None or person.bot or person.id in done or person == client.user or ignored(person):
             continue
         names = {getattr(person, "display_name", ""), getattr(person, "global_name", "") or "", person.name}
         if is_kor(person):
@@ -268,6 +279,28 @@ async def handle_command(message: discord.Message) -> bool:
             await message.reply(
                 f"You're at **{p.heat}**{' (locked)' if p.heat_lock else ''}. "
                 "Options: `soon heat sweet` · `mild` · `spicy` · `savage` · `unhinged` · `auto`")
+        return True
+
+    if re.fullmatch(r"(?:please )?(?:ignore me|stop talking to me|mute me|block me)(?: please)?[.!]*", cmd):
+        _ignored.add(uid)
+        await save_ignored()
+        p = await memory.get_player(gid, uid)
+        p.pester = False
+        await memory.save_player(p)
+        extras.log_event(f"{message.author.display_name} asked me to ignore them")
+        await message.reply("Fine. You're invisible to me now. No replies, no tags, no notes. The casino still takes your "
+                            "money though. Type `soon talk to me` when you miss me. You will.")
+        return True
+    if re.fullmatch(r"(?:please )?(?:talk to me|unignore me|stop ignoring me|unmute me|unblock me|i missed you)(?: please)?[.!]*", cmd):
+        if uid in _ignored:
+            _ignored.discard(uid)
+            await save_ignored()
+            p = await memory.get_player(gid, uid)
+            p.pester = True
+            await memory.save_player(p)
+            await message.reply("Oh, NOW you want my attention. Fine. I'm back. Try to keep up.")
+        else:
+            await message.reply("I never stopped talking to you. That's kind of the problem.")
         return True
 
     if cmd in ("leave me alone", "stop bothering me", "bother me", "pester me"):
@@ -598,6 +631,8 @@ async def eavesdrop(message: discord.Message):
     by_name = {}
     lines, msgs = [], []
     for m in buf:
+        if ignored(m.author):
+            continue
         text = m.clean_content.replace("\n", " ")[:300]
         if text:
             by_name[m.author.display_name] = m.author
@@ -915,9 +950,24 @@ async def on_ready():
     await memory.connect()
     await bank.setup()
     _panda_ids.update(json.loads(await memory.get_kv("panda_ids") or "[]"))
+    _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
+    buttons.BANK = bank
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle]
+    client.add_dynamic_items(buttons.PlayButton)
+    if not heist_clock.is_running():
+        heist_clock.start()
     if not daily.is_running():
         daily.start()
     print(f"Soon 2.0 online as {client.user} in {len(client.guilds)} server(s). Talking in: {config.ALLOWED_CHANNELS}")
+
+
+@tasks.loop(seconds=10)
+async def heist_clock():
+    """Heist warnings and getaways. Reads the saved heist each time, so a restart mid-heist is fine."""
+    try:
+        await heists.tick(client, bank)
+    except Exception as e:
+        print(f"Heist clock error: {e!r}")
 
 
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
@@ -976,8 +1026,12 @@ async def on_message(message: discord.Message):
     await ensure_intro(message.channel)
     if await handle_command(message):
         return
-    if await casino.handle(message, bank, is_mod(message.author)) or await games.handle(message, bank, is_mod(message.author)):
+    mod = is_mod(message.author)
+    if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
+            or await heists.handle(message, bank, mod)):
         return
+    if ignored(message.author):
+        return          # they asked her to ignore them: commands and casino still work, nothing else
     if talking_to_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message)
@@ -1019,7 +1073,7 @@ async def on_message(message: discord.Message):
 @client.event
 async def on_message_edit(before: discord.Message, after: discord.Message):
     """If someone edits a message to ADD a mention of Soon, answer it like a new one."""
-    if after.author.bot or not after.guild or not allowed_channel(after.channel):
+    if after.author.bot or not after.guild or not allowed_channel(after.channel) or ignored(after.author):
         return
     if talking_to_soon(after) and not talking_to_soon(before):
         if rate_ok(after.author.id):

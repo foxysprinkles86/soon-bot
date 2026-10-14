@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import discord
 
+from . import buttons
 from .casino import C, DANCE, IMG, PINK, casino_channel, pic, ts
 from .economy import Bank, now
 
@@ -206,7 +207,8 @@ async def slots(message: discord.Message, bank: Bank):
     max_note = " (slots are always 5. Max IS 5.)" if re.search(r"spin\w*\s+(?:\d|max|all)", m) else ""
     pot = f"\n-# 🌮🌮🌮 Progressive jackpot: **{comma(jack)}** {C} and growing" if kind != "jackpot" else ""
     await msg.edit(content=f"🎰 {u}\n# [ {a} | {b} | {c} ]\n{line}\n-# Bet: {SPIN_COST} {C}{max_note} • "
-                           f"Paid: {shown} • Chips: {w.chips} {C}{pot}")
+                           f"Paid: {shown} • Chips: {w.chips} {C}{pot}",
+                   view=buttons.view(("spin", "Spin again", "🎰", discord.ButtonStyle.primary)))
     broke = await after_play(message, bank, net)
     if kind == "jackpot":
         await message.channel.send(embed=pic("jackpot.gif"))
@@ -294,7 +296,10 @@ async def toss(message: discord.Message, bank: Bank):
             "Psst. Add `side` to your toss for a shot at 20x. I'm legally required to tell you. I'm not happy about it.",
             "Fun fact: `toss 20 heads side` exists. Forget I said that.",
             "Kor added `side` to his toss and won big. Kor. KOR. Think about that."])
-    await msg.edit(content=f"{C} {u} bet **{bet}** on **{call}**{sb}\n{res}{side_line}\n-# Chips: {ch} → **{w.chips}** {C}{note}{hint}")
+    again = f"toss {bet} {call}" + (" side" if side else "")
+    await msg.edit(content=f"{C} {u} bet **{bet}** on **{call}**{sb}\n{res}{side_line}\n-# Chips: {ch} → **{w.chips}** {C}{note}{hint}",
+                   view=buttons.view((again, f"Flip again ({bet} on {call}{' + side' if side else ''})", "🪙",
+                                      discord.ButtonStyle.primary)))
     broke = await after_play(message, bank, net)
     g = "side" if edge and side else ("win" if not edge and landed == call else "loss") if random.randrange(3) == 0 else ""
     if g and not broke:
@@ -378,7 +383,9 @@ async def roulette(message: discord.Message, bank: Bank):
     await asyncio.sleep(1)
     await msg.edit(content=f"🎡 {u} bets **{bet}** on **{label}**...\n# 🌀 {random.choice(['🔴 7', '⚫ 22', '🔴 14', '⚫ 31'])} 🌀")
     await asyncio.sleep(2)
-    await msg.edit(content=f"🎡 {u} bet **{bet}** on **{label}**\n# {dot} {n}\n{res}\n-# Chips: {w.chips} {C}{capped}{dflt}")
+    again = f"roulette {bet} {num if pick == 'number' else pick}"
+    await msg.edit(content=f"🎡 {u} bet **{bet}** on **{label}**\n# {dot} {n}\n{res}\n-# Chips: {w.chips} {C}{capped}{dflt}",
+                   view=buttons.view((again, f"Same bet ({bet} on {label})", "🎡", discord.ButtonStyle.primary)))
     broke = await after_play(message, bank, net)
     if not broke and not win and random.randrange(3) == 0:
         await message.channel.send(embed=pic("roulette.gif"))
@@ -482,7 +489,10 @@ async def blackjack(message: discord.Message, bank: Bank):
         await send(f"## 🃏 Casa de Soon Blackjack • Bet: {bet} {C}\n"
                    + ("-# Max bet is 50, so I bet 50. You're welcome.\n" if capped else "")
                    + f"**Your hand:** {' '.join(p)} → **{pv}**\n**Soon the dealer shows:** {d[0]} 🂠\n"
-                   f"-# {u} Type `hit` or `stand`" + (" • `double` to double your bet and take one card" if len(p) == 2 else ""))
+                   f"-# {u} Type `hit` or `stand`" + (" • `double` to double your bet and take one card" if len(p) == 2 else ""),
+                   view=buttons.view(*[("hit", "Hit", "👊", discord.ButtonStyle.primary),
+                                       ("stand", "Stand", "✋", discord.ButtonStyle.secondary)]
+                                     + ([("double", "Double", "💰", discord.ButtonStyle.success)] if len(p) == 2 else [])))
         return
     await bj_save(bank, gid, uid, None)
     dv = hand_value(d)
@@ -525,7 +535,8 @@ async def blackjack(message: discord.Message, bank: Bank):
                                                  "Twice the chips, twice the regret.",
                                                  "One card. All your hopes. No pressure."])) if dbl else ""
     await send(f"🃏 **Casa de Soon Blackjack** • {u} • Bet: {bet} {C}{dbl_line}\n**You:** {' '.join(p)} → **{pv}**\n"
-               f"**Soon:** {' '.join(d)} → **{dv}**\n{res}{win_line}\n-# Chips: {w.chips} {C}")
+               f"**Soon:** {' '.join(d)} → **{dv}**\n{res}{win_line}\n-# Chips: {w.chips} {C}",
+               view=buttons.view((f"blackjack {h['b'] // 2 if dbl else h['b']}", "Deal again", "🃏", discord.ButtonStyle.primary)))
     broke = await after_play(message, bank, pay - bet)
     if not broke and not pay and random.randrange(3) == 0:
         await send(embed=pic("blackjack.gif"))
@@ -592,7 +603,8 @@ async def scratch(message: discord.Message, bank: Bank):
         await msg.edit(content=f"🎟️ {u} scratches {kind}...\n# {frame}")
     await asyncio.sleep(1)
     await msg.edit(content=f"🎟️ {u}\n# [ {' | '.join(show)} ]\n{res}\n-# {foot} • Chips: {w.chips} {C} • "
-                           f"`buy scratch` for another ({SCRATCH_PRICE} {C})")
+                           f"`buy scratch` for another ({SCRATCH_PRICE} {C})",
+                   view=buttons.view(("buy scratch", f"Buy another ({SCRATCH_PRICE})", "🎟️", discord.ButtonStyle.primary)))
     if prize:
         await send(embed=pic("scratch.gif"))
 
