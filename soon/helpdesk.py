@@ -17,7 +17,7 @@ Everything is typed as a plain message in the casino channel (casa-de-soon-casin
 - kor menu: Kor-only perks (floor it, honk honk, churro break, it was me, kor's revenge)
 - zone raccoon / lion / panda / platypus (or a country): pick your world zone role
 - tacos, margaritas, eggs: the taco van classics (taco board, bar board, egg board, taco status)
-YOUR OWN COMMANDS (Soon 2.0): soon heat (sweet/mild/spicy/savage/unhinged/auto), soon be nice (asks in DMs before changing anything), soon my name is <in-game name>, soon who is <name>, soon my timezone is <zone>,
+YOUR OWN COMMANDS (Soon 2.0): soon heat (shows your setting + buttons to change it), soon be nice (asks in DMs before changing anything), soon my name is <in-game name>, soon who is <name>, soon my timezone is <zone>,
 soon my birthday is <month day>, soon grudges, soon favorites, soon mood, soon duel record, soon stop pestering me / soon pester me,
 soon roast @name (or soon roast me, 3 a day), soon make it rain (casino: Soon throws a few chips at today's gamblers, once an hour each; she pours for Kor), soon ignore me / soon talk to me (she goes silent for them, casino still works), soon panda facts, soon hall of shame (you alone decide who goes in it), soon events (upcoming race reminders).
 

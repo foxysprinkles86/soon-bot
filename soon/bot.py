@@ -280,7 +280,9 @@ HEAT_HELP = ("**How to set my meanness toward you** (type it in the server):\n"
 async def heat_locked_dm(user, level: str):
     """Auto mood just got switched off for them: say sorry and explain the knobs."""
     try:
-        await user.send(f"💌 Sorry if I was too much. Truly. Mostly. 🥺\nFrom now on I'll stay **{level}** with you. "
+        opener = ("💌 Sorry if I was too much. Truly. Mostly. 🥺" if level in ("sweet", "mild") else
+                  "😈 You asked for it. Literally. You pressed the button.")
+        await user.send(f"{opener}\nFrom now on I'll stay **{level}** with you. "
                         f"My automatic mood is off for you.\n\n{HEAT_HELP}")
     except discord.HTTPException:
         pass                                   # DMs closed: the channel reply already told them
@@ -291,9 +293,15 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
     LABELS = {"mild": ("Yes, be nicer to me", "😇", discord.ButtonStyle.success),
               "sweet": ("Be sweet to me", "🥰", discord.ButtonStyle.primary),
               "auto": ("No, keep it automatic", "😈", discord.ButtonStyle.secondary)}
+    HEAT = {"sweet": ("Sweet", "🥰", discord.ButtonStyle.success), "mild": ("Mild", "😇", discord.ButtonStyle.success),
+            "spicy": ("Spicy", "🌶️", discord.ButtonStyle.primary), "savage": ("Savage", "🔥", discord.ButtonStyle.danger),
+            "unhinged": ("Unhinged", "💀", discord.ButtonStyle.danger), "auto": ("Auto", "🔄", discord.ButtonStyle.secondary)}
 
     def __init__(self, gid: int, uid: int, choice: str):
-        label, emoji, style = self.LABELS[choice]
+        if choice.startswith("h"):                      # the `soon heat` panel: h + level
+            label, emoji, style = self.HEAT[choice[1:]]
+        else:
+            label, emoji, style = self.LABELS[choice]
         super().__init__(discord.ui.Button(label=label, emoji=emoji, style=style,
                                            custom_id=f"soon:nice:{gid}:{uid}:{choice}"))
         self.gid, self.uid, self.choice = gid, uid, choice
@@ -308,22 +316,25 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
                                                     ephemeral=True)
             return
         p = await memory.get_player(self.gid, self.uid)
-        if self.choice == "auto":
+        choice = self.choice[1:] if self.choice.startswith("h") else self.choice
+        was_locked = p.heat_lock
+        if choice == "auto":
             p.heat_lock = None
             await memory.save_player(p)
-            text = "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me."
+            text = (f"🔄 Auto mood is back on. Right now you've earned **{p.heat}**. 😈" if was_locked else
+                    "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me.")
         else:
-            p.heat_lock = self.choice
+            p.heat_lock = choice
             await memory.save_player(p)
-            text = f"💌 Done. I'll be **{self.choice}** with you from now on. Check your DMs for how to change it."
+            text = f"💌 Done. I'll be **{choice}** with you from now on." + ("" if was_locked else " Check your DMs.")
         await interaction.response.edit_message(content=text, view=None)        # buttons disappear
         if interaction.guild:                                                  # asked in the channel: tidy up
             try:
                 await interaction.message.delete(delay=20)
             except discord.HTTPException:
                 pass
-        if self.choice != "auto":
-            await heat_locked_dm(interaction.user, self.choice)
+        if choice != "auto" and not was_locked:         # auto mood just got turned off: sorry + instructions
+            await heat_locked_dm(interaction.user, choice)
 
 
 async def ask_be_nice(message: discord.Message, asked_directly: bool) -> None:
@@ -378,10 +389,14 @@ async def handle_command(message: discord.Message) -> bool:
             await memory.save_player(p)
             await message.reply(f"Locked you at **{level}**. Type `soon heat auto` when you're brave again.")
             await heat_locked_dm(message.author, level)
-        else:
+        else:                                   # `soon heat`: show the setting + a button for every choice
+            view = discord.ui.View(timeout=None)
+            for lv in HEAT_LEVELS + ["auto"]:
+                if not (lv == "auto" and not p.heat_lock) and lv != p.heat_lock:
+                    view.add_item(NiceButton(gid, uid, "h" + lv))
             await message.reply(
-                f"You're at **{p.heat}**{' (locked)' if p.heat_lock else ''}. "
-                "Options: `soon heat sweet` · `mild` · `spicy` · `savage` · `unhinged` · `auto`")
+                f"🌡️ You're at **{p.heat}** " + ("(you locked it)." if p.heat_lock else "(automatic: I treat you how you treat me).")
+                + "\nWant to change it? Tap one.\n-# Only you can press these.", view=view, mention_author=False)
         return True
 
     if re.fullmatch(r"(?:please )?(?:ignore me|stop talking to me|mute me|block me)(?: please)?[.!]*", cmd):
