@@ -312,44 +312,50 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
         return cls(int(match["g"]), int(match["u"]), match["c"])
 
     async def callback(self, interaction: discord.Interaction):
-        if interaction.user.id != self.uid:
+        heat_panel = self.choice.startswith("h")
+        owner = interaction.user.id == self.uid
+        if not owner and not heat_panel:
             await interaction.response.send_message("That question wasn't for you. Ask me yourself: `soon be nice`.",
                                                     ephemeral=True)
             return
-        p = await memory.get_player(self.gid, self.uid)
-        choice = self.choice[1:] if self.choice.startswith("h") else self.choice
+        who = interaction.user.id               # anyone can use someone else's `soon heat` panel for THEMSELVES
+
+        async def answer(text: str):
+            if owner:                           # their own panel: buttons disappear, message tidies itself up
+                await interaction.response.edit_message(content=text, view=None)
+                if interaction.guild:
+                    try:
+                        await interaction.message.delete(delay=20)
+                    except discord.HTTPException:
+                        pass
+            else:                               # someone else's panel stays for its owner; answer privately
+                await interaction.response.send_message(text, ephemeral=True)
+
+        p = await memory.get_player(self.gid, who)
+        choice = self.choice[1:] if heat_panel else self.choice
         if choice == "ignore":                          # same as typing `soon ignore me`
-            _ignored.add(self.uid)
+            _ignored.add(who)
             await save_ignored()
             p.pester = False
             await memory.save_player(p)
             extras.log_event(f"{interaction.user.display_name} asked me to ignore them")
-            await interaction.response.edit_message(
-                content="🙈 Fine. You're invisible to me now. No replies, no tags, no notes. The casino still takes your "
-                        "money though. Type `soon talk to me` when you miss me. You will.", view=None)
-            if interaction.guild:
-                try:
-                    await interaction.message.delete(delay=20)
-                except discord.HTTPException:
-                    pass
+            await answer("🙈 Fine. You're invisible to me now. No replies, no tags, no notes. The casino still takes your "
+                         "money though. Type `soon talk to me` when you miss me. You will.")
             return
         was_locked = p.heat_lock
         if choice == "auto":
             p.heat_lock = None
             await memory.save_player(p)
             text = (f"🔄 Auto mood is back on. Right now you've earned **{p.heat}**. 😈" if was_locked else
-                    "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me." if self.choice == "auto"
+                    "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me." if not heat_panel
                     else f"🔄 You're already on auto (**{p.heat}** right now). I treat you how you treat me.")
+        elif choice == was_locked:
+            text = f"You're already on **{choice}**. Committed. I respect it."
         else:
             p.heat_lock = choice
             await memory.save_player(p)
             text = f"💌 Done. I'll be **{choice}** with you from now on." + ("" if was_locked else " Check your DMs.")
-        await interaction.response.edit_message(content=text, view=None)        # buttons disappear
-        if interaction.guild:                                                  # asked in the channel: tidy up
-            try:
-                await interaction.message.delete(delay=20)
-            except discord.HTTPException:
-                pass
+        await answer(text)
         if choice != "auto" and not was_locked:         # auto mood just got turned off: sorry + instructions
             await heat_locked_dm(interaction.user, choice)
 
@@ -415,7 +421,7 @@ async def handle_command(message: discord.Message) -> bool:
                 view.add_item(NiceButton(gid, uid, "hignore"))
             await message.reply(
                 f"🌡️ You're at **{p.heat}** " + ("(you locked it)." if p.heat_lock else "(automatic: I treat you how you treat me).")
-                + "\nWant to change it? Tap one.\n-# Only you can press these.", view=view, mention_author=False)
+                + "\nWant to change it? Tap one.\n-# Anyone can tap: it changes YOUR setting, not theirs.", view=view, mention_author=False)
         return True
 
     if re.fullmatch(r"(?:please )?(?:ignore me|stop talking to me|mute me|block me)(?: please)?[.!]*", cmd):
