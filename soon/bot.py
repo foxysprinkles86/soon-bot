@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import buttons, casino, config, extras, features, games, heists
+from . import buttons, casino, chipduel, config, extras, features, games, heists
 from .duel import record_text, run_duel
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -976,7 +976,7 @@ async def on_ready():
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, chipduel.handle]
     client.add_dynamic_items(buttons.PlayButton)
     if not heist_clock.is_running():
         heist_clock.start()
@@ -992,6 +992,10 @@ async def heist_clock():
         await heists.tick(client, bank)
     except Exception as e:
         print(f"Heist clock error: {e!r}")
+    try:
+        await chipduel.tick(client, bank)
+    except Exception as e:
+        print(f"Duel clock error: {e!r}")
 
 
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
@@ -1053,7 +1057,7 @@ async def on_message(message: discord.Message):
         return
     mod = is_mod(message.author)
     if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
-            or await heists.handle(message, bank, mod)):
+            or await heists.handle(message, bank, mod) or await chipduel.handle(message, bank, mod)):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
