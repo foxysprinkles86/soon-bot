@@ -295,7 +295,8 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
               "auto": ("No, keep it automatic", "😈", discord.ButtonStyle.secondary)}
     HEAT = {"sweet": ("Sweet", "🥰", discord.ButtonStyle.success), "mild": ("Mild", "😇", discord.ButtonStyle.success),
             "spicy": ("Spicy", "🌶️", discord.ButtonStyle.primary), "savage": ("Savage", "🔥", discord.ButtonStyle.danger),
-            "unhinged": ("Unhinged", "💀", discord.ButtonStyle.danger), "auto": ("Auto", "🔄", discord.ButtonStyle.secondary)}
+            "unhinged": ("Unhinged", "💀", discord.ButtonStyle.danger), "auto": ("Auto", "🔄", discord.ButtonStyle.secondary),
+            "ignore": ("Ignore me", "🙈", discord.ButtonStyle.secondary)}
 
     def __init__(self, gid: int, uid: int, choice: str):
         if choice.startswith("h"):                      # the `soon heat` panel: h + level
@@ -317,6 +318,21 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
             return
         p = await memory.get_player(self.gid, self.uid)
         choice = self.choice[1:] if self.choice.startswith("h") else self.choice
+        if choice == "ignore":                          # same as typing `soon ignore me`
+            _ignored.add(self.uid)
+            await save_ignored()
+            p.pester = False
+            await memory.save_player(p)
+            extras.log_event(f"{interaction.user.display_name} asked me to ignore them")
+            await interaction.response.edit_message(
+                content="🙈 Fine. You're invisible to me now. No replies, no tags, no notes. The casino still takes your "
+                        "money though. Type `soon talk to me` when you miss me. You will.", view=None)
+            if interaction.guild:
+                try:
+                    await interaction.message.delete(delay=20)
+                except discord.HTTPException:
+                    pass
+            return
         was_locked = p.heat_lock
         if choice == "auto":
             p.heat_lock = None
@@ -394,6 +410,8 @@ async def handle_command(message: discord.Message) -> bool:
             for lv in HEAT_LEVELS + ["auto"]:
                 if not (lv == "auto" and not p.heat_lock) and lv != p.heat_lock:
                     view.add_item(NiceButton(gid, uid, "h" + lv))
+            if uid not in _ignored:
+                view.add_item(NiceButton(gid, uid, "hignore"))
             await message.reply(
                 f"🌡️ You're at **{p.heat}** " + ("(you locked it)." if p.heat_lock else "(automatic: I treat you how you treat me).")
                 + "\nWant to change it? Tap one.\n-# Only you can press these.", view=view, mention_author=False)
