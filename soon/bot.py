@@ -625,7 +625,7 @@ async def handle_command(message: discord.Message) -> bool:
                                       "If it's not a real place or zone, reply NONE.", max_tokens=12)
             tz = extras.valid_tz(guess.strip().strip("`'\"."))
         if not tz:
-            await message.reply(f"\"{raw}\" isn't a place. Try a time zone like `EST`, `CET` or `UTC+10`.")
+            await message.reply(f"\"{raw}\" isn't a place. Try a city or something like `EST` or `UTC+10`.")
             return True
         p = await memory.get_player(gid, uid)
         p.tz = tz
@@ -1069,8 +1069,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if re.search(r"(?i)how are (?:you|u)|how(?:'s| is) (?:your|ur) (?:day|mood)|how do you feel|you ok\b|what'?s up with you", message.content):
         specials.append((2, "mood", f"Your mood today: {extras.mood_of_day()}"))
     if not p.tz and not butt_in and random.random() < 0.2 and await memory.get_kv(f"asktz:{gid}:{uid}") != extras.today_key():
-        specials.append((3, "asktz", "Work in a nosy question about what TIME ZONE they're in (like EST or UTC+10; you 'keep files on everyone'). "
-                                       "Never ask what city, country or place they live in."))
+        specials.append((3, "asktz", "Work in a nosy question about what city or time zone they're in (you 'keep files on everyone')."))
     if not is_foxy(message.author) and random.random() < 0.25:
         specials.append((4, "foxy-trash", "If it fits naturally, a little trash talk about Foxy behind her back."))
     takeover_day = (await memory.get_kv("takeover:fast") == extras.today_key()
