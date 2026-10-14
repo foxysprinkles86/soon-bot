@@ -60,6 +60,7 @@ async def menu(message):
             f"🫣 `hide chips`: {HIDE_COST} {C}. Nobody can rob you for an hour.\n"
             "🐀 `snitch @name`: rat out a recent thief for a reward. Lie and you pay.\n"
             "💸 `bribe soon 30`: the more you bribe, the more likely I forget your cooldowns.\n"
+            "💰 `bribe soon grand 100`: make me forget the Grand Heist cooldown. For everyone. I'm harder to buy for that.\n"
             f"🍹 `rob the bartender`: a free margarita and 25 {C}. Or a bar ban.\n"
             "🤝 `pickpocket kor`: go ahead. Try it.\n\n-# Rules? There are rules. I just don't tell anyone what they are.")
         sent = True
@@ -242,10 +243,51 @@ async def pickpocket_kor(message, bank: Bank):
         f"\n-# Kor tax: -1 {C} (it went straight into Kor's fanny pack) • Chips: {w.chips} {C}")
 
 
+GRAND_BRIBE_RE = re.compile(r"(?i)\b(?:grand|heist)\b")
+
+
+async def grand_bribe(message, bank: Bank, n: int):
+    """Shannon's add: bribe Soon to forget the server-wide Grand Heist cooldown. Harder than the normal bribe:
+    every 2 chips = 1% (max 75%). Only charges you if there's a cooldown to forget. Chips are kept either way."""
+    from .heists import HOUSE, PLANS
+    gid, me, u = message.guild.id, message.author.id, message.author.mention
+    ck = PLANS["g"]["ck"]
+    cd = await bank.timer(gid, HOUSE, ck)
+    if not cd:
+        await message.channel.send(f"💰 {u} There's no Grand Heist cooldown to forget. Go rob something. `grand`")
+        return
+    if n < 2:
+        await message.channel.send(f"💰 {u} Making the cops forget a Grand Heist costs real chips. `bribe soon grand 100`. "
+                                   "Every 2 chips buys 1% of my silence.")
+        return
+    w = await bank.pay(gid, me, n, "bribed Soon (grand heist cooldown)")
+    if w is None:
+        have = (await bank.get(gid, me)).chips
+        await message.channel.send(f"💰 {u} You're offering {n} {C} and you have {have}. The cops can count. So can I.")
+        return
+    odds = min(n // 2, 75)
+    if random.randrange(100) < odds:
+        await bank.clear_timer(gid, HOUSE, ck)
+        await message.channel.send(
+            f"💰 {u} slides me **{n} {C}**. I make a phone call. I whisper. I hang up.\n# 🚔 The cops just... left.\n"
+            "The **Grand Heist** is open again. For everyone. " + random.choice([
+                "Nobody saw anything.", "The donut shop across town had a sudden emergency.", "I have friends in low places."])
+            + f" Type `grand`.\n-# Grand bribe: -{n} {C} ({odds}% odds) • Chips: {w.chips} {C}")
+    else:
+        await message.channel.send(
+            f"💰 {u} slides me **{n} {C}**. I count it twice. I look at the cops. The cops look at me.\n# 🙅 Not today.\n"
+            + random.choice(["The cops want more than that. So do I.", "I'm keeping it. Consider it a consulting fee.",
+                             "That's not silence money. That's a tip."])
+            + f" Cooldown still ends <t:{int(cd[0].timestamp())}:R>.\n-# Grand bribe: -{n} {C} ({odds}% odds) • Chips: {w.chips} {C}")
+
+
 async def bribe(message, bank: Bank):
     gid, me, u = message.guild.id, message.author.id, message.author.mention
     num = re.search(r"\d+", re.sub(r"<@!?\d+>", "", message.content))
     n = int(num.group()) if num else 0
+    if GRAND_BRIBE_RE.search(message.content or ""):
+        await grand_bribe(message, bank, n)
+        return
     if n < 1:
         await message.channel.send(f"💸 {u} Bribe me with what? Your charm? `bribe soon 30`. More chips, more likely I look the other way.")
         return
