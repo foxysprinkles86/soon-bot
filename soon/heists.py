@@ -22,6 +22,7 @@ PLANS = {
           "tgt": "the Casa de Soon Reserve"},
 }
 SEATS, MAX_ODDS, MAX_SUBS = 7, 80, 40
+STORY_PAUSE = 5    # seconds each step of the getaway story stays on screen (Shannon: big and slow enough to follow)
 HOUSE = 0      # timers on user 0 = server-wide cooldowns
 HERE = discord.AllowedMentions(everyone=True, users=True, roles=False)   # heists ping @here, like Classic
 
@@ -244,17 +245,17 @@ async def getaway(ch, bank: Bank, gid: int, h: dict):
     ok = random.randrange(100) < o
     tags = " ".join(f"<@{c}>" for c in crew)
     head = f"🦹 **THE {p['n'].upper()}** • Crew of {len(crew)} • Odds: {o}%\n"
-    msg = await ch.send(head + "🚐 " + random.choice([
+    msg = await ch.send(head + "## 🚐 " + random.choice([
         f"The getaway van rolls up to {p['tgt']} with its headlights off. Kor forgot to turn them back on.",
         f"The van parks outside {p['tgt']}. Kor parallel parks for nine minutes.",
         "The crew piles out of the van. Kor is wearing a ski mask with his name on it."]))
-    await asyncio.sleep(3)
-    await msg.edit(content=head + "🔦 " + random.choice([
+    await asyncio.sleep(STORY_PAUSE)
+    await msg.edit(content=head + "## 🔦 " + random.choice([
         "Kor picks the lock... with a churro.", "Kor cuts the lights. Wrong building. Cuts the lights again.",
         "Kor cracks the keypad code. It was 1-2-3-4. It was always 1-2-3-4."]))
-    await asyncio.sleep(3)
-    await msg.edit(content=head + "👀 The vault door creaks open... something is moving inside...")
-    await asyncio.sleep(3)
+    await asyncio.sleep(STORY_PAUSE)
+    await msg.edit(content=head + "## 👀 The vault door creaks open... something is moving inside...")
+    await asyncio.sleep(STORY_PAUSE)
     if ok:
         for c in crew:
             await bank.add(gid, c, f"{p['n']} payout", chips=p["win"])
