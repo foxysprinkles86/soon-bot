@@ -27,6 +27,9 @@ CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", 
 # the same list as ALLOWED_CHANNELS).
 TACO_CHANNELS = [c.strip().lower() for c in os.environ.get("TACO_CHANNELS", "soon-lab").split(",") if c.strip()]
 
+# Casino pictures (animated slot machine, roulette wheel, cards...). Set GRAPHICS=0 in Railway to go back to text.
+GRAPHICS = os.environ.get("GRAPHICS", "1").strip() not in ("0", "false", "off", "no")
+
 # Test channels: casino wins there carry a "testing, chips reset later" note (remove the channel after cutover).
 TEST_CHANNELS = [c.strip().lower() for c in os.environ.get("TEST_CHANNELS", "soon-lab").split(",") if c.strip()]
 
