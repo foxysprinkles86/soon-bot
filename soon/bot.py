@@ -847,8 +847,10 @@ async def hall_of_shame(msg: discord.Message, why: str):
         pass
 
 
-NICK_BACK_RE = re.compile(r"(?i)\b(?:change|put|set|switch|give|turn|undo|revert|restore)\b.{0,25}\b(?:my\s+)?(?:nick(?:name)?|name)\b.{0,15}\bback\b"
-                          r"|\b(?:my|old|real) (?:nick(?:name)?|name) back\b|\bundo (?:my )?(?:nick(?:name)?|name)\b")
+NICK_BACK_RE = re.compile(r"(?i)\b(?:change|put|set|switch|give|turn|undo|revert|restore)\b.{0,25}\b(?:my\s+)?(?:nick(?:name)?|name|handle|username)\b.{0,15}\bback\b"
+                          r"|\b(?:my|old|real) (?:nick(?:name)?|name|handle|username) back\b|\bundo (?:my )?(?:nick(?:name)?|name)\b"
+                          r"|\b(?:change|put|set|switch|turn|give)\s+(?:it|that)\s+back\b|\b(?:revert|undo|restore)\s+(?:it|that)\b")
+# (only used while Soon has actually renamed them, so "change it back" can't misfire on other chat)
 NICK_STOP_RE = re.compile(r"(?i)\b(?:stop|quit|don'?t|do not|never)\b.{0,10}\bcall(?:ing)? me\b|\bstop (?:with )?the (?:nick)?names?\b"
                           r"|\bno more nicknames?\b")
 
