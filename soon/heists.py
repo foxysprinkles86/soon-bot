@@ -23,6 +23,7 @@ PLANS = {
 }
 SEATS, MAX_ODDS, MAX_SUBS = 7, 80, 40
 HOUSE = 0      # timers on user 0 = server-wide cooldowns
+HERE = discord.AllowedMentions(everyone=True, users=True, roles=False)   # heists ping @here, like Classic
 
 ALERT_RE = re.compile(r"(?i)^\s*heists?\s+(?:alerts?|notif\w*|ping\w*|subscri\w*)\b.*$")
 JOIN_RE = re.compile(r"(?i)^\s*join(?:\s+(?:the\s+)?heist)?\s*[!.]*\s*$")
@@ -119,13 +120,13 @@ async def start(message, bank: Bank, ty: str):
         head = (f"# 🦹 HEIST ALERT! 🦹\n{u} is planning to rob the **Taco Vault**. Kor is driving the getaway van. "
                 "That's already a problem.\n## ⏰ 10 MINUTES TO JOIN • Type `join`")
     await message.channel.send(
-        (f"🔔 {subs}\n" if subs else "") + head +
+        "@here" + (f" 🔔 {subs}" if subs else "") + "\n" + head +
         f"\n# 🚐 The van leaves <t:{int(end)}:R>\n## 📣 @mention your friends to join! Every new crew member = +10% odds\n"
         f"💰 Buy-in: {p['buy']} {C} • Success pays **{p['win']} {C} to EVERYONE**\n"
         f"📊 Odds: {odds(p, 1, False)}% solo, +10% for every crew member (max {MAX_ODDS}%) • Van seats {SEATS}\n"
         f"-# {'One Grand Heist every 12 hours.' if ty == 'g' else 'One Vault Heist per hour.'} "
         "`heist alerts on` to get tagged next time.",
-        view=join_view(ty))
+        view=join_view(ty), allowed_mentions=HERE)
 
 
 async def join(message, bank: Bank):
@@ -217,14 +218,14 @@ async def warn(ch, bank: Bank, gid: int, h: dict):
     p = PLANS[h["ty"]]
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
     await ch.send(
-        (f"🔔 {subs}\n" if subs else "") +
+        "@here" + (f" 🔔 {subs}" if subs else "") + "\n" +
         f"## ⏰ 5 MINUTES LEFT TO JOIN THE {p['n'].upper()}! ⏰\n# 🚐 The van leaves <t:{int(h['end'])}:R>\n"
         f"Crew: **{len(h['crew'])}** • Odds: **{odds(p, len(h['crew']), h.get('boost'))}%**"
         f"{' (Kor floored it 🚐💨)' if h.get('boost') else ''}\n"
         "## 📣 Tag your friends! Every new crew member = +10% odds\n"
         f"**Type `join` to jump in!** Buy-in: {p['buy']} {C} • Pays **{p['win']} {C} each**\n"
         f"-# {random.choice(['Kor is revving the engine. It sounds like a blender.', 'Kor has already eaten the getaway snacks.'])}",
-        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None)
+        view=join_view(h["ty"]) if len(h["crew"]) < SEATS else None, allowed_mentions=HERE)
 
 
 async def getaway(ch, bank: Bank, gid: int, h: dict):

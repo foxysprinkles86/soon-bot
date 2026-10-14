@@ -303,9 +303,9 @@ async def handle_command(message: discord.Message) -> bool:
             await message.reply("I never stopped talking to you. That's kind of the problem.")
         return True
 
-    if cmd in ("leave me alone", "stop bothering me", "bother me", "pester me"):
+    if cmd in ("stop pestering me", "stop bothering me", "start pestering me", "pester me", "bother me"):
         p = await memory.get_player(gid, uid)
-        p.pester = cmd in ("bother me", "pester me")
+        p.pester = cmd in ("bother me", "pester me", "start pestering me")
         await memory.save_player(p)
         await message.reply("Fine. I'll pester you again. You asked for this." if p.pester
                             else "Fine. I'll stop tagging you. I'll just think about you. Menacingly.")
