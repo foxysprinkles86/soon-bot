@@ -899,7 +899,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = (reply or "Nope. Not that. Not here.") + "\n" + footer
     if reply:
         _last_chat_with[(message.channel.id, message.author.id)] = time.time()
-        people = [message.author] + list(message.mentions) + _participants.get(message.channel.id, [])
+        # Kor only gets pinged when she's actually talking to him (she talks ABOUT him constantly)
+        people = [message.author] + list(message.mentions) + [m for m in _participants.get(message.channel.id, []) if not is_kor(m)]
         reply = ping_names(reply, people)
         if butt_in and not out.get("line_crossed"):
             if f"<@{message.author.id}>" not in reply:
