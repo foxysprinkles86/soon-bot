@@ -268,6 +268,81 @@ def talking_to_soon(message: discord.Message) -> bool:
     return bool(re.match(r"(?i)^\s*(?:hey |yo |ok |okay |dear )?soon\b", message.content))
 
 
+# ---------- "be nice" check-in: ask before turning her auto mood off for someone ----------
+
+NICE_RE = re.compile(r"(?i)(?<!don't )(?<!dont )(?<!never )\bbe (?:nice|nicer|kind|sweet)\b")
+HEAT_HELP = ("**How to set my meanness toward you** (type it in the server):\n"
+             "• `soon heat sweet`: I'm lovely to you\n• `soon heat mild`: gentle teasing\n"
+             "• `soon heat spicy`: my normal\n• `soon heat savage`: no mercy\n• `soon heat unhinged`: you asked for it\n"
+             "• `soon heat auto`: back to automatic (I treat you how you treat me)\n• `soon heat`: check your setting")
+
+
+async def heat_locked_dm(user, level: str):
+    """Auto mood just got switched off for them: say sorry and explain the knobs."""
+    try:
+        await user.send(f"💌 Sorry if I was too much. Truly. Mostly. 🥺\nFrom now on I'll stay **{level}** with you. "
+                        f"My automatic mood is off for you.\n\n{HEAT_HELP}")
+    except discord.HTTPException:
+        pass                                   # DMs closed: the channel reply already told them
+
+
+class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice:(?P<g>\d+):(?P<u>\d+):(?P<c>\w+)"):
+    """Buttons on the "want me to be nicer to YOU?" question. Only that person can press; they vanish after."""
+    LABELS = {"mild": ("Yes, be nicer to me", "😇", discord.ButtonStyle.success),
+              "sweet": ("Be sweet to me", "🥰", discord.ButtonStyle.primary),
+              "auto": ("No, keep it automatic", "😈", discord.ButtonStyle.secondary)}
+
+    def __init__(self, gid: int, uid: int, choice: str):
+        label, emoji, style = self.LABELS[choice]
+        super().__init__(discord.ui.Button(label=label, emoji=emoji, style=style,
+                                           custom_id=f"soon:nice:{gid}:{uid}:{choice}"))
+        self.gid, self.uid, self.choice = gid, uid, choice
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match: re.Match):
+        return cls(int(match["g"]), int(match["u"]), match["c"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.uid:
+            await interaction.response.send_message("That question wasn't for you. Ask me yourself: `soon be nice`.",
+                                                    ephemeral=True)
+            return
+        p = await memory.get_player(self.gid, self.uid)
+        if self.choice == "auto":
+            p.heat_lock = None
+            await memory.save_player(p)
+            text = "😈 Got it. Nothing changes. I'll keep treating you exactly how you treat me."
+        else:
+            p.heat_lock = self.choice
+            await memory.save_player(p)
+            text = f"💌 Done. I'll be **{self.choice}** with you from now on. Check your DMs for how to change it."
+        await interaction.response.edit_message(content=text, view=None)        # buttons disappear
+        if interaction.guild:                                                  # asked in the channel: tidy up
+            try:
+                await interaction.message.delete(delay=20)
+            except discord.HTTPException:
+                pass
+        if self.choice != "auto":
+            await heat_locked_dm(interaction.user, self.choice)
+
+
+async def ask_be_nice(message: discord.Message, asked_directly: bool) -> None:
+    """DM them (or ask in the channel if DMs are closed) whether they want her nicer to THEM. Nothing changes until they press."""
+    gid, uid = message.guild.id, message.author.id
+    view = discord.ui.View(timeout=None)
+    for c in ("mild", "sweet", "auto"):
+        view.add_item(NiceButton(gid, uid, c))
+    q = ("you told me to be nice. Want me to tone it down **with you** from now on?\n"
+         + ("-# If you meant be nice to someone else, ignore this. Nothing changes unless you press a button."
+            if not asked_directly else "-# Nothing changes unless you press a button."))
+    try:
+        await message.author.send(f"💌 Hey {message.author.display_name}, {q}", view=view)
+        if asked_directly:
+            await message.reply("Check your DMs. 💌", mention_author=False)
+    except discord.HTTPException:                                          # DMs closed: ask right here
+        await message.channel.send(f"💌 {message.author.mention} {q}", view=view)
+
+
 # ---------- commands ----------
 
 async def handle_command(message: discord.Message) -> bool:
@@ -286,10 +361,14 @@ async def handle_command(message: discord.Message) -> bool:
         await message.reply("I'm awake. Unfortunately. 🌮")
         return True
 
+    if re.fullmatch(r"be (?:nice|nicer|kind|sweet)(?: to me)?[.!]*", cmd):
+        await ask_be_nice(message, asked_directly=True)
+        return True
+
     hm = re.match(r"^heat\s*(\w+)?$", cmd)
-    if hm or cmd == "be nice":
+    if hm:
         p = await memory.get_player(gid, uid)
-        level = "mild" if cmd == "be nice" else (hm.group(1) or "")
+        level = hm.group(1) or ""
         if level == "auto":
             p.heat_lock = None
             await memory.save_player(p)
@@ -298,6 +377,7 @@ async def handle_command(message: discord.Message) -> bool:
             p.heat_lock = level
             await memory.save_player(p)
             await message.reply(f"Locked you at **{level}**. Type `soon heat auto` when you're brave again.")
+            await heat_locked_dm(message.author, level)
         else:
             await message.reply(
                 f"You're at **{p.heat}**{' (locked)' if p.heat_lock else ''}. "
@@ -878,6 +958,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((2, "panda-cite", "Panda came up. If it fits, cite one: " + features.panda_canon_text(canon, 8)))
     if not is_kor(message.author) and (any(is_kor(m) for m in message.mentions) or re.search(r"(?i)\bkor\b", message.content)):
         specials.append((2, "jealous", "Kor came up: if they're flirting with or gushing over him, get jealous. Otherwise ignore this."))
+    if NICE_RE.search(message.content):
+        specials.append((0.5, "be-nice", "They told you to be nice. They probably mean to someone in the chat you were just "
+                                         "mean to (not themselves). Do it, grudgingly, toward that person."))
     if re.search(r"(?i)how are (?:you|u)|how(?:'s| is) (?:your|ur) (?:day|mood)|how do you feel|you ok\b|what'?s up with you", message.content):
         specials.append((2, "mood", f"Your mood today: {extras.mood_of_day()}"))
     if not p.tz and not butt_in and random.random() < 0.2 and await memory.get_kv(f"asktz:{gid}:{uid}") != extras.today_key():
@@ -988,7 +1071,7 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, tacovan.handle, bar.handle]
-    client.add_dynamic_items(buttons.PlayButton)
+    client.add_dynamic_items(buttons.PlayButton, NiceButton)
     if not heist_clock.is_running():
         heist_clock.start()
     if not daily.is_running():
@@ -1088,6 +1171,12 @@ async def on_message(message: discord.Message):
         return await ai_reply(message, special=special, footer=footer, fallback=fallback)
     if await tacovan.handle(message, bank, mod, reply=taco_reply) or await bar.handle(message, bank, mod, quiet=to_soon):
         return
+    if NICE_RE.search(message.content) and (talking_to_soon(message) or maybe_for_soon(message)):
+        key = f"niceask:{message.guild.id}:{message.author.id}"
+        if not (await memory.get_player(message.guild.id, message.author.id)).heat_lock \
+                and await memory.get_kv(key) != extras.today_key():
+            await memory.set_kv(key, extras.today_key())
+            asyncio.create_task(ask_be_nice(message, asked_directly=False))
     if talking_to_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message)
