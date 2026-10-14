@@ -1,11 +1,12 @@
 """Duels: Soon Classic's betting (stakes, spectator bets) with a quick-draw fight instead of a taco flip.
-`duel @name 20` → they `accept` within 5 minutes → spectators get 5 more minutes to `bet 5-25 on @name`
+`duel @name 20` → they `accept` within 5 minutes → spectators get 2 minutes to `bet 5-25 on @name`
+→ 10-second warning (the channel pauses: other messages get swept until the fight ends)
 → WAIT... DRAW! The first fighter to tap wins (tap early = misfire = you lose). Winner takes both stakes;
 spectators who backed the winner get double. Nobody taps within 20s of DRAW = everything refunded.
 One duel at a time per server. Stakes and bets are held as soon as they're placed (refunded if it's called off),
 so nobody can spend chips they've already put on the table. Duel alerts ping a sign-up list when a duel starts.
 Double or Nothing: after a duel, both fighters have 60 seconds to press it. If both do, round 2 runs at double stakes,
-betting reopens for 3 minutes at a flat 20 chips a bet (winners doubled). Once per duel."""
+betting reopens for 2 minutes at a flat 20 chips a bet (winners doubled). Once per duel."""
 import asyncio
 import json
 import random
@@ -20,9 +21,10 @@ from .duel import DrawView
 from .economy import Bank
 
 ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
-WAIT, BETTING, MIN_BET, MAX_BET, MAX_BETS, MAX_STAKE = 300, 300, 5, 25, 6, 100
-DON_WAIT, DON_BETTING, DON_BET = 60, 180, 20      # double or nothing: decide window, betting window, flat bet
+WAIT, BETTING, MIN_BET, MAX_BET, MAX_BETS, MAX_STAKE = 300, 120, 5, 25, 6, 100
+DON_WAIT, DON_BETTING, DON_BET = 60, 120, 20      # double or nothing: decide window, betting window, flat bet
 MAX_SUBS = 40
+WARNING = 10                  # seconds of heads-up before the fight
 
 DUEL_RE = re.compile(r"(?i)^\s*duel\b(?!\s+record)")
 ANSWER_RE = re.compile(r"(?i)^\s*(accept|decline)\s*[!.]*\s*$")
@@ -49,7 +51,7 @@ async def save(bank: Bank, gid: int, d: dict | None):
 def bet_buttons(d: dict, accepted: bool):
     btns = [] if accepted else [("accept", "Accept", "⚔️", discord.ButtonStyle.success),
                                 ("decline", "Decline", "🐔", discord.ButtonStyle.danger)]
-    n = DON_BET if d.get("round") == 2 else 10
+    n = DON_BET if d.get("round") == 2 else MAX_BET     # one tap = the max bet
     btns += [(f"bet {n} on <@{d['c']}>", f"Bet {n} on challenger", "🍿", discord.ButtonStyle.primary),
              (f"bet {n} on <@{d['t']}>", f"Bet {n} on defender", "🍿", discord.ButtonStyle.primary), ALERTS_BTN]
     return buttons.view(*btns)
@@ -123,7 +125,7 @@ async def challenge(message, bank: Bank):
         await message.channel.send(
             "## ⚔️ How Duels Work\n1. Challenge someone: `duel @name 20` (bet 1–100 chips each)\n"
             "2. They have 5 minutes to type `accept` (or `decline` like a coward)\n"
-            "3. Once accepted, everyone else has **5 minutes to bet** with `bet 10 on @name` (5–25 chips)\n"
+            "3. Once accepted, everyone else has **2 minutes to bet** with `bet 25 on @name` (5–25 chips)\n"
             "4. Quick-draw: when the button turns red and says **DRAW!**, tap it first. Tap early and you misfire. The winner takes both stakes. Spectators who backed the winner get **double** their bet. "
             "The rest lose theirs.\n-# One duel at a time • `duel cancel` calls it off before it's accepted • "
             "`duel alerts on` to get tagged when a duel starts"
@@ -166,7 +168,7 @@ async def challenge(message, bank: Bank):
         f"# ⚔️🤺⚔️ DUEL! ⚔️🤺⚔️\n{u} challenges <@{t}> to a **quick-draw duel** for **{a} {C}** each!{capped}\n"
         f"## <@{t}> type `accept` or `decline`\nThe challenge expires <t:{int(d['until'])}:R>.\n"
         f"🍿 **Everyone else:** `bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. Winners get double. "
-        "Betting stays open 5 more minutes after they accept.\n"
+        "Betting stays open 2 minutes after they accept.\n"
         f"-# Pot: {a * 2} {C} • Fastest finger wins. Tap before DRAW and you lose.",
         view=bet_buttons(d, False)))
 
@@ -198,7 +200,7 @@ async def answer(message, bank: Bank, word: str) -> bool:
                 f"# ⚔️ DUEL ACCEPTED! ⚔️\n<@{d['c']}> vs {u} for **{d['a']} {C}** each. " + random.choice([
                     "Brave. Foolish. Mostly foolish.", "Somebody call a medic. Or Kor. Kor is not a medic.",
                     "The crowd gasps. The crowd is three people and a raccoon."]) +
-                f"\n## 🍿 Bets are open for 5 more minutes!\n`bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. "
+                f"\n## 🍿 Bets are open for 2 minutes!\n`bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. "
                 f"Winners get double. The draw starts <t:{int(d['until'])}:R>.\n-# Bets so far: {len(d['bets'])}/{MAX_BETS}",
                 view=bet_buttons(d, True)))
         elif from_button:
@@ -323,6 +325,19 @@ async def fight(ch, bank: Bank, gid: int, d: dict):
     c, t, a = d["c"], d["t"], d["a"]
     r2 = d.get("round") == 2
     await buttons.retire(f"duel:{gid}")                  # betting is closed
+    buttons.PAUSED.add(ch.id)
+    try:
+        await ch.send(f"# ⏳ DUEL IN {WARNING} SECONDS\n<@{c}> <@{t}> fingers on the screen. Watch for the button.\n"
+                      f"-# 🤫 Channel paused until the duel ends. Anything else posted now gets swept.")
+        await asyncio.sleep(WARNING)
+        await _fight(ch, bank, gid, d)
+    finally:
+        buttons.PAUSED.discard(ch.id)
+
+
+async def _fight(ch, bank: Bank, gid: int, d: dict):
+    c, t, a = d["c"], d["t"], d["a"]
+    r2 = d.get("round") == 2
     head = (("🎲 **DOUBLE OR NOTHING** • " if r2 else "") +
             f"⚔️🤺⚔️ **BETTING IS CLOSED** • <@{c}> vs <@{t}> for **{a} {C}** each\n")
     draw = DrawView(Fighter(c), Fighter(t))
@@ -423,7 +438,7 @@ async def double_or_nothing(message, bank: Bank) -> bool:
         (f"🔔 {subs}\n" if subs else "") +
         f"# 🎲 DOUBLE OR NOTHING! 🎲\n<@{d['c']}> vs <@{d['t']}> for **{d['a']} {C}** each. " + random.choice([
             "Nobody learned anything. I love it.", "Greed: the family business.", "Kor is hiding behind the van."]) +
-        f"\n## 🍿 Bets reopen for 3 minutes: **{DON_BET} {C}** a bet, winners get double!\n"
+        f"\n## 🍿 Bets reopen for 2 minutes: **{DON_BET} {C}** a bet, winners get double!\n"
         f"`bet {DON_BET} on @name` or use the buttons. The draw starts <t:{int(d['until'])}:R>.",
         view=bet_buttons(d, True)))
     return True

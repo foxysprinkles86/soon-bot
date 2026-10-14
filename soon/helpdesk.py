@@ -11,7 +11,7 @@ Everything is typed as a plain message in the casino channel (casa-de-soon-casin
 - roulette 20 red (red/black/odd/even) · roulette 5 17 (one number pays 35:1) · default bet is 5
 - blackjack 20, then hit / stand / double · "bet 20 blackjack" also works
 - heist: choose a Vault Heist or Grand Heist (500 chip payouts), others type join · heist alerts on/off
-- duel @name 20: quick-draw duel for chips (fastest tap on DRAW! wins, tapping early = misfire), they type accept or decline, then 5 minutes for spectators: bet 10 on @name; after it, both fighters can press Double or Nothing · duel alerts on/off: get tagged when a duel starts
+- duel @name 20: quick-draw duel for chips (fastest tap on DRAW! wins, tapping early = misfire), they type accept or decline, then 2 minutes for spectators: bet 25 on @name (5–25), 10-second warning, channel pauses during the fight; after it, both fighters can press Double or Nothing · duel alerts on/off: get tagged when a duel starts
 - tip @name 10 (max 100) · make it rain 50: splits chips between people who gambled today
 - crimes: secret menu sent by DM (steal chips, steal chips @name, snitch @name, hide chips, bribe soon 30, rob the bartender, pickpocket kor)
 - kor menu: Kor-only perks (floor it, honk honk, churro break, it was me, kor's revenge)

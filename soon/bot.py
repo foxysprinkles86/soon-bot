@@ -1056,6 +1056,12 @@ async def on_message(message: discord.Message):
         return
     if not allowed_channel(message.channel):
         return
+    if message.channel.id in buttons.PAUSED:          # a duel fight is on: sweep everything so the button stays in view
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
+        return
     _activity[(message.guild.id, message.author.id)][discord.utils.utcnow().hour] += 1
     await ensure_intro(message.channel)
     await lab_welcome(message)

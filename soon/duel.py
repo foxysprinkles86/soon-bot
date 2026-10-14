@@ -38,6 +38,9 @@ class DrawView(discord.ui.View):
         self.done.set()
         await interaction.response.edit_message(view=self)
 
+    async def on_error(self, interaction: discord.Interaction, error: Exception, item):
+        print(f"Duel button error: {error!r}")
+
     async def go_live(self, message: discord.Message):
         self.live = True
         btn = self.children[0]

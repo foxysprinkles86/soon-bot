@@ -112,7 +112,7 @@ Grand Heist: 50 {C} buy-in • pays **500 each** • 20% solo, +10% per crew (80
 heist alerts on: get tagged whenever a heist starts
 
 **⚔️ DUELS** • duel @name 20 (1–100 each) • quick-draw: first tap on **DRAW!** wins, tapping early = misfire • winner takes both
-Spectators: bet 5–25 on @name • betting stays open 5 minutes after they accept • back the winner = double your bet
+Spectators: bet 5–25 on @name • betting stays open 2 minutes after they accept • 10-second warning, then the channel pauses for the fight • back the winner = double your bet
 🎲 Double or Nothing: both fighters press it after the duel → rematch at double stakes, bets reopen at a flat 20
 duel alerts on: get tagged whenever a duel starts
 

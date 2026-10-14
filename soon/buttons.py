@@ -38,6 +38,9 @@ class PlayButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:p:(?
         return cls(match["cmd"])
 
     async def callback(self, interaction: discord.Interaction):
+        if interaction.channel_id in PAUSED:          # a duel is mid-fight here: hold everything
+            await interaction.response.send_message("⏸️ Duel in progress. Hold your fire for a few seconds.", ephemeral=True)
+            return
         await interaction.response.defer()          # tells Discord "got it"; results post in the channel
         msg = ButtonMessage(interaction, self.cmd)
         for route in ROUTERS:
@@ -48,6 +51,9 @@ class PlayButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:p:(?
         else:
             text = "Nothing to do there right now. Type the command instead."
         await interaction.followup.send(text, ephemeral=True)
+
+
+PAUSED: set[int] = set()     # channels where a duel fight is running (duels.py); bot.py sweeps other messages
 
 
 def view(*buttons: tuple) -> discord.ui.View:
