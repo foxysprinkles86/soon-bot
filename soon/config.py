@@ -31,6 +31,9 @@ TACO_CHANNELS = [c.strip().lower() for c in os.environ.get("TACO_CHANNELS", "soo
 # defaults to the first taco channel, #soon-lab). On cutover night set REPORT_CHANNEL=get-in-the-van.
 REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or TACO_CHANNELS[0]
 
+# New-member welcome (Classic's). Off until cutover night so new people don't get welcomed twice: then WELCOME=1.
+WELCOME = os.environ.get("WELCOME", "0").strip() in ("1", "true", "on", "yes")
+
 # Casino pictures (animated slot machine, roulette wheel, cards...). Set GRAPHICS=0 in Railway to go back to text.
 GRAPHICS = os.environ.get("GRAPHICS", "1").strip() not in ("0", "false", "off", "no")
 

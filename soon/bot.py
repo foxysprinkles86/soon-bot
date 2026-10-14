@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, talk, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, report, talk, welcome, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -391,6 +391,11 @@ async def handle_command(message: discord.Message) -> bool:
     cmd = m.group(1).strip()
     gid, uid = message.guild.id, message.author.id
 
+    if cmd == "welcome test" and is_mod(message.author):           # preview the new-member welcome, no pings
+        await welcome.send(message.channel, message.author.mention, ping=False)
+        if not config.WELCOME:
+            await message.channel.send("-# Preview only. The real welcome is OFF until cutover (Railway: WELCOME=1).")
+        return True
     if cmd.startswith("says ") and is_mod(message.author):           # Classic's Soon Says
         return await talk.soon_says(message)
     if re.fullmatch(r"answer(?:\s+<@!?\d+>)?[.!?]*", cmd) and is_mod(message.author):   # Classic's Soon Answer (8-ball)
@@ -1231,6 +1236,9 @@ async def rival_reply(message: discord.Message):
 @client.event
 async def on_message(message: discord.Message):
     if not message.guild:
+        return
+    if message.type == discord.MessageType.new_member:      # "X joined the server": Classic's welcome (WELCOME=1)
+        await welcome.on_join_message(message)
         return
     if message.author.bot:
         if is_old_soon(message.author) and allowed_channel(message.channel):
