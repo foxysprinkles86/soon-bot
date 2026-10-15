@@ -13,8 +13,29 @@ ROLE_WORDS = ("recruit", "clan member")
 PINK = 0xFF45A3
 
 
-def wants_welcome(member) -> bool:
-    return any(any(w in r.name.lower() for w in ROLE_WORDS) for r in getattr(member, "roles", []))
+FRIEND_WORDS = ("salsa",)     # the "Chips & Salsa" role: friends of the clan, not TnT members
+
+
+def wants_welcome(member) -> str | None:
+    """"member" (recruit / clan member), "friend" (Chips & Salsa) or None. Clan member wins if they have both."""
+    names = [r.name.lower() for r in getattr(member, "roles", [])]
+    if any(w in n for n in names for w in ROLE_WORDS):
+        return "member"
+    if any(w in n for n in names for w in FRIEND_WORDS):
+        return "friend"
+    return None
+
+
+def friend_text(member_mention: str, call: str = "Everyone:") -> str:
+    """Chips & Salsa: a friend of the clan, NOT a TnT member (Shannon's call). Short, public channels only."""
+    return (f"🌶️ {member_mention} pulled up to the taco van for some **Chips & Salsa**!\n"
+            "They're a **friend of the clan**, not a TnT member, so no recruiting them by force. Probably.\n\n"
+            "**🗺️ While you're here:**\n"
+            "📜 Terms of Abduction (still applies to guests): https://discord.com/channels/1400306445278253187/1534262128331194369/1535712424311922698\n"
+            "💬 <#1534269691000918137> say hi • 🌶️ <#1558281375872716851> roast me, I roast back • "
+            "🎰 <#1557531311260831764> free chips, bad decisions\n"
+            "Tacos are coming soon. Even for guests. 🌮\n\n"
+            f"{call} say hi to our newest guest! 🌮🎬")
 
 
 def text(member_mention: str) -> str:
@@ -67,7 +88,20 @@ async def on_join_message(message) -> bool:
     """Call for every message. True if it was a join message Soon welcomed."""
     if message.type != discord.MessageType.new_member or not config.WELCOME:
         return False
-    if not wants_welcome(message.author):
+    kind = wants_welcome(message.author)
+    if not kind:
         return False
-    await send(message.channel, message.author.mention)
+    if kind == "friend":
+        await send_friend(message.channel, message.author.mention)
+    else:
+        await send(message.channel, message.author.mention)
     return True
+
+
+async def send_friend(channel, member_mention: str, ping: bool = True):
+    """Chips & Salsa welcome: one message in #get-in-the-van (public), pings the New Member Alerts role."""
+    ch = _find(channel.guild, config.HELLO_CHANNEL, channel) if ping else channel
+    r = await alerts.role(channel.guild, "newbie") if ping else None
+    call = f"🔔 {r.mention}" if r else "Everyone:"
+    await ch.send(friend_text(member_mention, call), view=gif_button(),
+                  allowed_mentions=discord.AllowedMentions(users=ping, everyone=False, roles=[r] if r else False))

@@ -508,6 +508,7 @@ async def handle_command(message: discord.Message) -> bool:
         return True
     if cmd == "welcome test" and is_mod(message.author):           # preview the new-member welcome, no pings
         await welcome.send(message.channel, message.author.mention, ping=False)
+        await welcome.send_friend(message.channel, message.author.mention, ping=False)   # + the Chips & Salsa one
         if not config.WELCOME:
             await message.channel.send("-# Preview only. The real welcome is OFF until cutover (Railway: WELCOME=1).")
         return True
