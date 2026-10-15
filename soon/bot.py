@@ -1507,7 +1507,7 @@ async def on_ready():
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
-    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton)
+    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton)
     recruits.MEMBER, welcome.MEMORY = is_mod, memory
     pushback.MEMORY, pushback.ON_FORGET = memory, forget_it
     for g in client.guilds:                                 # people already on alert lists get the alert roles

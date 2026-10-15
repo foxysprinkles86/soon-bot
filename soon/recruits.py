@@ -3,7 +3,9 @@
 🌮 Tacos / 🤠 Outlawz → removes JUST the plain "Recruit" role (the other recruit roles say where they came from,
 so they stay) and gives that clan's role • ✅ Joined in game → gives "Clan Member" (full member access) and the
 panel is done • ❌ Not joining → closes the panel, roles untouched.
-`soon recruit @name` (wranglers/mods) brings up a panel for anyone by hand."""
+`soon recruit @name` (wranglers/mods) brings up a panel for anyone by hand.
+`soon alumni @name`: they left the clan in game but stay in Discord → confirm button → every role Soon can touch is
+removed and "Taco Alumni" is given (the confirmation lists what was removed, so it can be undone by hand)."""
 import re
 
 import discord
@@ -13,6 +15,7 @@ from . import config
 MEMBER = None          # bot.py sets: is_mod(member) -> bool
 CLANS = {"tacos": ("Tacos", "🌮"), "outlawz": ("Outlawz", "🤠")}
 RECRUIT_RE = re.compile(r"(?i)^\s*soon\s+recruit\b")
+ALUMNI_RE = re.compile(r"(?i)^\s*soon\s+(?:alumni|alum|left(?:\s+the)?\s+clan|retire)\b")
 
 
 def _clean(name: str) -> str:
@@ -121,7 +124,20 @@ class RecruitButton(discord.ui.DynamicItem[discord.ui.Button],
 
 
 async def command(message) -> bool:
-    """`soon recruit @name`: a panel for anyone, right here (wranglers/mods)."""
+    """`soon recruit @name`: a panel for anyone, right here. `soon alumni @name`: left the clan in game
+    (wranglers/mods)."""
+    if ALUMNI_RE.match(message.content or "") and is_wrangler(message.author):
+        target = next((m for m in message.mentions if not m.bot), None)
+        if not target:
+            await message.reply("Who left? `soon alumni @name`", mention_author=False)
+            return True
+        v = discord.ui.View(timeout=None)
+        v.add_item(AlumniButton(target.id, "y"))
+        v.add_item(AlumniButton(target.id, "n"))
+        await message.channel.send(f"🎓 **{target.display_name}** left the clan in game?\nThis removes **all** their roles and "
+                                   "gives them **Taco Alumni**. They stay in the Discord.", view=v,
+                                   allowed_mentions=discord.AllowedMentions.none())
+        return True
     if not RECRUIT_RE.match(message.content or "") or not is_wrangler(message.author):
         return False
     target = next((m for m in message.mentions if not m.bot), None)
@@ -130,3 +146,51 @@ async def command(message) -> bool:
         return True
     await panel(message.guild, target, message.channel)
     return True
+
+
+class AlumniButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:al:(?P<u>\d+):(?P<a>[yn])"):
+    """Confirm for `soon alumni @name`: every role off (the ones Soon is allowed to touch), Taco Alumni on."""
+
+    def __init__(self, uid: int, answer: str):
+        label, emoji, style = (("Yes, make them alumni", "🎓", discord.ButtonStyle.danger) if answer == "y"
+                               else ("Cancel", "✖️", discord.ButtonStyle.secondary))
+        super().__init__(discord.ui.Button(label=label, emoji=emoji, style=style, custom_id=f"soon:al:{uid}:{answer}"))
+        self.uid, self.answer = uid, answer
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match: re.Match):
+        return cls(int(match["u"]), match["a"])
+
+    async def callback(self, interaction: discord.Interaction):
+        if not is_wrangler(interaction.user):
+            await interaction.response.send_message("Taco Wranglers only.", ephemeral=True)
+            return
+        if self.answer == "n":
+            await interaction.response.edit_message(content="✖️ Cancelled. Nobody graduated.", view=None)
+            return
+        guild = interaction.guild
+        member = guild.get_member(self.uid)
+        alumni = role_named(guild, "Taco Alumni")
+        if member is None:
+            await interaction.response.edit_message(content=f"🎓 <@{self.uid}> isn't in the server anymore.", view=None)
+            return
+        if not alumni:
+            await interaction.response.send_message("I can't find a role named **Taco Alumni**. Create it (exact name) "
+                                                    "and drag my role above it.", ephemeral=True)
+            return
+        top = guild.me.top_role
+        drop = [r for r in member.roles if not r.is_default() and not r.managed and r < top and r != alumni]
+        kept = [r for r in member.roles if not r.is_default() and r not in drop and r != alumni]
+        try:
+            if drop:
+                await member.remove_roles(*drop, reason=f"left the clan in game (by {interaction.user.display_name})")
+            await member.add_roles(alumni, reason="Taco Alumni")
+        except discord.HTTPException:
+            await interaction.response.send_message("Discord won't let me change their roles. I need **Manage Roles** and "
+                                                    "my role above theirs.", ephemeral=True)
+            return
+        text = (f"🎓 **{member.display_name}** is now **Taco Alumni** (by {interaction.user.display_name}). "
+                "Gone from the van, never from our hearts. Their taco debt stays on the books.\n"
+                f"-# Removed: {', '.join(r.name for r in drop) or 'nothing'}"
+                + (f" • Couldn't remove (above me or managed by Discord): {', '.join(r.name for r in kept)}" if kept else ""))
+        await interaction.response.edit_message(content=text, view=None, allowed_mentions=discord.AllowedMentions.none())
