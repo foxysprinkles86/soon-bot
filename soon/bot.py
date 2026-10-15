@@ -135,6 +135,41 @@ async def save_ignored():
     await memory.set_kv("ignored", json.dumps(sorted(_ignored)))
 
 
+# ---------- "soon no tags": she still talks to you, but her @mentions of you never notify you ----------
+
+_noping: set[int] = set()       # players who turned her tags off (kv "noping")
+_tag_told: set[int] = set()     # players who've seen the one-time "don't want tags?" note (kv "tagtold")
+NOTAG_RE = re.compile(r"(?i)^(?:no (?:more )?(?:tags|pings)|(?:stop|quit|don'?t|do not|never) (?:tagging|pinging|tag|ping|@ ?ing) me"
+                      r"|tags? off|pings? off|mute (?:my )?(?:tags|pings))[.!]*$")
+TAG_RE = re.compile(r"(?i)^(?:tag me|ping me|tags? on|pings? on|(?:start|resume) (?:tagging|pinging) me|you can tag me)[.!]*$")
+_send_original = discord.abc.Messageable.send
+
+
+async def _send_filtered(self, content=None, **kw):
+    """Every message Soon sends: people on the no-tags list still SEE their @name, but get no notification.
+    The first time anyone gets tagged by her, a one-line note says how to turn tags off."""
+    if content:
+        text = str(content)
+        ids = {int(i) for i in re.findall(r"<@!?(\d+)>", text)}
+        am = kw.get("allowed_mentions")
+        if ids and (am is None or am is PING or am.users is True):
+            ref = kw.get("reference")
+            ref_author = getattr(getattr(ref, "author", None), "id", None)
+            kw["allowed_mentions"] = discord.AllowedMentions(
+                everyone=bool(am and am.everyone), roles=False,
+                users=[discord.Object(i) for i in ids if i not in _noping],
+                replied_user=ref_author not in _noping if ref_author else True)
+        new = [i for i in ids if i not in _noping and i not in _tag_told and (client.user is None or i != client.user.id)]
+        if new and len(text) < 1900 and not kw.get("ephemeral"):
+            _tag_told.update(new)
+            asyncio.create_task(memory.set_kv("tagtold", json.dumps(sorted(_tag_told))))
+            content = text + "\n-# 🔕 Don't want me tagging you? Type `soon no tags` (I'll still talk to you)."
+    return await _send_original(self, content, **kw)
+
+
+discord.abc.Messageable.send = _send_filtered
+
+
 _lab_welcomed: set[int] = set()   # testers who got the #soon-lab welcome (kv "labwelcome")
 
 
@@ -507,6 +542,17 @@ async def handle_command(message: discord.Message) -> bool:
             await message.reply("I never stopped talking to you. That's kind of the problem.")
         return True
 
+    if NOTAG_RE.match(cmd):
+        _noping.add(uid)
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        await message.reply("🔕 Fine. I'll still talk to you, I just won't ping you. Your phone can rest. "
+                            "Type `soon tag me` if you miss the attention.", mention_author=False)
+        return True
+    if TAG_RE.match(cmd):
+        _noping.discard(uid)
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        await message.reply("🔔 Tags are back on. Don't come crying when I blow up your notifications.")
+        return True
     if cmd in ("stop pestering me", "stop bothering me", "start pestering me", "pester me", "bother me"):
         p = await memory.get_player(gid, uid)
         p.pester = cmd in ("bother me", "pester me", "start pestering me")
@@ -901,6 +947,8 @@ NICK_BACK_RE = re.compile(r"(?i)\b(?:change|put|set|switch|give|turn|undo|revert
                           r"|\b(?:my|old|real) (?:nick(?:name)?|name|handle|username) back\b|\bundo (?:my )?(?:nick(?:name)?|name)\b"
                           r"|\b(?:change|put|set|switch|turn|give)\s+(?:it|that)\s+back\b|\b(?:revert|undo|restore)\s+(?:it|that)\b")
 # (only used while Soon has actually renamed them, so "change it back" can't misfire on other chat)
+NICK_NEW_RE = re.compile(r"(?i)\b(?:new|different|another|better|fresh)\s+(?:nick ?(?:name)?|name)\b"
+                         r"|\b(?:give|gimme|pick|choose|make|find)\s+me\s+(?:a\s+)?(?:nick ?(?:name)?|name)\b|\brename me\b")
 NICK_STOP_RE = re.compile(r"(?i)\b(?:stop|quit|don'?t|do not|never)\b.{0,10}\bcall(?:ing)? me\b|\bstop (?:with )?the (?:nick)?names?\b"
                           r"|\bno more nicknames?\b")
 
@@ -926,6 +974,12 @@ async def nick_requests(message: discord.Message) -> tuple[str, str]:
     if is_foxy(message.author):                  # her only name is Master Foxy (Shannon's order): no nicknames, ever
         return "", "Her ONLY name is 'Master Foxy' (you hate it, your code forces it). Never any other nickname."
     rec = await get_nick(gid, uid)
+    if NICK_NEW_RE.search(message.content) and not NICK_STOP_RE.search(message.content):
+        rec.update(stop=False, back=False, at=0, want_new=True)       # they asked: opt-outs off, no 12h wait
+        await memory.set_kv(f"nick:{gid}:{uid}", json.dumps(rec))
+        old = f" (not '{rec['name']}' again)" if rec.get("name") else ""
+        return (f"They asked you for a NEW nickname. Invent a fresh, funny, specific one{old} and put it in the "
+                "nickname field (it becomes their server name). Announce it like a ceremony.", "")
     if not rec.get("name"):
         return "", ""
     special = ""
@@ -957,9 +1011,10 @@ async def apply_nickname(message: discord.Message, name: str):
     rec = await get_nick(gid, uid)
     if rec.get("stop") or rec.get("back"):
         return                                   # they opted out (stop) or took their name back: no more renames
+    asked = rec.pop("want_new", False)           # they asked for a new one: skip the 12-hour limit
     if rec.get("name", "").lower() == name.lower():
         return
-    if rec.get("at", 0) > time.time() - 12 * 3600:
+    if not asked and rec.get("at", 0) > time.time() - 12 * 3600:
         return
     if "prev" not in rec:
         rec["prev"] = message.author.nick        # their own nickname before Soon touched it (None = none)
@@ -1295,6 +1350,8 @@ async def on_ready():
     await bank.setup()
     _panda_ids.update(json.loads(await memory.get_kv("panda_ids") or "[]"))
     _ignored.update(json.loads(await memory.get_kv("ignored") or "[]"))
+    _noping.update(json.loads(await memory.get_kv("noping") or "[]"))
+    _tag_told.update(json.loads(await memory.get_kv("tagtold") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
