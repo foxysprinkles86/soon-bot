@@ -17,8 +17,7 @@ PAGES = {
     "home": ("Start over", "🏠", None,
              "## {SOON} Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
-             ["settings", "new", "timers", "stats", "upcoming", "boards", "ask", "talk", "vibe", "casino", "tacos",
-              "pings", "clan", "me", "fun", "faq", "mod"]),
+             ["settings", "new", "talk", "vibe", "pings", "me", "clan", "fun", "ask", "casino", "tacos", "mod"]),
     "settings": ("My settings", "⚙️", "home",
                  "## ⚙️ Everything I know about your settings\nChange anything with the buttons below.",
                  ["vibe", "pings", "me", "clan"]),
@@ -29,16 +28,15 @@ PAGES = {
             "**3.** Pick what I ping you for (tap again to turn off).\n"
             f"Then come say hi in {config.TALK_LINK}. I bite. Lovingly.",
             ["settings", "talk", "casino"]),
-    "timers": ("My timers", "⏰", "home", "## ⏰ Your timers\nCountdowns update by themselves.", ["casino", "stats"]),
-    "stats": ("My stats", "📊", "home", "## 📊 Your stats with me", ["boards", "timers"]),
-    "upcoming": ("Coming up", "📅", "home", "## 📅 Coming up\nTimes show in YOUR time zone.", ["pings", "clan"]),
-    "boards": ("Leaderboards", "🏆", "home", "## 🏆 Leaderboards\nPick one. Only you see it.",
-               ["btaco", "bbar", "begg", "bcasino"]),
-    "btaco": ("Taco board", "🌮", "boards", "## 🌮 The Taco Waitlist", ["bbar", "begg", "bcasino"]),
-    "bbar": ("Bar board", "🍹", "boards", "## 🍹 Bar Tabs", ["btaco", "begg", "bcasino"]),
-    "begg": ("Egg board", "🥚", "boards", "## 🥚 Egg Hunters", ["btaco", "bbar", "bcasino"]),
-    "bcasino": ("Casino board", "🎰", "boards", "-# Only you see this.", ["btaco", "bbar", "begg"]),
-    "ask": ("Ask Soon anything", "❓", "home",
+    "timers": ("My timers", "⏰", "casino", "## ⏰ Your timers\nCountdowns update by themselves.",
+               ["stats", "bcasino"]),
+    "stats": ("My stats", "📊", "casino", "## 📊 Your stats with me", ["timers", "bcasino", "btaco"]),
+    "upcoming": ("Coming up", "📅", "clan", "## 📅 Coming up\nTimes show in YOUR time zone.", ["pings"]),
+    "btaco": ("Taco board", "🌮", "tacos", "## 🌮 The Taco Waitlist", ["bbar", "begg"]),
+    "bbar": ("Bar board", "🍹", "tacos", "## 🍹 Bar Tabs", ["btaco", "begg"]),
+    "begg": ("Egg board", "🥚", "tacos", "## 🥚 Egg Hunters", ["btaco", "bbar"]),
+    "bcasino": ("Casino board", "🎰", "casino", "-# Only you see this.", ["stats", "timers"]),
+    "ask": ("Ask Soon / FAQ", "❓", "home",
             "## ❓ Ask me anything\nHow does something work? What do I type? Where do I go? "
             "Tap **Ask** and type your question. I answer privately. Usually helpfully.",
             ["faq", "talk"]),
@@ -75,10 +73,11 @@ PAGES = {
                ["pings", "nice"]),
     "casino": ("Casino & chips", "🎰", "home",
                f"## 🎰 Casa de Soon\nType these in {config.CASINO_LINK}.\n"
+               "• ⏰ **My timers** · 📊 **My stats** · 🎰 **Casino board**: tap below, only you see them.\n"
                "• `casino` main menu · `games` · `payouts` · `chips` · `timers` · `casino board`\n"
                "• Out of chips? `broke`. I have a menu for that.\n"
                "-# Rumor has it there's a `crimes` menu. I know nothing. 🤫",
-               ["chips", "games", "heists", "duels", "racebet", "extras"]),
+               ["timers", "stats", "bcasino", "chips", "games", "heists", "duels", "racebet", "extras"]),
     "chips": ("Getting chips", "🪙", "casino",
               "## 🪙 Getting chips\n"
               "• `claim`: 100 free chips every 12 hours.\n"
@@ -131,7 +130,7 @@ PAGES = {
               "• Say **marg** for a margarita · `bar board`\n"
               "• Easter eggs are hidden all over. `egg hint` asks the Egg Oracle · `egg board` · `basket @name`\n"
               "• In taco debt? `sorry soon` once a day. Maybe I'll forgive you.",
-              ["boards", "stats"]),
+              ["btaco", "bbar", "begg", "stats"]),
     "pings": ("Pings & alerts", "🔔", "home",
               "## 🔔 Pings & alerts\nTap a **green** button to turn it on or off, just for you:\n"
               "• 🎰 heists + duels · 🏁 race reminders · 🦑 Kraken · 👋 new members to welcome · 📅 events\n"
@@ -142,7 +141,8 @@ PAGES = {
              "## 🗺️ Clan stuff\n"
              "• Tap your world zone below (or type `zone` + your country).\n"
              "• Race + Kraken reminders post in **#race-and-event-announcements**. Turn on alerts to get pinged.\n"
-             "• `soon who is <name>`: who someone is in game.",
+             "• `soon who is <name>`: who someone is in game.\n"
+             "• 📅 **Coming up**: races, Kraken and events, as countdowns in your time zone.",
              ["upcoming", "me"]),
     "me": ("About me, nickname & suggestions", "📇", "home",
            "## 📇 Tell me about you\nTap a **green** button: a little form pops up.\n"
@@ -157,7 +157,7 @@ PAGES = {
     "fshame": ("Hall of Shame", "🤡", "fun", "-# Only you see this.", ["fpanda", "fgrudge"]),
     "fgrudge": ("My grudges", "😤", "fun", "-# Only you see this.", ["ffav", "fpanda"]),
     "ffav": ("My favorites", "💖", "fun", "-# Only you see this. Don't let it go to your head.", ["fgrudge", "fpanda"]),
-    "faq": ("FAQ", "🤔", "home",
+    "faq": ("FAQ", "🤔", "ask",
             "## 🤔 Questions people actually ask me\n"
             "**Where are my tacos?** Coming soon. They've always been coming soon. That's the brand.\n"
             "**Why is she so mean to me?** You earned it. Tap 🥰 in *Roast me / be nice* to change it.\n"
@@ -167,7 +167,7 @@ PAGES = {
             "**My phone won't stop buzzing!** *Pings & alerts* → turn off what you don't want.\n"
             "**I'm out of chips.** Type `broke` in the casino. Nobody gets locked out.\n"
             "**How do I complain about you?** 📮 Suggestion box. Master Foxy reads them. I pretend not to.",
-            ["ask", "pings", "vibe"]),
+            ["pings", "vibe"]),
     "mod": ("Mod tools", "🛠️", "home",
             "## 🛠️ Mod tools\n"
             "• `soon summon regulars [why]` · `soon says #channel text` · `soon answer @name`\n"
