@@ -379,7 +379,7 @@ async def ai_status_text() -> str:
     if config.BACKUP_API_KEY:
         saved = sum(1 for b in h["brains"] if b == "backup")
         skipping = time.time() < h["primary_down_until"]
-        out.append(f"🛟 Backup brain: **ON** ({config.BACKUP_MODEL}) • answered {saved} of the last {len(h['brains'])}"
+        out.append(f"🛟 Backup brain: **ON** ({', '.join(m.split('/')[-1] for m in config.BACKUP_MODELS)}) • answered {saved} of the last {len(h['brains'])}"
                    + (f" • DeepSeek skipped until <t:{int(h['primary_down_until'])}:t>" if skipping else ""))
         if h["backup_error"]:
             out.append(f"Backup's last problem: {h['backup_error']}")

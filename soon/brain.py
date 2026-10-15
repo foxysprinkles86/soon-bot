@@ -112,7 +112,16 @@ class Brain:
                         raise
                     break
         try:
-            data = await self._call(config.BACKUP_BASE_URL, config.BACKUP_API_KEY, dict(body, model=config.BACKUP_MODEL), 25)
+            b = dict(body, model=config.BACKUP_MODELS[0])
+            if len(config.BACKUP_MODELS) > 1 and "openrouter" in config.BACKUP_BASE_URL:
+                b["models"] = config.BACKUP_MODELS            # OpenRouter tries these in order (busy/429 → next)
+            try:
+                data = await self._call(config.BACKUP_BASE_URL, config.BACKUP_API_KEY, b, 25)
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 429:
+                    raise
+                await asyncio.sleep(1.5)                   # everyone's busy: one more try
+                data = await self._call(config.BACKUP_BASE_URL, config.BACKUP_API_KEY, b, 20)
             h["calls"].append(round(time.time() - start, 1))
             h["brains"].append("backup")
             h["streak"] = 0

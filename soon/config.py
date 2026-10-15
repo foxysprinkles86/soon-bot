@@ -20,7 +20,10 @@ DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 # PRIMARY_TIMEOUT seconds. Off until BACKUP_API_KEY is set in Railway (Shannon pastes it there herself).
 BACKUP_API_KEY = os.environ.get("BACKUP_API_KEY", "").strip().strip("\"'")
 BACKUP_BASE_URL = os.environ.get("BACKUP_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
-BACKUP_MODEL = os.environ.get("BACKUP_MODEL", "deepseek/deepseek-chat")
+# Comma list, tried in order by OpenRouter (if one host is overloaded, "429", the next one answers).
+BACKUP_MODELS = [m.strip() for m in os.environ.get(
+    "BACKUP_MODEL", "deepseek/deepseek-chat,deepseek/deepseek-chat-v3-0324,openai/gpt-4o-mini").split(",") if m.strip()]
+BACKUP_MODEL = BACKUP_MODELS[0]
 PRIMARY_TIMEOUT = float(os.environ.get("PRIMARY_TIMEOUT", "8"))
 
 # Where Soon 2.0 is allowed to talk. Comma-separated channel names (or parts of names).
