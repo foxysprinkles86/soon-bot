@@ -147,7 +147,7 @@ _send_original = discord.abc.Messageable.send
 
 async def _send_filtered(self, content=None, **kw):
     """Every message Soon sends: people on the no-tags list still SEE their @name, but get no notification.
-    The first time anyone gets tagged by her, a one-line note says how to turn tags off."""
+    Every message that pings someone ends with a tiny note on how to turn tags off."""
     if content:
         text = str(content)
         ids = {int(i) for i in re.findall(r"<@!?(\d+)>", text)}
@@ -159,11 +159,9 @@ async def _send_filtered(self, content=None, **kw):
                 everyone=bool(am and am.everyone), roles=False,
                 users=[discord.Object(i) for i in ids if i not in _noping],
                 replied_user=ref_author not in _noping if ref_author else True)
-        new = [i for i in ids if i not in _noping and i not in _tag_told and (client.user is None or i != client.user.id)]
-        if new and len(text) < 1900 and not kw.get("ephemeral"):
-            _tag_told.update(new)
-            asyncio.create_task(memory.set_kv("tagtold", json.dumps(sorted(_tag_told))))
-            content = text + "\n-# 🔕 Don't want me tagging you? Type `soon no tags` (I'll still talk to you)."
+        pinged = [i for i in ids if i not in _noping and (client.user is None or i != client.user.id)]
+        if pinged and len(text) < 1940 and "soon no tags" not in text and not kw.get("ephemeral"):
+            content = text + "\n-# 🔕 `soon no tags` to stop my pings"            # every time (Shannon's call)
     return await _send_original(self, content, **kw)
 
 
