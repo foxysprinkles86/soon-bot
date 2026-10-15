@@ -1146,6 +1146,24 @@ COMMON = set("about after again always another around because before being bette
              "good well sure okay yeah nope fine does done dont cant wont isnt aint kind sort lol".split())
 
 
+NOT_NAME_RE = re.compile(r"(?i)\b(?:i'?m|i am|im)\s+(?:not|no)\s+(?:your|ur|a|an)\s+([a-z][\w' -]{1,24}?)\s*[.!?]*$"
+                         r"|\b(?:don'?t|do not|stop|quit|never)\s+call(?:ing)?\s+me\s+(?:a\s+|an\s+|your\s+)?"
+                         r"([a-z][\w' -]{1,24}?)\s*[.!?]*$")
+
+
+async def refused_names(message) -> list[str]:
+    """Names/labels this player told her NOT to call them ("I'm not your sous-chef"). Remembered for good
+    (kv notcalled:<gid>:<uid>), and every reply to them gets "never call them: ...". """
+    key = f"notcalled:{message.guild.id}:{message.author.id}"
+    names = json.loads(await memory.get_kv(key) or "[]")
+    m = NOT_NAME_RE.search(message.content.strip())
+    word = (m.group(1) or m.group(2) or "").strip() if m else ""
+    if word and len(word.split()) <= 2 and word.lower() not in ("that", "this", "it", "him", "her") and word.lower() not in [n.lower() for n in names]:
+        names = (names + [word])[-12:]
+        await memory.set_kv(key, json.dumps(names))
+    return names
+
+
 def meltdown_meter(guild, level: int) -> str:
     """Shannon's meltdown meter: shown under her replies while people are ganging up on her."""
     if level >= 3:
@@ -1251,7 +1269,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
                                    "(be nice, stop, translate, help), you do it, flustered. If he writes Dutch, you read it "
                                    "perfectly: prove it by answering what it means (never just repeat his words). "
                                    "Make it fun for him to answer; the crush leaks through. "
-                                   f"Only if it fits after that: {random.choice(moves)}"))
+                                   f"Only if it fits after that: {random.choice(moves)}"
+                                   + ("" if is_dutch(message.content) or random.random() < 0.12 else
+                                      " Answer in English only this time: no Dutch words.")))
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
         if canon and random.random() < 0.35:
@@ -1319,6 +1339,10 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         props = worn_out_words(mine[-4:], message.content)
         if props:
             lines.append("BANNED WORDS for this reply (you already beat these jokes to death): " + ", ".join(props))
+    never = await refused_names(message)
+    if never:
+        lines.append("NEVER CALL THEM (they told you they're not that; no variations or spellings of it either): "
+                     + ", ".join(never))
     older = await older_jokes(gid, mine, message.content)
     if older:
         lines.append("JOKES YOU ALREADY MADE IN EARLIER CHATS (some days ago; don't retell these bits or reuse their "
