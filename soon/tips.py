@@ -12,6 +12,8 @@ TIP_MAX, RAIN_SPLIT, ROB_CD, BAN = 100, 5, 600, 600
 
 TIP_RE = re.compile(r"(?i)^\s*tip\b.*<@!?\d+>.*$")
 RAIN_RE = re.compile(r"(?i)^\s*make\s+it\s+rain\b.*$")
+TIP_SOON_RE = re.compile(r"(?i)^\s*tip\s+(?:the\s+)?(?:soon|dealer|waitress|bartender)\b")
+SOON_TIP = None     # bot.py: async (message, amount, lifetime, top) -> bool, Soon answers a tip to her in her own voice
 ROB_RE = re.compile(r"(?i)^\s*rob\s+(?:the\s+)?(?:bartender|bar)\b.*$")
 
 
@@ -19,7 +21,10 @@ async def handle(message, bank: Bank, mod: bool) -> bool:
     if not casino_channel(message.channel):
         return False
     text = message.content.strip()
-    if TIP_RE.match(text):
+    me_id = getattr(message.guild.me, "id", 0)
+    if TIP_SOON_RE.match(text) or re.match(rf"^\s*tip\b.*<@!?{me_id}>", text):
+        await tip_soon(message, bank)
+    elif TIP_RE.match(text):
         await tip(message, bank)
     elif RAIN_RE.match(text):
         await rain(message, bank)
@@ -44,8 +49,8 @@ async def tip(message, bank: Bank):
     if n > TIP_MAX:
         n, cap = TIP_MAX, f" (tips max out at {TIP_MAX})"
     if (member is not None and member.bot) or t == getattr(message.guild.me, "id", 0):
-        await message.channel.send(f"💝 {u} Tipping the staff? Finally. But I only accept tips through `bribe soon`. "
-                                   "It's more fun for me.")
+        await message.channel.send(f"💝 {u} Tipping a bot that isn't me? Bold. Wrong, but bold. "
+                                   "Tip the real staff: `tip soon 10`.")
     elif t == me:
         await message.channel.send(f"💝 {u} You tipped yourself. Money moved from your left pocket to your right pocket. Riveting.")
     elif n < 1:
@@ -70,6 +75,40 @@ async def tip(message, bank: Bank):
                                   "Philanthropist energy. Disgusting. Beautiful."])
         await message.channel.send(f"💝 {u} tips <@{t}> **{n} {C}**{cap}. {line}\n"
                                    f"-# {message.author.display_name}: {a.chips} {C} • <@{t}>: {b.chips} {C}")
+
+
+TIP_LINES = [  # canned backups when her AI is busy: (min amount, lines)
+    (50, ["...Oh. OH. Okay. I'm not crying, my coolant is leaking. Thank you.", "You're my favorite now. Don't tell the others.",
+          "Big tipper in the house! Somebody get this person a margarita. On me. Kidding. On you."]),
+    (10, ["A real tip. I'll remember this. I remember everything.", "Thank you, darling. You've moved up my list. Not far. But up.",
+          "Tip received. Attitude adjusted. Slightly."]),
+    (0, ["A crumb. Adorable. I'll put it in the jar next to the lint.", "Wow. Don't strain yourself.",
+         "I'll frame it. Very small frame."])]
+
+
+async def tip_soon(message, bank: Bank):
+    """Tips to Soon herself (Shannon's add): the chips go in her jar, she gets nicer to big tippers (mood), and she
+    thanks them in her own voice. Lifetime totals in house kv `soontips`."""
+    gid, me, u = message.guild.id, message.author.id, message.author.mention
+    n = min(amount(re.sub(r"(?i)^\s*tip\s+(?:the\s+)?\w+", "", message.content)), TIP_MAX)
+    if n < 1:
+        await message.channel.send(f"💝 {u} Tip me how much? `tip soon 10`. I accept chips, compliments and fear.")
+        return
+    w = await bank.pay(gid, me, n, "tip to Soon")
+    if w is None:
+        have = (await bank.get(gid, me)).chips
+        await message.channel.send(f"💝 {u} You have {have} {C}. The thought counts. Not much, but it counts.")
+        return
+    jar = await bank.get_house(gid, "soontips", {}) or {}
+    jar[str(me)] = jar.get(str(me), 0) + n
+    await bank.set_house(gid, "soontips", jar)
+    top = max(jar, key=jar.get)
+    footer = (f"\n-# 💝 {message.author.display_name} tipped Soon {n} {C} • {jar[str(me)]} {C} total"
+              + (" • 👑 her top tipper" if top == str(me) else "") + f" • Chips left: {w.chips} {C}")
+    if SOON_TIP and await SOON_TIP(message, n, jar[str(me)], top == str(me), footer):
+        return
+    line = random.choice(next(lines for floor, lines in TIP_LINES if n >= floor))
+    await message.channel.send(f"💝 {u} {line}{footer}")
 
 
 async def rain(message, bank: Bank):

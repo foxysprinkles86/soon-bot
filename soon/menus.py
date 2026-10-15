@@ -73,7 +73,8 @@ async def games_menu(message, bank):
         f"🦹 `heist`: pick a **Vault Heist** or a **Grand Heist** (500 {C} each!)\n"
         "⚔️ `duel @name 20`: quick-draw duel. Fastest tap on **DRAW!** wins • type `duel` for how it works\n"
         "🍿 `bet 10 on @name`: bet on someone else's duel\n"
-        "💝 `tip @name 10`: share the wealth\n"
+        "🏁 `race bet @name 20`: bet on who scores the most for TnT in the clan race (`race bets` = the book)\n"
+        "💝 `tip @name 10`: share the wealth • `tip soon 10`: tip me. I remember generous people.\n"
         "🌧️ `make it rain 50`: throw chips at random gamblers\n"
         "🚐 `kor menu`: VIP perks for one (1) getaway driver\n"
         "-# The amounts above are just examples. Bet whatever you want, up to each game's max. Say `max` to bet the max. "
@@ -115,6 +116,10 @@ heist alerts on: get tagged whenever a heist starts
 Spectators: bet 5–25 on @name • betting stays open 2 minutes after they accept • 10-second warning, then the channel pauses for the fight • back the winner = double your bet
 🎲 Double or Nothing: both fighters press it after the duel → rematch at double stakes, bets reopen at a flat 20
 duel alerts on: get tagged whenever a duel starts
+
+**🏁 RACE BETTING** • race bet @name 20 (1–100 per race, one pick each, betting on yourself allowed)
+Opens when race pre-join opens, closes 10 minutes before the race • a mod calls the winner
+Winners split the whole pot **+20% house bonus**, by how much they bet • nobody picked the winner = refunds
 
 **🎡 WHEEL OF FORTACO** • surprise!
 Any slots, toss, roulette, or blackjack play can randomly trigger a free spin

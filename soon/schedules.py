@@ -16,7 +16,7 @@ import re
 
 import discord
 
-from . import config
+from . import config, racebets
 from .casino import IMG
 from .economy import Bank
 
@@ -77,7 +77,12 @@ async def races(guild, bank: Bank, t: dt.datetime | None = None):
         return
     await bank.set_house(guild.id, "racepost", key)
     ping, allowed = _ping(guild)
-    await ch.send(f"{ping}# {due[0]}\n{due[1]}", allowed_mentions=allowed)
+    extra = ""
+    if "pre-join is OPEN" in due[0] and await racebets.open_book(bank, guild.id, due[0].split(" race")[0][2:]):
+        extra = "\n🎲 Race betting is open in the casino: `race bet @name 20` on who scores the most for TnT."
+    elif "starts in 10" in due[0] and await racebets.close_book(bank, guild.id):
+        extra = "\n🔒 Race betting is now closed."
+    await ch.send(f"{ping}# {due[0]}\n{due[1]}{extra}", allowed_mentions=allowed)
 
 
 async def boss_end(bank: Bank, gid: int, now: int) -> int:

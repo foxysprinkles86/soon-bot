@@ -24,14 +24,33 @@ MOODS = [
     "chaotic. You had three espressos and a churro.",
 ]
 
+# Side-eye reactions: (her custom emoji name, plain-emoji backup if the server doesn't have that one)
 REACTIONS = {
-    r"\b(best|goat|carried|easy|ez|flawless|insane score|new record|pb)\b": ["💅", "🙄", "👀"],
-    r"\b(lost|died|failed|rip|bad|terrible|worst|ugh)\b": ["💀", "🫠", "🙃"],
-    r"\b(kor)\b": ["😳", "💕"],
-    r"\b(taco|tacos)\b": ["🌮", "⏳"],
-    r"\b(lol|lmao|haha+)\b": ["🙄", "😐"],
+    r"\b(best|goat|carried|easy|ez|flawless|insane score|new record|pb)\b": [("soon_glare", "🙄"), ("soon_sly", "💅"), ("soon_smug", "👀")],
+    r"\b(lost|died|failed|rip|bad|terrible|worst|ugh)\b": [("soon_facepalm", "💀"), ("soon_smug", "🫠"), ("soon_shocked", "🙃")],
+    r"\b(kor)\b": [("soon_love", "😳"), ("soon_heart_hands", "💕"), ("soon_starstruck", "😳")],
+    r"\b(taco|tacos)\b": [("soon_sly", "🌮"), ("soon_sleepy", "⏳")],
+    r"\b(lol|lmao|haha+)\b": [("soon_smug", "🙄"), ("soon_confused", "😐")],
 }
-DEFAULT_REACTIONS = ["👀", "🙄", "💅", "🤨", "😐"]
+DEFAULT_REACTIONS = [("soon_glare", "👀"), ("soon_sly", "🙄"), ("soon_smug", "💅"), ("soon_confused", "🤨"), ("soon_worried", "😐")]
+
+
+def face(guild, name: str, backup: str = "") -> str:
+    """One of Soon's own custom emojis (Foxy's :soon_smug: etc.), found by name; backup if the server doesn't have it."""
+    e = discord.utils.get(getattr(guild, "emojis", ()), name=name)
+    return str(e) if e else backup
+
+
+def faces(guild) -> list[str]:
+    """Names of all her custom emojis on this server (anything named soon_...)."""
+    return sorted(e.name for e in getattr(guild, "emojis", ()) if e.name.lower().startswith("soon_"))
+
+
+def put_faces(guild, text: str) -> str:
+    """The AI writes :soon_smug:; Discord needs the real emoji code. Unknown ones are dropped."""
+    import re
+    return re.sub(r":(soon_\w+):", lambda m: face(guild, m.group(1)), text)
+
 
 # Day log: what happened today, for the diary. Kept in memory; a restart mid-day loses part of the day.
 DAY_LOG: list[str] = []
@@ -55,16 +74,16 @@ def log_event(text: str):
     del DAY_LOG[:-80]
 
 
-def pick_reaction(content: str) -> str | None:
+def pick_reaction(content: str, guild=None) -> str | None:
     import re
     if random.random() >= config.REACT_CHANCE:
         return None
     low = content.lower()
-    for pattern, options in REACTIONS.items():
-        if re.search(pattern, low):
-            return random.choice(options)
-    pool = DEFAULT_REACTIONS + config.SOON_EMOJIS
-    return random.choice(pool)
+    pool = next((opts for pattern, opts in REACTIONS.items() if re.search(pattern, low)), None)
+    if pool is None:
+        pool = DEFAULT_REACTIONS + [(None, e) for e in config.SOON_EMOJIS]
+    name, backup = random.choice(pool)
+    return face(guild, name, backup) if name else backup
 
 
 def find_channel(guild: discord.Guild, word: str):

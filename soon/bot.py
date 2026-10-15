@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, tacovan, tips
+from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1109,6 +1109,30 @@ COMMON = set("about after again always another around because before being bette
              "good well sure okay yeah nope fine does done dont cant wont isnt aint kind sort lol".split())
 
 
+def meltdown_meter(guild, level: int) -> str:
+    """Shannon's meltdown meter: shown under her replies while people are ganging up on her."""
+    if level >= 3:
+        return f"\n-# {extras.face(guild, 'soon_furious', '💥')} Meltdown meter: ▰▰▰ **BROKEN** • rebooting..."
+    icon = extras.face(guild, "soon_tantrum" if level == 2 else "soon_angry", "🤬" if level == 2 else "😤")
+    return f"\n-# {icon} Meltdown meter: {'▰' * level}{'▱' * (3 - level)} ({level}/3) • keep pushing and she blows"
+
+
+async def older_jokes(gid: int, recent: list[str], their_message: str) -> list[str]:
+    """Her lines from earlier chats (kept across days, kv saidlines:<gid>): the ones that connect to this message,
+    plus the newest few, so she doesn't retell yesterday's bit."""
+    raw = await memory.get_kv(f"saidlines:{gid}")
+    items = [json.loads(x)[1] for x in (json.loads(raw) if raw else [])]
+    seen = {r[:60] for r in recent}
+    items = [l for l in items if l[:60] not in seen]
+    if not items:
+        return []
+    words = set(re.findall(r"[a-z']{4,}", their_message.lower())) - COMMON
+    scored = sorted(((len(words & set(re.findall(r"[a-z']{4,}", l.lower()))), i) for i, l in enumerate(items)), reverse=True)
+    pick = [i for score, i in scored[:6] if score > 0]
+    pick += [i for i in range(len(items) - 1, -1, -1) if i not in pick][:10 - len(pick)]
+    return [items[i][:100] for i in sorted(pick)]
+
+
 def worn_out_words(lines: list[str], their_message: str) -> list[str]:
     """Distinctive words she keeps using (in 2+ of her recent lines) that THEY didn't just say: her tired props."""
     seen: dict[str, int] = {}
@@ -1238,6 +1262,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         specials.append((-1, "special", special))
     if melt:
         specials.append((0.1, "meltdown", MELTDOWN[melt]))
+        footer = meltdown_meter(message.guild, melt) + footer
         length_weights = [[60, 35, 5], [10, 55, 35], [0, 10, 90]][melt - 1]    # bigger tantrum = longer rant
     specials.sort(key=lambda x: x[0])
     chosen = specials[:2]
@@ -1257,6 +1282,13 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         props = worn_out_words(mine[-4:], message.content)
         if props:
             lines.append("BANNED WORDS for this reply (you already beat these jokes to death): " + ", ".join(props))
+    older = await older_jokes(gid, mine, message.content)
+    if older:
+        lines.append("JOKES YOU ALREADY MADE IN EARLIER CHATS (some days ago; don't retell these bits or reuse their "
+                     "punchlines, find a new angle): " + " | ".join(older))
+    if extras.faces(message.guild):
+        lines.append("YOUR FACE EMOJIS (optional: about 1 reply in 4, at most one, only when it fits your mood): "
+                     + " ".join(f":{n}:" for n in extras.faces(message.guild)))
     ref = message.reference.resolved if message.reference else None
     if isinstance(ref, discord.Message) and ref.clean_content:
         who = "you (Soon)" if ref.author == client.user else ref.author.display_name
@@ -1307,7 +1339,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if out["reply"] and not butt_in:
         p.chats += 1
     await memory.save_player(p)
-    reply = out["reply"]
+    reply = extras.put_faces(message.guild, out["reply"])
+    if reply and out.get("ok"):
+        await push_list(f"saidlines:{gid}", json.dumps([int(time.time()), out["reply"][:140]]), keep=80)
     if special and (not out.get("ok") or not reply):
         reply = fallback                                             # AI busy/broke: the canned van line
     if tone == "rude" and reply:
@@ -1343,6 +1377,26 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     return False
 
 
+async def soon_tip(message, n: int, total: int, top: bool, footer: str) -> bool:
+    """Someone tipped Soon herself (tips.py): she warms up to them (mood) and thanks them in her own voice."""
+    if not isinstance(message, discord.Message) or ignored(message.author) or not rate_ok(message.author.id):
+        return False
+    bump = 2 if n >= 50 else 1 if n >= 10 else 0
+    if bump:
+        p = await memory.get_player(message.guild.id, message.author.id)
+        p.mood = min(5, p.mood + bump)
+        await memory.save_player(p)
+    how = ("Under 10 chips is a crumb: mock it, lovingly." if n < 10 else
+           "A real tip: thank them your way (smug or a little flustered) and let them know they just moved up in your good books."
+           if n < 50 else "A BIG tip: you're genuinely delighted (still in character). They're your favorite now. Gush a little, then recover.")
+    special = (f"TIP: they just tipped YOU {n} chips (they've tipped you {total} in total"
+               + (", making them your top tipper ever" if top else "") + f"). {how} Short.")
+    return await ai_reply(message, special=special, footer=footer, fallback="")
+
+
+tips.SOON_TIP = soon_tip
+
+
 @client.event
 async def on_ready():
     await memory.connect()
@@ -1353,7 +1407,7 @@ async def on_ready():
     _tag_told.update(json.loads(await memory.get_kv("tagtold") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
+    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton)
     if not heist_clock.is_running():
         heist_clock.start()
@@ -1446,6 +1500,7 @@ async def on_message(message: discord.Message):
     mod = is_mod(message.author)
     if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
             or await heists.handle(message, bank, mod) or await duels.handle(message, bank, mod) or await tips.handle(message, bank, mod)
+            or await racebets.handle(message, bank, mod)
             or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
             or await menus.handle(message, bank, mod) or await boards.handle(message, bank, mod)
             or await zones.handle(message, bank, mod)):
@@ -1493,7 +1548,7 @@ async def on_message(message: discord.Message):
             await ai_reply(message, butt_in=True)
             return
     # Side-eye: sometimes she just reacts instead of talking.
-    emoji = extras.pick_reaction(message.content)
+    emoji = extras.pick_reaction(message.content, message.guild)
     if emoji:
         try:
             await message.add_reaction(emoji)
