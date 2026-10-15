@@ -81,6 +81,9 @@ MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
 DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "diary").strip().lower()
 PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "trash-talk").strip().lower()
 REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or DIARY_CHANNEL
+# New-member welcome: info for the newbie in #new-members, the "say hi with a GIF" call in #get-in-the-van.
+WELCOME_CHANNEL = os.environ.get("WELCOME_CHANNEL", "new-members").strip().lower()
+HELLO_CHANNEL = os.environ.get("HELLO_CHANNEL", "get-in-the-van").strip().lower()
 # Where race/event reminders go. Defaults to the pester channel.
 # Race reminders, event reminders and Kraken posts all go to #race-and-event-announcements (Shannon, Oct 15).
 RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or "race-and-event"
