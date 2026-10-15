@@ -243,7 +243,9 @@ def ping_names(text: str, people, case_sensitive: bool = False) -> str:
         for name in sorted((n for n in names if n and len(n) >= 3), key=len, reverse=True):
             if f"<@{person.id}>" in text or f"<@!{person.id}>" in text:
                 break
-            pat = re.compile(rf"(?<![\w@#-]){re.escape(name)}(?![\w-])", flags)
+            # "Master Foxy" (Shannon's order) stays readable: ping her elsewhere in the line, not inside her title
+            keep = r"(?<!master )" if name == "Foxy" else ""
+            pat = re.compile(rf"(?<![\w@#-]){keep}{re.escape(name)}(?![\w-])", flags)
             # a plain-word name ("Rain") only counts when written like a name, so "make it rain" stays a ping-free joke
             hit = next((m for m in pat.finditer(text) if m.group()[0].isupper() or not name.isalpha()), None)
             if hit:
