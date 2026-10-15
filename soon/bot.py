@@ -1504,6 +1504,7 @@ async def on_ready():
     _tag_told.update(json.loads(await memory.get_kv("tagtold") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
+    buttons.AFTER = casino.broke_check
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton)
     pushback.MEMORY, pushback.ON_FORGET = memory, forget_it
@@ -1605,6 +1606,7 @@ async def on_message(message: discord.Message):
             or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
             or await menus.handle(message, bank, mod) or await boards.handle(message, bank, mod)
             or await zones.handle(message, bank, mod)):
+        await casino.broke_check(message, bank)          # out of chips? every free-chip route + bribe button
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else

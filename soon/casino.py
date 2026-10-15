@@ -9,7 +9,7 @@ import re
 
 import discord
 
-from . import config
+from . import buttons, config
 from .economy import Bank, Wallet, COUNTERS
 
 C = "<:pinkchip:1558007673709006898>"
@@ -27,6 +27,9 @@ CASHIER_RE = re.compile(
     r"|buy\s+chips(?:\s+\d+)?|(?:get\s+a\s+)?loan(?:\s+\d+)?|borrow(?:\s+\d+)?|credit|more chips|timers?|cooldowns?|cds?)"
     r"\s*[!?.]*\s*$|\bwhen can i (?:claim|scratch|cash out|buy)\b")
 GIVE_RE = re.compile(r"(?i)^\s*(?:give|take)\s+chips\b")
+BROKE_RE = re.compile(r"(?i)^\s*(?:i'?m\s+|im\s+)?(?:broke|out of chips|no (?:more )?chips|free chips)\s*[!?.]*\s*$")
+BROKE_BRIBE_RE = re.compile(r"(?i)^\s*bribe\s+soon\s+broke\b")
+BROKE_MIN, BROKE_GIFT, BROKE_CD = 5, 25, 6 * 3600
 
 
 def casino_channel(channel) -> bool:
@@ -61,6 +64,12 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
     text = message.content.strip()
     if GIVE_RE.match(text):
         await give_take(message, bank, mod)
+        return True
+    if BROKE_BRIBE_RE.match(text):
+        await broke_bribe(message, bank)
+        return True
+    if BROKE_RE.match(text):
+        await broke_help(message, bank)
         return True
     if CASHIER_RE.search(text):
         await cashier(message, bank)
@@ -352,3 +361,68 @@ async def import_classic(message: discord.Message, bank: Bank, confirm: bool, me
     t = await bank.totals(message.guild.id)
     await message.reply(f"✅ **Imported.** {t['players']} players • {t['chips']} {C} • {t['tacobal']} 🌮\n"
                         f"Casa de Soon is under new management. Mine.")
+
+
+# ---------- nobody gets locked out (Shannon's call: it's just a fun game) ----------
+
+async def broke_check(message, bank: Bank):
+    """After any casino command: if they're (nearly) out of chips, show every free-chip route. Max once per 30 min."""
+    if (not casino_channel(message.channel) or BROKE_BRIBE_RE.match(message.content or "")
+            or re.search(r"(?i)cash\s*out", message.content or "")):
+        return
+    gid, uid = message.guild.id, message.author.id
+    if (await bank.get(gid, uid)).chips >= BROKE_MIN or await bank.timer(gid, uid, "brokehelp"):
+        return
+    await broke_help(message, bank)
+
+
+async def broke_help(message, bank: Bank):
+    gid, uid, u = message.guild.id, message.author.id, message.author.mention
+    await bank.set_timer(gid, uid, "brokehelp", 1800)
+    w = await bank.get(gid, uid)
+
+    def when(t):
+        return f"next <t:{int(t[0].timestamp())}:R>" if t else "**ready now!**"
+    claim, scratch, bribed = (await bank.timer(gid, uid, "claimcd"), await bank.timer(gid, uid, "scratchcd"),
+                              await bank.timer(gid, uid, "brokebribe"))
+    lines = [f"## 💸 {u}, you're {'in chip debt (' + str(w.chips) + f' {C})' if w.chips < 0 else f'down to {w.chips} {C}'}. Nobody leaves my casino without a way to play.",
+             f"💵 `claim`: {CLAIM_EVERY} free {C} every 12 hours • {when(claim)}",
+             f"🎟️ `scratch`: a free scratch card every 12 hours • {when(scratch)}",
+             "🍹 `rob the bartender`: 50/50 for a free margarita and 25 chips",
+             f"🌮 `buy chips 1`: trade 1 taco for {LOAN_RATE} {C} (taco debt is allowed, I'm not a monster)",
+             "🌧️ hang around: someone always ends up making it rain"]
+    if bribed:
+        lines.append(f"💋 My bribe is on cooldown for you ({when(bribed)}). Greedy.")
+    else:
+        lines.append(f"💋 **Or bribe me.** Tap below: I forget your claim and scratch cooldowns AND slip you "
+                     f"{BROKE_GIFT} {C}. No chips needed. I accept winks.")
+    btns = [("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")]
+    if not bribed:
+        btns.insert(0, ("bribe soon broke", "Bribe Soon", "💋", discord.ButtonStyle.primary))
+    await message.channel.send("\n".join(lines), view=buttons.view(*btns))
+
+
+async def broke_bribe(message, bank: Bank):
+    gid, uid, u = message.guild.id, message.author.id, message.author.mention
+    w = await bank.get(gid, uid)
+    if w.chips >= BROKE_MIN:
+        await message.channel.send(f"💋 {u} You have {w.chips} {C}. You're not broke, you're cheap. "
+                                   "Real bribes: `bribe soon 30`.")
+        return
+    cd = await bank.timer(gid, uid, "brokebribe")
+    if cd:
+        await message.channel.send(f"💋 {u} I already took your bribe. My integrity recharges <t:{int(cd[0].timestamp())}:R>.")
+        return
+    await bank.set_timer(gid, uid, "brokebribe", BROKE_CD)
+    for k in ("claimcd", "scratchcd", "robbar", "barban"):
+        await bank.clear_timer(gid, uid, k)
+    gift = BROKE_GIFT - min(w.chips, 0)                  # chip debt gets wiped too: they always end up able to play
+    w = await bank.add(gid, uid, "broke bribe", chips=gift)
+    line = random.choice(["Your bribe: one (1) wink. Disgusting. Accepted.",
+                          "You bribed me with puppy eyes. It worked. Tell no one.",
+                          "I've been bribed with worse. Mostly by Kor.",
+                          "Fine. The house takes pity. Once."])
+    await message.channel.send(f"💋 {u} {line}\nCooldowns forgotten: `claim`, `scratch` and the bar are ready. "
+                               f"I also slipped **{gift} {C}** under the table{' (debt included)' if gift > BROKE_GIFT else ''}. Chips: {w.chips} {C}",
+                               view=buttons.view(
+                                   ("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")))

@@ -73,6 +73,7 @@ Read this first in every new conversation. It replaces the long history of the o
 ## Casino economy decisions
 - Chips are play money with zero real value. Chips are created and destroyed freely (claims, wins, wheel); no fixed supply needed.
 - **Grand Heist cooldown = 8 hours** (Shannon, Oct 15; Classic: 12). Vault stays 1 hour.
+- **Nobody gets locked out** (Shannon, Oct 15: it's just a fun game): under 5 chips after any casino command (or typing `broke`/`free chips`) → Soon lists every free-chip route (claim, free scratch, rob the bartender, buy chips with taco debt, rain) with a 💋 **Bribe Soon** button (`bribe soon broke`, once per 6h): clears claim/scratch/bar cooldowns, wipes chip debt and slips 25 chips (`casino.broke_check/broke_help/broke_bribe`, timers `brokehelp` 30 min, `brokebribe`; buttons run it via `buttons.AFTER`).
 - **Claim = 100 chips every 12 hours** (Shannon, Oct 15; Classic gave 100 first, then 40).
 - Player-friendly odds are fine and wanted (e.g. the toss side bet). Don't "fix" house edges unless Shannon asks.
 

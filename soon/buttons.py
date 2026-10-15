@@ -7,6 +7,7 @@ import re
 import discord
 
 ACTOR = contextvars.ContextVar("actor", default=None)   # who caused what Soon is sending now (bot.py ping button)
+AFTER = None      # bot.py: async (message, bank) run after a button's command (the out-of-chips helper)
 ROUTERS = []      # filled by bot.py at startup: async handlers (message, bank, mod) -> bool
 BANK = None
 
@@ -48,6 +49,8 @@ class PlayButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:p:(?
         msg = ButtonMessage(interaction, self.cmd)
         for route in ROUTERS:
             if await route(msg, BANK, False):
+                if AFTER and msg.guild:
+                    await AFTER(msg, BANK)
                 return
         if self.cmd in ("hit", "stand", "double"):
             text = "That's not your hand, sweetie. Deal your own: type `blackjack 20`."
