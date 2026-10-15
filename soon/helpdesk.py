@@ -3,7 +3,7 @@
 GUIDE = """CASINO & COMMAND CHEAT SHEET (the old YAGPDB Soon runs these for now; you know them better than it does)
 Everything is typed as a plain message in the casino channel (casa-de-soon-casino). Amounts are examples.
 - casino: main menu · games: game list · payouts: what everything pays · chips: your stack · timers: cooldowns · casino board: leaderboards
-- claim: 100 free chips the first time, then 40 every 12 hours · cashier: claim, borrow, cash out
+- claim: 100 free chips every 12 hours · cashier: claim, borrow, cash out
 - buy chips 1: trade 1 taco for 40 chips (taco debt allowed) · cash out 50: chips back into tacos · loan 100 / borrow 100
 - scratch: free scratch card every 12 hours · buy scratch: 5 chips a card
 - spin: slots, 5 chips. Any message with "spin" in it spins in the casino. Triple tacos = progressive jackpot (starts 2,000, +5 every spin)

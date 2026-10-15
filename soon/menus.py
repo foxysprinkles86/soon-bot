@@ -126,7 +126,7 @@ Any slots, toss, roulette, or blackjack play can randomly trigger a free spin
 +5 • +10 • +20 • +40 • **+100** • free scratch card • or I keep it
 
 **💵 CASHIER**
-claim: 100 {C} the first time, then **40 {C} every 12 hours**
+claim: **100 {C} every 12 hours**
 cash out: **50 {C} = 1 taco** (max 2 tacos per 12 hours)
 buy chips: **1 taco = 40 {C}** (max 3 per 12 hours, taco debt allowed)
 timers: see all your cooldowns"""

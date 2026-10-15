@@ -17,7 +17,7 @@ DANCE = "<a:dancingtacorainbowv20:1556420779334172722>"
 IMG = "https://foxysprinkles86.github.io/TnT/"
 PINK = 16729507
 
-CLAIM_FIRST, CLAIM_EVERY, CLAIM_CD = 100, 40, 12 * 3600
+CLAIM_FIRST, CLAIM_EVERY, CLAIM_CD = 100, 100, 12 * 3600   # Shannon, Oct 15: 100 every claim (Classic: 40)
 CASHOUT_RATE, CASHOUT_LIMIT = 50, 2          # 50 chips = 1 taco, 2 tacos per 12 hours
 LOAN_RATE, LOAN_LIMIT = 40, 3                # 1 taco = 40 chips, 3 tacos per 12 hours
 WINDOW = 12 * 3600
@@ -123,9 +123,9 @@ async def cashier(message: discord.Message, bank: Bank):
             else:
                 w = await bank.add(gid, uid, "claim", chips=CLAIM_EVERY)
                 line = random.choice([
-                    "I count out your **40 chips**. Slowly. Judgmentally.",
-                    "Here's your **40 chips**. Try not to lose it all in one spin. (Please lose it all in one spin.)",
-                    "**40 chips** claimed! The cocktail waitress winks. That's a bad sign. I'm the waitress.",
+                    f"I count out your **{CLAIM_EVERY} chips**. Slowly. Judgmentally.",
+                    f"Here's your **{CLAIM_EVERY} chips**. Try not to lose it all in one spin. (Please lose it all in one spin.)",
+                    f"**{CLAIM_EVERY} chips** claimed! The cocktail waitress winks. That's a bad sign. I'm the waitress.",
                     "The house is lending you hope. The house wants it back.",
                     "See you in five minutes when it's gone."])
                 await send(f"# {DANCE} +{CLAIM_EVERY} {C} {DANCE}\n{u} {line}\n"
