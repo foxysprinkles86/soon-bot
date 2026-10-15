@@ -32,6 +32,6 @@
   {{- sendMessage nil (print $out "SX house part 2 done")}}
   {{- execCC $.CCID nil 2 (sdict "ki" 10 "skip" 0 "nc" $nc "tc" $tc "tt" $tt)}}
 {{- else}}
-  {{- $cnt := ""}}{{range $keys}}{{if ne . "eggs"}}{{$cnt = print $cnt " n_" . "=" (dbCount .)}}{{end}}{{end}}
+  {{- $cnt := ""}}{{/* (no dbCount: YAGPDB only allows a couple of calls per run) */}}
   {{- sendMessage nil (print "SX END players=" $nc " chips=" $tc " tacobal=" $tt $cnt "\n✅ Export done. Now type `soon import` here.")}}
 {{- end}}
