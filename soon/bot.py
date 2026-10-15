@@ -142,12 +142,13 @@ _tag_told: set[int] = set()     # players who've seen the one-time "don't want t
 NOTAG_RE = re.compile(r"(?i)^(?:no (?:more )?(?:tags|pings)|(?:stop|quit|don'?t|do not|never) (?:tagging|pinging|tag|ping|@ ?ing) me"
                       r"|tags? off|pings? off|mute (?:my )?(?:tags|pings))[.!]*$")
 TAG_RE = re.compile(r"(?i)^(?:tag me|ping me|tags? on|pings? on|(?:start|resume) (?:tagging|pinging) me|you can tag me)[.!]*$")
+TAG_NOTE = "\n-# 🔕 `soon no tags` to stop my pings"
 _send_original = discord.abc.Messageable.send
 
 
 async def _send_filtered(self, content=None, **kw):
     """Every message Soon sends: people on the no-tags list still SEE their @name, but get no notification.
-    Every message that pings someone ends with a tiny note on how to turn tags off."""
+    (The "soon no tags" note is added to her chat replies only: see TAG_NOTE in ai_reply.)"""
     if content:
         text = str(content)
         ids = {int(i) for i in re.findall(r"<@!?(\d+)>", text)}
@@ -159,9 +160,6 @@ async def _send_filtered(self, content=None, **kw):
                 everyone=bool(am and am.everyone), roles=False,
                 users=[discord.Object(i) for i in ids if i not in _noping],
                 replied_user=ref_author not in _noping if ref_author else True)
-        pinged = [i for i in ids if i not in _noping and (client.user is None or i != client.user.id)]
-        if pinged and len(text) < 1940 and "soon no tags" not in text and not kw.get("ephemeral"):
-            content = text + "\n-# 🔕 `soon no tags` to stop my pings"            # every time (Shannon's call)
     return await _send_original(self, content, **kw)
 
 
@@ -1332,6 +1330,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         people = [message.author] + list(message.mentions) + [m for m in _participants.get(message.channel.id, []) if not is_kor(m)]
         reply = ping_names(reply, people)
         reply += footer
+        tagged = {int(i) for i in re.findall(r"<@!?(\d+)>", reply)} | ({message.author.id} if not butt_in else set())
+        if any(i not in _noping for i in tagged) and "soon no tags" not in reply:
+            reply += TAG_NOTE                                       # chat replies only (Shannon's call)
         if butt_in and not out.get("line_crossed"):
             if f"<@{message.author.id}>" not in reply:
                 reply = f"{message.author.mention} {reply}"
