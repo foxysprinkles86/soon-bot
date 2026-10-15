@@ -1761,7 +1761,7 @@ async def daily():
             hour_now = panda_hour if panda_hour is not None else now.hour
             if 12 <= hour_now <= 22 and hour_now >= _planned_hour("panda", 12, 21) and await memory.get_kv(f"panda:{gk}") != today:
                 await memory.set_kv(f"panda:{gk}", today)
-                ch = extras.find_channel(guild, config.PESTER_CHANNEL)
+                ch = (extras.find_channel(guild, config.PESTER_CHANNEL) or extras.find_channel(guild, "soon-lab"))
                 if panda and ch and (await memory.get_player(guild.id, panda.id)).pester:
                     await ensure_intro(ch)
                     line = await brain.write(
@@ -1815,7 +1815,7 @@ async def daily():
                         awake = lh is None or 9 <= lh <= 23
                     if m and not m.bot and awake and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
                         pool += [m, m] if is_kor(m) else [m]
-                ch = extras.find_channel(guild, config.PESTER_CHANNEL)
+                ch = (extras.find_channel(guild, config.PESTER_CHANNEL) or extras.find_channel(guild, "soon-lab"))
                 if pool and ch:
                     await ensure_intro(ch)
                     who = random.choice(pool)
@@ -1832,7 +1832,7 @@ async def daily():
             hh, mm = (int(x) for x in config.DIARY_TIME.split(":"))
             if (now.hour, now.minute) >= (hh, mm) and await memory.get_kv(f"diary:{gk}") != today:
                 await memory.set_kv(f"diary:{gk}", today)
-                ch = extras.find_channel(guild, config.DIARY_CHANNEL)
+                ch = (extras.find_channel(guild, config.DIARY_CHANNEL) or extras.find_channel(guild, "soon-lab"))
                 if ch:
                     await ensure_intro(ch)
                     grudges = await ranking_text(guild, False)
@@ -1862,7 +1862,7 @@ async def life_events(guild: discord.Guild, now, today: str, gk: str):
     if now.hour < 12 or await memory.get_kv(f"life:{gk}") == today:
         return
     await memory.set_kv(f"life:{gk}", today)
-    ch = extras.find_channel(guild, config.PESTER_CHANNEL)
+    ch = (extras.find_channel(guild, config.PESTER_CHANNEL) or extras.find_channel(guild, "soon-lab"))
     if not ch:
         return
     players = {p.user_id: p for p in await memory.all_players(guild.id)}
@@ -1897,7 +1897,7 @@ async def weekly_jobs(guild: discord.Guild, now, today: str, gk: str):
     """Sunday 7 PM: the Soon Awards. Monday 9 AM: the mods' report."""
     if now.weekday() == 6 and now.hour >= 19 and await memory.get_kv(f"awards:{gk}") != today:
         await memory.set_kv(f"awards:{gk}", today)
-        ch = extras.find_channel(guild, config.DIARY_CHANNEL)
+        ch = (extras.find_channel(guild, config.DIARY_CHANNEL) or extras.find_channel(guild, "soon-lab"))
         week = await pop_list(f"weeklog:{gk}")
         if ch and week:
             await ensure_intro(ch)

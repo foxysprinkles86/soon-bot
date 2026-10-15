@@ -3,7 +3,7 @@ the day's MVPs, with Classic's prizes and fines:
   🌮 Most Desperate (most taco requests): +1 taco      🍹 Thirstiest (most margaritas): -1 taco (bar tab)
   🧾 Biggest Mouth (most disrespect to Soon): -2 tacos  💖 Teacher's Pet (most kindness to Soon): +1 taco
 Then the Casa de Soon Report: 🤩 High Roller (biggest net win today): -10 chips (tips Soon, the cocktail waitress)
-and 💸 Biggest Loser (biggest net loss): +25 chips pity comp. Posts in REPORT_CHANNEL (default #soon-lab until cutover)."""
+and 💸 Biggest Loser (biggest net loss): +25 chips pity comp. Posts in REPORT_CHANNEL (default: #soons-diary, falls back to #soon-lab)."""
 import datetime as dt
 import random
 
@@ -38,7 +38,8 @@ async def post(guild: discord.Guild, bank: Bank, force: bool = False) -> bool:
         if await bank.get_house(gid, "vanday") == day:
             return False
         await bank.set_house(gid, "vanday", day)
-    ch = next((c for c in guild.text_channels if config.REPORT_CHANNEL in c.name.lower()), None)
+    ch = (next((c for c in guild.text_channels if config.REPORT_CHANNEL in c.name.lower()), None)
+          or next((c for c in guild.text_channels if "soon-lab" in c.name.lower()), None))
     if not ch:
         return False
     stamp = (now() - dt.timedelta(hours=5)).strftime("%b %-d")

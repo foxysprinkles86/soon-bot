@@ -40,9 +40,6 @@ CASINO_CHANNELS = [c.strip().lower() for c in os.environ.get("CASINO_CHANNELS", 
 # the same list as ALLOWED_CHANNELS).
 TACO_CHANNELS = [c.strip().lower() for c in os.environ.get("TACO_CHANNELS", "soon-lab").split(",") if c.strip()]
 
-# Where the Van Daily Report posts at 11:55 PM (Classic posts its own in get-in-the-van until cutover, so this
-# defaults to the first taco channel, #soon-lab). On cutover night set REPORT_CHANNEL=get-in-the-van.
-REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or TACO_CHANNELS[0]
 
 # New-member welcome (Classic's). Off until cutover night so new people don't get welcomed twice: then WELCOME=1.
 WELCOME = os.environ.get("WELCOME", "0").strip() in ("1", "true", "on", "yes")
@@ -79,9 +76,11 @@ MOD_ROLE_WORDS = [w.strip().lower() for w in os.environ.get("MOD_ROLE_WORDS", "m
 
 # Where she logs warnings/timeouts (first channel whose name contains this word).
 MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
-# Where the nightly diary and daily pestering go (channel name or part of it).
-DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "soon-lab").strip().lower()
-PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "soon-lab").strip().lower()
+# Shannon, Oct 15: diary, Sunday awards and the Van Daily Report go to #soons-diary; daily pester tags and
+# regular summons go to #taco-trash-talk. A channel that can't be found falls back to #soon-lab.
+DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "diary").strip().lower()
+PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "trash-talk").strip().lower()
+REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or DIARY_CHANNEL
 # Where race/event reminders go. Defaults to the pester channel.
 # Race reminders, event reminders and Kraken posts all go to #race-and-event-announcements (Shannon, Oct 15).
 RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or "race-and-event"
