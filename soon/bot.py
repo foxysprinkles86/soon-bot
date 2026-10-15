@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import alerts, bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
+from . import alerts, bar, notifyhelp, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1745,6 +1745,8 @@ async def on_message(message: discord.Message):
                 await rival_reply(message)
         return
     if not allowed_channel(message.channel):
+        if not ignored(message.author):
+            await notifyhelp.check(message)                 # "too many pings!": how-to, in ANY channel she can see
         return
     if message.channel.id in buttons.PAUSED:          # a duel fight is on: sweep everything so the button stays in view
         try:
@@ -1769,6 +1771,8 @@ async def on_message(message: discord.Message):
         return
     if ignored(message.author):
         return          # they asked her to ignore them: commands and casino still work, nothing else
+    if await notifyhelp.check(message):
+        return                                              # notification complaint: short how-to
     tacovan.note_speaker(message)
     await zones.nudge(message, bank)                            # Classic's zone nudge (zoneless people)
     to_soon = talking_to_soon(message)
