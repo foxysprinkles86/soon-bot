@@ -65,6 +65,13 @@ PRICE_INPUT_HIT = _float("PRICE_INPUT_HIT", 0.0028)
 PRICE_OUTPUT = _float("PRICE_OUTPUT", 0.28)
 
 # Chance Soon butts into a conversation she isn't part of (0.05 = 1 in 20 eligible messages).
+# Shannon, Oct 15: her HOME channels get full chat. Every other allowed channel (get-in-the-van, gameplay...) is
+# "visiting": welcomes, taco van, eggs, commands work; talked to directly = one short answer + "come to #taco-trash-talk";
+# no roasts, reactions, Panda pounces or jealousy; a friendly butt-in only very rarely (VISIT_BUTT_IN_*).
+HOME_CHANNELS = [c.strip().lower() for c in os.environ.get("HOME_CHANNELS", "soon-lab,trash-talk,casa,diary").split(",") if c.strip()]
+VISIT_BUTT_IN_CHANCE = _float("VISIT_BUTT_IN_CHANCE", 0.01)
+VISIT_BUTT_IN_COOLDOWN_SEC = int(_float("VISIT_BUTT_IN_COOLDOWN_SEC", 24 * 3600))
+VISIT_REPLY_COOLDOWN_SEC = int(_float("VISIT_REPLY_COOLDOWN_SEC", 300))
 BUTT_IN_CHANCE = _float("BUTT_IN_CHANCE", 0.05)
 BUTT_IN_COOLDOWN_SEC = int(_float("BUTT_IN_COOLDOWN_SEC", 600))
 

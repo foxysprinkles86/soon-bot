@@ -43,6 +43,15 @@ def allowed_channel(channel) -> bool:
     return any(word in name.lower() for word in config.ALLOWED_CHANNELS)
 
 
+def home_channel(channel) -> bool:
+    """Her own channels (full chat). Other allowed channels are 'visiting' (see config.HOME_CHANNELS)."""
+    name = (getattr(channel, "name", "") or "").lower()
+    return any(word in name for word in config.HOME_CHANNELS)
+
+
+_last_visit_reply: dict[tuple, float] = {}     # (channel, user) -> last short "visiting" answer
+
+
 def is_mod(member) -> bool:
     if not isinstance(member, discord.Member):
         return False
@@ -1722,7 +1731,7 @@ async def on_message(message: discord.Message):
     if not message.author.bot and await schedules.command(message, bank, is_mod(message.author)):
         return                                              # mods' kraken go/date/test (any channel, e.g. #kraken-clash)
     if message.author.bot:
-        if is_old_soon(message.author) and allowed_channel(message.channel):
+        if is_old_soon(message.author) and allowed_channel(message.channel) and home_channel(message.channel):
             now = time.time()
             egged = False
             async for prev in message.channel.history(limit=4, before=message):
@@ -1744,7 +1753,8 @@ async def on_message(message: discord.Message):
             pass
         return
     _activity[(message.guild.id, message.author.id)][discord.utils.utcnow().hour] += 1
-    await ensure_intro(message.channel)
+    if home_channel(message.channel):                  # no grand entrance where she's only visiting
+        await ensure_intro(message.channel)
     await lab_welcome(message)
     if await handle_command(message):
         return
@@ -1774,6 +1784,9 @@ async def on_message(message: discord.Message):
                 and await memory.get_kv(key) != extras.today_key():
             await memory.set_kv(key, extras.today_key())
             asyncio.create_task(ask_be_nice(message, asked_directly=False))
+    if not home_channel(message.channel):             # visiting (get-in-the-van, gameplay...): mostly quiet
+        await visiting(message)
+        return
     if talking_to_soon(message):
         if rate_ok(message.author.id):
             await ai_reply(message)
@@ -1812,6 +1825,29 @@ async def on_message(message: discord.Message):
         if now - _last_butt_in[message.channel.id] > config.BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
             _last_butt_in[message.channel.id] = now
             await ai_reply(message, butt_in=True)
+
+
+async def visiting(message: discord.Message):
+    """Not her channel (Shannon's call): talked to directly = one short answer + an invite to her channel (once per
+    person per 5 min); otherwise silent apart from a rare friendly butt-in. No roasts, reactions, Panda pounces."""
+    asyncio.create_task(eavesdrop(message))                 # still learns about people (notes only, says nothing)
+    home = extras.find_channel(message.guild, config.PESTER_CHANNEL)
+    there = f"#{home.name}" if home else "my channels"
+    if talking_to_soon(message):
+        key, now = (message.channel.id, message.author.id), time.time()
+        if now - _last_visit_reply.get(key, 0) > config.VISIT_REPLY_COOLDOWN_SEC and rate_ok(message.author.id):
+            _last_visit_reply[key] = now
+            await ai_reply(message, special=(
+                f"You're only VISITING #{message.channel.name}, it's not your channel. Answer them in ONE short, "
+                f"friendly sentence (no roast), then invite them to {there} if they want more of you."))
+        return
+    if len(message.content.split()) >= 4 and random.random() < config.VISIT_BUTT_IN_CHANCE:
+        now = time.time()
+        if now - _last_butt_in[message.channel.id] > config.VISIT_BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
+            _last_butt_in[message.channel.id] = now
+            await ai_reply(message, butt_in=True, special=(
+                f"You're only passing through #{message.channel.name}, not your channel. ONE short, light, friendly "
+                "line about what they said. No roast, no insults."))
 
 
 @client.event
