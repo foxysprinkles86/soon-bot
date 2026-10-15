@@ -28,8 +28,11 @@ CASHIER_RE = re.compile(
     r"\s*[!?.]*\s*$|\bwhen can i (?:claim|scratch|cash out|buy)\b")
 GIVE_RE = re.compile(r"(?i)^\s*(?:give|take)\s+chips\b")
 BROKE_RE = re.compile(r"(?i)^\s*(?:i'?m\s+|im\s+)?(?:broke|out of chips|no (?:more )?chips|free chips)\s*[!?.]*\s*$")
+BROKE_SAY_RE = re.compile(r"(?i)\b(?:i'?m|im|i am|i'?ve been|we'?re|so|super|dead|flat|stone[- ]?cold)\s+(?:so\s+|soo+\s+|totally\s+|completely\s+|fucking\s+|f\w*ing\s+)?(?:broke|poor|bankrupt)\b"
+                          r"|\bbroke\s+(?:af|asf|as hell|again)\b|\b(?:out of|no more|zero|0) chips\b|\bi (?:have|got) no (?:chips|money)\b"
+                          r"|\bbroke (?:bitch|b\*tch)\b|\b(?:poor|broke) me\b")
 BROKE_BRIBE_RE = re.compile(r"(?i)^\s*bribe\s+soon\s+broke\b")
-BROKE_MIN, BROKE_GIFT, BROKE_CD = 5, 25, 6 * 3600
+BROKE_MIN, BROKE_GIFT, BROKE_CD = 5, 100, 3 * 3600     # Shannon, Oct 15: 100 chips, every 3 hours, only when broke
 
 
 def casino_channel(channel) -> bool:
@@ -70,6 +73,9 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
         return True
     if BROKE_RE.match(text):
         await broke_help(message, bank)
+        return True
+    if BROKE_SAY_RE.search(text) and not await bank.timer(message.guild.id, message.author.id, "brokehelp"):
+        await broke_help(message, bank)                  # "ugh I'm so broke" in a sentence: the menu, max once per 30 min
         return True
     if CASHIER_RE.search(text):
         await cashier(message, bank)
@@ -385,7 +391,9 @@ async def broke_help(message, bank: Bank):
         return f"next <t:{int(t[0].timestamp())}:R>" if t else "**ready now!**"
     claim, scratch, bribed = (await bank.timer(gid, uid, "claimcd"), await bank.timer(gid, uid, "scratchcd"),
                               await bank.timer(gid, uid, "brokebribe"))
-    lines = [f"## 💸 {u}, you're {'in chip debt (' + str(w.chips) + f' {C})' if w.chips < 0 else f'down to {w.chips} {C}'}. Nobody leaves my casino without a way to play.",
+    lines = ["# 💋 The Broke Bitch Bribe Menu 💋", (f"{u}, you're in chip debt ({w.chips} {C}). Nobody leaves my casino without a way to play." if w.chips < 0 else
+              f"{u}, you're down to {w.chips} {C}. Nobody leaves my casino without a way to play." if w.chips < BROKE_MIN else
+              f"{u} claims to be broke with **{w.chips} {C}**. Suspicious. Here's the menu anyway."),
              f"💵 `claim`: {CLAIM_EVERY} free {C} every 12 hours • {when(claim)}",
              f"🎟️ `scratch`: a free scratch card every 12 hours • {when(scratch)}",
              "🍹 `rob the bartender`: 50/50 for a free margarita and 25 chips",
@@ -394,8 +402,9 @@ async def broke_help(message, bank: Bank):
     if bribed:
         lines.append(f"💋 My bribe is on cooldown for you ({when(bribed)}). Greedy.")
     else:
-        lines.append(f"💋 **Or bribe me.** Tap below: I forget your claim and scratch cooldowns AND slip you "
-                     f"{BROKE_GIFT} {C}. No chips needed. I accept winks.")
+        lines.append(f"💋 **Or bribe me.** Tap below: I forget your claim and scratch cooldowns, wipe your chip debt AND slip "
+                     f"you {BROKE_GIFT} {C}. No chips needed. I accept winks."
+                     + ("" if w.chips < BROKE_MIN else f" (Only works when you're actually broke: under {BROKE_MIN} {C}.)"))
     btns = [("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")]
     if not bribed:
         btns.insert(0, ("bribe soon broke", "Bribe Soon", "💋", discord.ButtonStyle.primary))
@@ -406,8 +415,8 @@ async def broke_bribe(message, bank: Bank):
     gid, uid, u = message.guild.id, message.author.id, message.author.mention
     w = await bank.get(gid, uid)
     if w.chips >= BROKE_MIN:
-        await message.channel.send(f"💋 {u} You have {w.chips} {C}. You're not broke, you're cheap. "
-                                   "Real bribes: `bribe soon 30`.")
+        await message.channel.send(f"💋 {u} You have {w.chips} {C}. You're not broke, you're cheap. The Broke Bitch Bribe "
+                                   f"is for under {BROKE_MIN} {C}. Real bribes: `bribe soon 30`.")
         return
     cd = await bank.timer(gid, uid, "brokebribe")
     if cd:

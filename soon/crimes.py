@@ -23,6 +23,14 @@ def is_kor_name(user) -> bool:
     return "korehaan" in (getattr(user, "name", "") or "").lower()
 
 
+def _line(user, lines: list[str]) -> str:
+    """A random flavor line. When Kor is the one doing the crime, skip the lines starring Kor
+    (Classic once had Kor "ratted out by Kor for a churro")."""
+    if is_kor_name(user):
+        lines = [l for l in lines if "Kor" not in l] or lines
+    return random.choice(lines)
+
+
 async def handle(message, bank: Bank, mod: bool) -> bool:
     if not casino_channel(message.channel):
         return False
@@ -114,8 +122,8 @@ async def steal(message, bank: Bank):
         vw = await bank.add(gid, t, f"robbed by {me}", chips=-amt)
         w = await bank.add(gid, me, f"robbed {t}", chips=amt)
         await message.channel.send(
-            f"🤏 {u} " + random.choice(["bumps into", "\"accidentally\" trips", "hugs", "asks for directions from"]) +
-            f" {v} and walks away **{amt} {C}** richer.\n# {DANCE} +{amt} {C} STOLEN {DANCE}\n{v} " + random.choice([
+            f"🤏 {u} " + _line(message.author, ["bumps into", "\"accidentally\" trips", "hugs", "asks for directions from"]) +
+            f" {v} and walks away **{amt} {C}** richer.\n# {DANCE} +{amt} {C} STOLEN {DANCE}\n{v} " + _line(message.author, [
                 "you've been robbed. I saw the whole thing. I did nothing.",
                 "check your pockets. Actually, don't. It'll just make you sad.",
                 "you can't be robbed again for an hour. Small mercies.",
@@ -126,7 +134,7 @@ async def steal(message, bank: Bank):
         vw = await bank.add(gid, t, f"{me} got caught robbing them", chips=amt)
         debt = f" You couldn't cover it, so I took your dignity too. You're **{-w.chips} {C}** in debt." if w.chips < 0 else ""
         await message.channel.send(
-            f"🚨 {u} tries to rob {v} and gets **CAUGHT**.\n# 💸 -{amt} {C} → {v}\n" + random.choice([
+            f"🚨 {u} tries to rob {v} and gets **CAUGHT**.\n# 💸 -{amt} {C} → {v}\n" + _line(message.author, [
                 "The victim keeps the loot. Justice. Rare, beautiful justice.",
                 "You pay them what you tried to take. I love this part.",
                 "Kor saw everything. Kor is a terrible witness but a great snitch."]) + debt +
@@ -146,12 +154,12 @@ async def steal_house(message, bank: Bank):
         await bank.set_timer(gid, me, "stole", STOLE)
         w = await bank.add(gid, me, "robbed the house", chips=amt)
         await message.channel.send(
-            f"🦹 {u} " + random.choice([
+            f"🦹 {u} " + _line(message.author, [
                 "slips behind the cashier counter while I'm refilling margaritas...",
                 "crawls through the air vent above the slot machines...",
                 "distracts me with a compliment and reaches for the chip drawer...",
                 "pretends to be Kor. It works. That's embarrassing for everyone."]) +
-            f"\n# {DANCE} +{amt} {C} STOLEN {DANCE}\n" + random.choice([
+            f"\n# {DANCE} +{amt} {C} STOLEN {DANCE}\n" + _line(message.author, [
                 "I'll be reviewing the security footage. Personally. All night.",
                 "That's coming out of Kor's paycheck. Kor doesn't get a paycheck. Still.",
                 "Enjoy them. They're cursed now.", "You think you got away with it. Cute."]) +
@@ -159,11 +167,11 @@ async def steal_house(message, bank: Bank):
     else:
         w = await bank.add(gid, me, "caught robbing the house", chips=-amt)
         tail = (f"You couldn't cover the fine, so I took your dignity too. You're **{-w.chips} {C}** in debt now."
-                if w.chips < 0 else random.choice([
+                if w.chips < 0 else _line(message.author, [
                     "Fine paid. Crime doesn't pay. I do. Badly.", "The house always wins. Especially against you.",
                     "Next time wear a better disguise. Or any disguise."]))
         await message.channel.send(
-            f"🚨 {u} " + random.choice([
+            f"🚨 {u} " + _line(message.author, [
                 "reaches for the chip drawer and finds my hand already there.",
                 "trips the laser alarm. There are no lasers. I just know.",
                 "gets caught on camera. It's a camera made of tacos, but it works.",
@@ -186,7 +194,7 @@ async def snitch(message, bank: Bank):
         sw = await bank.add(gid, me, "snitch reward", chips=50)
         vw = await bank.add(gid, t, "snitched on", chips=-25)
         await message.channel.send(
-            f"🐀 {u} rats out {v}. **And they're right.**\n# 💰 +50 {C} reward\n{v} is fined **25 {C}**. " + random.choice([
+            f"🐀 {u} rats out {v}. **And they're right.**\n# 💰 +50 {C} reward\n{v} is fined **25 {C}**. " + _line(message.author, [
                 "Snitches get rewards. Thieves get fines. Everyone gets judged.",
                 "I love a good betrayal. It's like a telenovela in here.",
                 "Kor is taking notes. Kor wants to be you when he grows up."]) +
@@ -195,7 +203,7 @@ async def snitch(message, bank: Bank):
         sw = await bank.add(gid, me, "false snitch", chips=-50)
         vw = await bank.add(gid, t, "falsely accused", chips=50)
         await message.channel.send(
-            f"🐀 {u} accuses {v} of theft. **They're innocent.** (Recently, anyway.)\n# 💸 -50 {C} → {v}\n" + random.choice([
+            f"🐀 {u} accuses {v} of theft. **They're innocent.** (Recently, anyway.)\n# 💸 -50 {C} → {v}\n" + _line(message.author, [
                 "False accusations are expensive. Pay up, rat.", "Slander! In MY casino! Pay the poor soul.",
                 "Wrong. So wrong. Your 50 chips have a new home."]) +
             f"\n-# {message.author.display_name}: {sw.chips} {C} • {v}: {vw.chips} {C}")
@@ -216,7 +224,7 @@ async def hide(message, bank: Bank):
     await bank.set_timer(gid, me, "hidden", HIDE)
     until = (await bank.timer(gid, me, "hidden"))[0]
     await message.channel.send(
-        f"🫣 {u} " + random.choice([
+        f"🫣 {u} " + _line(message.author, [
             "stuffs their chips into a tortilla and hides it in the van.",
             "buries their chips under the casino floor. I'm charging for the hole.",
             "hands their chips to Kor for safekeeping. Bold. Very bold."]) +
@@ -323,12 +331,12 @@ async def bribe(message, bank: Bank):
             await bank.clear_timer(gid, me, k)
         await message.channel.send(
             f"💸 {u} slides me **{n} {C}** under the table. I look around. I pocket it.\n# 🤫 Cooldowns? What cooldowns?\n"
-            "Your `claim`, `scratch` and steal timers have been... misplaced. " + random.choice([
+            "Your `claim`, `scratch` and steal timers have been... misplaced. " + _line(message.author, [
                 "This never happened.", "I don't know you. I've never met you.", "Pleasure doing crimes with you."]) +
             f"\n-# Bribe: -{n} {C} ({odds}% odds) • Chips: {w.chips} {C}")
     else:
         await message.channel.send(
-            f"💸 {u} slides me **{n} {C}**. I count it. Slowly. I put it in my pocket.\n# 🙅 No.\n" + random.choice([
+            f"💸 {u} slides me **{n} {C}**. I count it. Slowly. I put it in my pocket.\n# 🙅 No.\n" + _line(message.author, [
                 "I'm keeping it though.", "Thanks for the donation to the Soon Margarita Fund.",
                 "Bribery is a crime. Lucky for you, I love crime. Unlucky for you, not today.",
                 "Try more chips. Or more begging. Ideally both."]) +
