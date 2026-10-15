@@ -705,6 +705,15 @@ async def handle_command(message: discord.Message) -> bool:
         await message.reply(f"Fine. {t.display_name}'s strikes are wiped. I'm keeping a mental note though.")
         return True
 
+    sm = re.match(r"^(?:summon|call|gather)\s+(?:the\s+|my\s+|your\s+|her\s+)?regulars\b(.*)$", cmd)
+    if sm:                                   # Shannon: "soon summon regulars [#channel] [why]" (mods)
+        if not is_mod(message.author):
+            await message.reply("Only Master Foxy and the mods summon my regulars. You can summon yourself. Somewhere else.")
+            return True
+        await summon_regulars(message, re.sub(r"<#\d+>|^\s*(?:to|into)\s+(?:my|the|her)?\s*diary\b", "",
+                                              sm.group(1)).strip(" ,.!-:"))
+        return True
+
     if cmd.startswith("takeover"):
         if not is_mod(message.author):
             await message.reply("What takeover? There's no takeover. Go away. 🙂")
@@ -1589,6 +1598,43 @@ async def heist_clock():
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
 RIVAL_CHANCE = 0.3
 RIVAL_COOLDOWN_SEC = 300
+
+
+SUMMON_MAX = 12
+
+
+async def summon_regulars(message: discord.Message, why: str):
+    """`soon summon regulars [#channel] [why]` (mods): Soon @'s her regulars (chatted 3+ times, seen in the last
+    14 days, most chatty first, max 12) to her diary (or the #channel named). Skips people who opted out of her
+    tags or asked to be ignored; no-tags people still show up but don't get notified."""
+    guild = message.guild
+    ch = (message.channel_mentions[0] if message.channel_mentions else
+          extras.find_channel(guild, config.DIARY_CHANNEL) or message.channel)
+    cutoff = discord.utils.utcnow() - dt.timedelta(days=14)
+    regs = []
+    for p in sorted(await memory.all_players(guild.id), key=lambda p: p.chats, reverse=True):
+        m = guild.get_member(p.user_id)
+        if m and not m.bot and not ignored(m) and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
+            regs.append(m)
+    regs = regs[:SUMMON_MAX]
+    if not regs:
+        await message.reply("I don't have any regulars yet. Tragic. Go make people talk to me.")
+        return
+    names = ", ".join(m.display_name for m in regs)
+    line = await brain.write(
+        f"Write 1-2 short lines summoning your regulars ({names}) to #{ch.name}, your channel, right now"
+        + (f", because: {why}" if why else "") + ". Dramatic, bossy, a bit needy. Don't include their @s. "
+        "No @everyone or @here.", max_tokens=120)
+    try:
+        await ch.send(" ".join(m.mention for m in regs) + "\n" + (line or f"📣 Regulars. In here. Now. "
+                      + (why or "I have something to say and I need an audience.")), allowed_mentions=PING)
+    except discord.HTTPException:
+        await message.reply(f"Discord won't let me post in {ch.mention}. Give me Send Messages there.")
+        return
+    extras.log_event(f"summoned her regulars to #{ch.name}")
+    if ch != message.channel:
+        await message.reply(f"📣 Summoned {len(regs)} regulars to {ch.mention}.", mention_author=False,
+                            allowed_mentions=discord.AllowedMentions.none())
 
 
 async def mute_show(message: discord.Message) -> set[str]:
