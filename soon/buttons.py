@@ -1,10 +1,12 @@
 """Clickable buttons for the casino. Every button just "types" a casino command for whoever presses it,
 so buttons and typed commands always behave the same (same chips, cooldowns, limits and jokes).
 Buttons keep working after Soon restarts (the command lives in the button's id)."""
+import contextvars
 import re
 
 import discord
 
+ACTOR = contextvars.ContextVar("actor", default=None)   # who caused what Soon is sending now (bot.py ping button)
 ROUTERS = []      # filled by bot.py at startup: async handlers (message, bank, mod) -> bool
 BANK = None
 
@@ -42,6 +44,7 @@ class PlayButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:p:(?
             await interaction.response.send_message("⏸️ Duel in progress. Hold your fire for a few seconds.", ephemeral=True)
             return
         await interaction.response.defer()          # tells Discord "got it"; results post in the channel
+        ACTOR.set(interaction.user.id)
         msg = ButtonMessage(interaction, self.cmd)
         for route in ROUTERS:
             if await route(msg, BANK, False):

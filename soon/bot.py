@@ -142,13 +142,45 @@ _tag_told: set[int] = set()     # players who've seen the one-time "don't want t
 NOTAG_RE = re.compile(r"(?i)^(?:no (?:more )?(?:tags|pings)|(?:stop|quit|don'?t|do not|never) (?:tagging|pinging|tag|ping|@ ?ing) me"
                       r"|tags? off|pings? off|mute (?:my )?(?:tags|pings))[.!]*$")
 TAG_RE = re.compile(r"(?i)^(?:tag me|ping me|tags? on|pings? on|(?:start|resume) (?:tagging|pinging) me|you can tag me)[.!]*$")
-TAG_NOTE = "\n-# 🔕 `soon no tags` to stop my pings"
 _send_original = discord.abc.Messageable.send
+
+
+class PingButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:pings"):
+    """🔔 My pings on/off (Shannon's call): on every message that pings players. Flips `soon no tags` for whoever taps."""
+
+    def __init__(self):
+        super().__init__(discord.ui.Button(label="My pings on/off", emoji="🔔", custom_id="soon:pings"))
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match: re.Match):
+        return cls()
+
+    async def callback(self, interaction: discord.Interaction):
+        uid = interaction.user.id
+        if uid in _noping:
+            _noping.discard(uid)
+            text = "🔔 Pings are back ON. I'll tag you again. Don't come crying when your phone buzzes."
+        else:
+            _noping.add(uid)
+            text = ("🔕 Pings OFF. I'll still talk to you (and heists, duels and alerts still show your name), "
+                    "your phone just won't buzz. Tap again to turn them back on.")
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        await interaction.response.send_message(text, ephemeral=True)
+
+
+def ping_view(view: discord.ui.View | None = None) -> discord.ui.View | None:
+    """Add the 🔔 My pings on/off button (skipped when the message already has one, or its own alerts toggle)."""
+    v = view or discord.ui.View(timeout=None)
+    ids = [getattr(c, "custom_id", "") or "" for c in v.children]
+    if any(i == "soon:pings" or "alerts" in i for i in ids) or len(v.children) >= 25:
+        return view
+    v.add_item(PingButton())
+    return v
 
 
 async def _send_filtered(self, content=None, **kw):
     """Every message Soon sends: people on the no-tags list still SEE their @name, but get no notification.
-    (The "soon no tags" note is added to her chat replies only: see TAG_NOTE in ai_reply.)"""
+    Any message that pings someone other than the person who caused it gets the 🔔 My pings on/off button."""
     if content:
         text = str(content)
         ids = {int(i) for i in re.findall(r"<@!?(\d+)>", text)}
@@ -160,6 +192,8 @@ async def _send_filtered(self, content=None, **kw):
                 everyone=bool(am and am.everyone), roles=False,
                 users=[discord.Object(i) for i in ids if i not in _noping],
                 replied_user=ref_author not in _noping if ref_author else True)
+            if ids - _noping - {buttons.ACTOR.get(), getattr(self, "id", None)}:
+                kw["view"] = ping_view(kw.get("view"))
     return await _send_original(self, content, **kw)
 
 
@@ -1365,14 +1399,13 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         reply = ping_names(reply, people)
         reply += footer
         tagged = {int(i) for i in re.findall(r"<@!?(\d+)>", reply)} | ({message.author.id} if not butt_in else set())
-        if any(i not in _noping for i in tagged) and "soon no tags" not in reply:
-            reply += TAG_NOTE                                       # chat replies only (Shannon's call)
+        view = ping_view() if any(i not in _noping for i in tagged) else None    # her chat replies: always the button
         if butt_in and not out.get("line_crossed"):
             if f"<@{message.author.id}>" not in reply:
                 reply = f"{message.author.mention} {reply}"
-            await message.channel.send(reply, allowed_mentions=PING)
+            await message.channel.send(reply, allowed_mentions=PING, view=view)
         else:
-            await message.reply(reply, allowed_mentions=PING)
+            await message.reply(reply, allowed_mentions=PING, view=view)
         return True
     return False
 
@@ -1408,7 +1441,7 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
-    client.add_dynamic_items(buttons.PlayButton, NiceButton)
+    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton)
     if not heist_clock.is_running():
         heist_clock.start()
     if not daily.is_running():
@@ -1465,6 +1498,7 @@ async def rival_reply(message: discord.Message):
 async def on_message(message: discord.Message):
     if not message.guild:
         return
+    buttons.ACTOR.set(message.author.id)                     # their own command's replies don't get the ping button
     if message.type == discord.MessageType.new_member:      # "X joined the server": Classic's welcome (WELCOME=1)
         await welcome.on_join_message(message)
         return
