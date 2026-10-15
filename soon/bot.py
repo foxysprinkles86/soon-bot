@@ -1443,7 +1443,7 @@ async def on_ready():
     _tag_told.update(json.loads(await memory.get_kv("tagtold") or "[]"))
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
-    buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
+    buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton)
     for g in client.guilds:                                 # people already on alert lists get the alert roles
         asyncio.create_task(alerts.sync(g, bank))
@@ -1537,7 +1537,7 @@ async def on_message(message: discord.Message):
     if await handle_command(message):
         return
     mod = is_mod(message.author)
-    if (await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
+    if (await alerts.handle(message, bank, mod) or await casino.handle(message, bank, mod) or await games.handle(message, bank, mod)
             or await heists.handle(message, bank, mod) or await duels.handle(message, bank, mod) or await tips.handle(message, bank, mod)
             or await racebets.handle(message, bank, mod)
             or await crimes.handle(message, bank, mod) or await korperks.handle(message, bank, mod)
@@ -1730,8 +1730,10 @@ async def daily():
                     if ch:
                         await ensure_intro(ch)
                         line = await brain.write(features.event_task(e), max_tokens=160)
-                        await ch.send(line or f"🏁 **{e['name']}** starts in one hour. Move.",
-                                      allowed_mentions=discord.AllowedMentions.none())
+                        r = await alerts.role(guild, "events")             # 📅 Event Alerts role
+                        await ch.send((f"🔔 {r.mention} " if r else "") + (line or f"🏁 **{e['name']}** starts in one hour. Move."),
+                                      allowed_mentions=discord.AllowedMentions(users=False, everyone=False,
+                                                                               roles=[r] if r else False))
                         extras.log_event(f"reminded everyone about {e['name']}")
 
             # One regular gets summoned out of nowhere (Kor twice as likely).

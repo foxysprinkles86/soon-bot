@@ -110,12 +110,12 @@ Soon stands on 17
 **🦹 HEISTS** • type heist for the heist board • max crew 7 • one heist at a time
 Vault Heist: 15 {C} buy-in • pays **35 each** • 40% solo, +10% per crew (max 80%) • 10 min to join • 1 per hour
 Grand Heist: 50 {C} buy-in • pays **500 each** • 20% solo, +10% per crew (80% with 7) • 15 min to join • 1 per 12 hours
-heist alerts on: get tagged whenever a heist starts
+casino alerts on: get pinged whenever a heist or duel starts (`alerts` = all your alerts)
 
 **⚔️ DUELS** • duel @name 20 (1–100 each) • quick-draw: first tap on **DRAW!** wins, tapping early = misfire • winner takes both
 Spectators: bet 5–25 on @name • betting stays open 2 minutes after they accept • 10-second warning, then the channel pauses for the fight • back the winner = double your bet
 🎲 Double or Nothing: both fighters press it after the duel → rematch at double stakes, bets reopen at a flat 20
-duel alerts on: get tagged whenever a duel starts
+casino alerts on: get pinged whenever a duel starts
 
 **🏁 RACE BETTING** • race bet @name 20 (1–100 per race, one pick each, betting on yourself allowed)
 Opens when race pre-join opens, closes when pre-join closes • a mod calls the winner

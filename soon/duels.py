@@ -23,15 +23,13 @@ from .economy import Bank
 ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
 WAIT, BETTING, MIN_BET, MAX_BET, MAX_BETS, MAX_STAKE = 300, 120, 5, 25, 6, 100
 DON_WAIT, DON_BETTING, DON_BET = 60, 120, 20      # double or nothing: decide window, betting window, flat bet
-MAX_SUBS = 109
 WARNING = 10                  # seconds of heads-up before the fight
 
 DUEL_RE = re.compile(r"(?i)^\s*duel\b(?!\s+record)")
 ANSWER_RE = re.compile(r"(?i)^\s*(accept|decline)\s*[!.]*\s*$")
 BET_RE = re.compile(r"(?i)^\s*bet\s+\d+\s+on\s+<@!?\d+>\s*[!.]*\s*$")
-ALERT_RE = re.compile(r"(?i)^\s*duels?\s+(?:alerts?|notif\w*|ping\w*|subscri\w*)\b")
 DON_RE = re.compile(r"(?i)^\s*(?:double\s+or\s+nothing|don)\s*[!.?]*\s*$")
-ALERTS_BTN = ("duel alerts toggle", "Duel alerts on/off", "🔔", discord.ButtonStyle.secondary)
+ALERTS_BTN = alert_roles.btn("casino")      # 🔔 Casino Alerts on/off (alerts.py)
 _locks: dict[int, asyncio.Lock] = {}
 
 
@@ -62,9 +60,6 @@ async def handle(message, bank: Bank, mod: bool) -> bool:
         return False
     text = message.content.strip()
     gid = message.guild.id
-    if ALERT_RE.match(text):
-        await alerts(message, bank)
-        return True
     if DON_RE.match(text):
         async with _locks.setdefault(gid, asyncio.Lock()):
             return await double_or_nothing(message, bank)
@@ -81,28 +76,6 @@ async def handle(message, bank: Bank, mod: bool) -> bool:
         return True
     return False
 
-
-async def alerts(message, bank: Bank):
-    gid, me, u = message.guild.id, str(message.author.id), message.author.mention
-    subs = await bank.get_house(gid, "duelsubs", [])
-    toggle_off = "toggle" in message.content.lower() and me in subs
-    if toggle_off or re.search(r"(?i)\boff\b|\bstop\b|\bno\b|unsub", message.content):
-        await bank.set_house(gid, "duelsubs", [s for s in subs if s != me])
-        await alert_roles.set_member(message.author, "duelsubs", False)
-        await message.channel.send(f"🔔 {u} Duel alerts **off**. Enjoy missing the bloodshed.")
-    elif me in subs:
-        await alert_roles.set_member(message.author, "duelsubs", True)
-        await message.channel.send(f"🔔 {u} You're already on the duel list. `duel alerts off` to stop.")
-    elif await alert_roles.set_member(message.author, "duelsubs", True):      # the Duel Alerts role: no list limit
-        await bank.set_house(gid, "duelsubs", subs + [me])
-        await message.channel.send(f"🔔 {u} Duel alerts **on**. You've got the **Duel Alerts** role: I ping it whenever a "
-                                   "duel starts, so you can bet on it. `duel alerts off` to stop.")
-    elif len(subs) >= MAX_SUBS:
-        await message.channel.send(f"🔔 {u} The duel list is full ({MAX_SUBS}).")
-    else:
-        await bank.set_house(gid, "duelsubs", subs + [me])
-        await message.channel.send(f"🔔 {u} Duel alerts **on**. I'll tag you whenever a duel starts, so you can bet on it. "
-                                   "`duel alerts off` to stop.")
 
 
 async def challenge(message, bank: Bank):
@@ -134,7 +107,7 @@ async def challenge(message, bank: Bank):
             "3. Once accepted, everyone else has **2 minutes to bet** with `bet 25 on @name` (5–25 chips)\n"
             "4. Quick-draw: when the button turns red and says **DRAW!**, tap it first. Tap early and you misfire. The winner takes both stakes. Spectators who backed the winner get **double** their bet. "
             "The rest lose theirs.\n-# One duel at a time • `duel cancel` calls it off before it's accepted • "
-            "`duel alerts on` to get tagged when a duel starts"
+            "`casino alerts on` to get pinged when a duel starts"
             + (f" • Happening now: <@{d['c']}> vs <@{d['t']}>" if d else ""),
             view=buttons.view(ALERTS_BTN))
         return
@@ -168,9 +141,8 @@ async def challenge(message, bank: Bank):
         return
     d = {"c": me, "t": t, "a": a, "on": False, "bets": [], "until": time.time() + WAIT, "channel": message.channel.id}
     await save(bank, gid, d)
-    subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (me, t))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        await alert_roles.prefix(message.channel, "duelsubs", subs, ALERTS_BTN) +
+        await alert_roles.prefix(message.channel, "casino", bank) +
         f"# ⚔️🤺⚔️ DUEL! ⚔️🤺⚔️\n{u} challenges <@{t}> to a **quick-draw duel** for **{a} {C}** each!{capped}\n"
         f"## <@{t}> type `accept` or `decline`\nThe challenge expires <t:{int(d['until'])}:R>.\n"
         f"🍿 **Everyone else:** `bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. Winners get double. "
@@ -439,9 +411,8 @@ async def double_or_nothing(message, bank: Bank) -> bool:
     d.update(stage="", until=time.time() + DON_BETTING)
     await save(bank, gid, d)
     await buttons.retire(f"don:{gid}")
-    subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (d["c"], d["t"]))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        await alert_roles.prefix(message.channel, "duelsubs", subs, ALERTS_BTN) +
+        await alert_roles.prefix(message.channel, "casino", bank) +
         f"# 🎲 DOUBLE OR NOTHING! 🎲\n<@{d['c']}> vs <@{d['t']}> for **{d['a']} {C}** each. " + random.choice([
             "Nobody learned anything. I love it.", "Greed: the family business.", "Kor is hiding behind the van."]) +
         f"\n## 🍿 Bets reopen for 2 minutes: **{DON_BET} {C}** a bet, winners get double!\n"

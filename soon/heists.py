@@ -21,12 +21,11 @@ PLANS = {
     "g": {"n": "Grand Heist", "buy": 50, "win": 500, "base": 10, "tot": 900, "cd": 43200, "ck": "gheistcd",
           "tgt": "the Casa de Soon Reserve"},
 }
-SEATS, MAX_ODDS, MAX_SUBS = 7, 80, 109
+SEATS, MAX_ODDS = 7, 80
 STORY_PAUSE = 5    # seconds each step of the getaway story stays on screen (Shannon: big and slow enough to follow)
 HOUSE = 0      # timers on user 0 = server-wide cooldowns
-HERE = discord.AllowedMentions(everyone=False, users=True, roles=True)  # only the heist alerts list gets pinged (Shannon: no @here)
+HERE = discord.AllowedMentions(everyone=False, users=True, roles=True)  # only the Casino Alerts role gets pinged (Shannon: no @here)
 
-ALERT_RE = re.compile(r"(?i)^\s*heists?\s+(?:alerts?|notif\w*|ping\w*|subscri\w*)\b.*$")
 JOIN_RE = re.compile(r"(?i)^\s*join(?:\s+(?:the\s+)?heist)?\s*[!.]*\s*$")
 START_RE = re.compile(r"(?i)^\s*(?:heist\s+)?(?:vault|grand)(?:\s+heist)?\s*[!.]*\s*$|^\s*heist\s+(?:go|start)\s*[!.]*\s*$|^\s*go\s*[!.]*\s*$")
 BOARD_RE = re.compile(r"(?i)^\s*heists?\s*(?:board|menu|status)?\s*[!?.]*\s*$")
@@ -52,7 +51,7 @@ async def save(bank: Bank, gid: int, h: dict | None):
     await bank.m.set_kv(f"heist:{gid}", json.dumps(h) if h else "")
 
 
-ALERTS_BTN = ("heist alerts toggle", "Heist alerts on/off", "🔔", discord.ButtonStyle.secondary)
+ALERTS_BTN = alert_roles.btn("casino")      # 🔔 Casino Alerts on/off (alerts.py)
 
 
 def join_view(ty: str) -> discord.ui.View:
@@ -68,9 +67,7 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
         return False
     text = message.content.strip()
     in_casa = "casa" in (getattr(message.channel, "name", "") or "").lower()
-    if ALERT_RE.match(text):
-        await alerts(message, bank)
-    elif JOIN_RE.match(text):
+    if JOIN_RE.match(text):
         async with lock(message.guild.id):
             await join(message, bank)
     elif START_RE.match(text) and (in_casa or not re.match(r"(?i)^\s*go\s*[!.]*\s*$", text)):
@@ -82,28 +79,6 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
         return False
     return True
 
-
-async def alerts(message, bank: Bank):
-    gid, me, u = message.guild.id, str(message.author.id), message.author.mention
-    subs = await bank.get_house(gid, "heistsubs", [])
-    toggle_off = "toggle" in message.content.lower() and me in subs     # the button flips it
-    if toggle_off or re.search(r"(?i)\boff\b|\bstop\b|\bno\b|unsub", message.content):
-        await bank.set_house(gid, "heistsubs", [s for s in subs if s != me])
-        await alert_roles.set_member(message.author, "heistsubs", False)
-        await message.channel.send(f"🔔 {u} Heist alerts **off**. You'll miss everything.")
-    elif me in subs:
-        await alert_roles.set_member(message.author, "heistsubs", True)
-        await message.channel.send(f"🔔 {u} You're already on the heist list. I'll tag you. Loudly. `heist alerts off` to stop.")
-    elif await alert_roles.set_member(message.author, "heistsubs", True):     # the Heist Alerts role: no list limit
-        await bank.set_house(gid, "heistsubs", subs + [me])
-        await message.channel.send(f"🔔 {u} Heist alerts **on**. You've got the **Heist Alerts** role: I ping it every time "
-                                   "a heist starts. `heist alerts off` to stop.")
-    elif len(subs) >= MAX_SUBS:
-        await message.channel.send(f"🔔 {u} List is full ({MAX_SUBS}).")
-    else:
-        await bank.set_house(gid, "heistsubs", subs + [me])
-        await message.channel.send(f"🔔 {u} Heist alerts **on**. I'll tag you by name every time a heist starts. "
-                                   "`heist alerts off` to stop.")
 
 
 async def start(message, bank: Bank, ty: str):
@@ -126,7 +101,6 @@ async def start(message, bank: Bank, ty: str):
     end = time.time() + p["tot"]
     await save(bank, gid, {"ty": ty, "crew": [uid], "end": end, "warned": False, "channel": message.channel.id,
                            "boost": False})
-    subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if s != str(uid))
     await message.channel.send(embed=pic("heist-start.gif"))
     if ty == "g":
         head = (f"# 💰 GRAND HEIST ALERT! 💰\n{u} is planning the job of the century: the **Casa de Soon Reserve**. "
@@ -136,12 +110,12 @@ async def start(message, bank: Bank, ty: str):
                 "That's already a problem.\n## ⏰ 10 MINUTES TO JOIN • Type `join`")
     await buttons.retire(f"heistboard:{gid}")          # the board's Start buttons are stale now
     buttons.remember(f"heist:{gid}", await message.channel.send(
-        await alert_roles.prefix(message.channel, "heistsubs", subs, ALERTS_BTN) + head +
+        await alert_roles.prefix(message.channel, "casino", bank) + head +
         f"\n# 🚐 The van leaves <t:{int(end)}:R>\n## 📣 @mention your friends to join! Every new crew member = +10% odds\n"
         f"💰 Buy-in: {p['buy']} {C} • Success pays **{p['win']} {C} to EVERYONE**\n"
         f"📊 Odds: {odds(p, 1, False)}% solo, +10% for every crew member (max {MAX_ODDS}%) • Van seats {SEATS}\n"
         f"-# {'One Grand Heist every 12 hours.' if ty == 'g' else 'One Vault Heist per hour.'} "
-        "`heist alerts on` to get tagged next time.",
+        "`casino alerts on` to get pinged next time.",
         view=join_view(ty), allowed_mentions=HERE))
 
 
@@ -207,8 +181,7 @@ async def board(message, bank: Bank):
                 lines.append(f"✅ **Ready!** Type `{word}` to start")
                 if not h:
                     btns.append((word, f"Start {p['n']}", "🏦" if ty == "v" else "💰", discord.ButtonStyle.primary))
-    subs = await bank.get_house(gid, "heistsubs", [])
-    lines.append(f"🔔 `heist alerts on`: get tagged when any heist starts ({len(subs)} on the list)")
+    lines.append("🔔 `casino alerts on`: get pinged when heists and duels start (`alerts` = all your alerts)")
     await buttons.replace(f"heistboard:{gid}", await message.channel.send("\n".join(lines), view=buttons.view(*btns, ALERTS_BTN)))
 
 
@@ -234,9 +207,8 @@ async def tick(client: discord.Client, bank: Bank):
 
 async def warn(ch, bank: Bank, gid: int, h: dict):
     p = PLANS[h["ty"]]
-    subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
     buttons.remember(f"heist:{gid}", await ch.send(
-        await alert_roles.prefix(ch, "heistsubs", subs, ALERTS_BTN) +
+        await alert_roles.prefix(ch, "casino", bank) +
         f"## ⏰ 5 MINUTES LEFT TO JOIN THE {p['n'].upper()}! ⏰\n# 🚐 The van leaves <t:{int(h['end'])}:R>\n"
         f"Crew: **{len(h['crew'])}** • Odds: **{odds(p, len(h['crew']), h.get('boost'))}%**"
         f"{' (Kor floored it 🚐💨)' if h.get('boost') else ''}\n"

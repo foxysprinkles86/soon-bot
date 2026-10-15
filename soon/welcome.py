@@ -5,7 +5,7 @@ OFF until cutover (Classic still welcomes people): set WELCOME=1 in Railway on c
 Mods can preview it any time with `soon welcome test` (no pings)."""
 import discord
 
-from . import config
+from . import alerts, config
 from .casino import IMG
 
 ROLE_WORDS = ("recruit", "clan member")
@@ -16,7 +16,7 @@ def wants_welcome(member) -> bool:
     return any(any(w in r.name.lower() for w in ROLE_WORDS) for r in getattr(member, "roles", []))
 
 
-def text(member_mention: str) -> str:
+def text(member_mention: str, call: str = "Everyone:") -> str:
     return (f"🚐 {member_mention} just got abducted by the taco van!\nBefore you do anything else:\n"
             "📜 Read the Terms of Abduction: https://discord.com/channels/1400306445278253187/1534262128331194369/1535712424311922698\n"
             "📚 Check out the guides: <#1534310432607830077>\nTacos are coming soon. 🌮\n\n"
@@ -24,7 +24,7 @@ def text(member_mention: str) -> str:
             "🌶️ <#1558281375872716851> roast me. I roast back. Harder.\n"
             "🎮 <#1534274393562153000> gameplay chat • <#1541872673913835762> browse around\n"
             "🎰 <#1557531311260831764> free chips, bad decisions, and taco debt to yours truly\n\n"
-            "Everyone: welcome our newest abductee with your best taco GIF! 🌮🎬")
+            f"{call} welcome our newest abductee with your best taco GIF! 🌮🎬")
 
 
 def gif_button() -> discord.ui.View:
@@ -35,8 +35,12 @@ def gif_button() -> discord.ui.View:
 
 
 async def send(channel, member_mention: str, ping: bool = True):
+    """ping=True: tags the new member and the New Member Alerts role (alerts.py); the preview pings nobody."""
+    r = await alerts.role(channel.guild, "newbie") if ping else None
+    call = f"🔔 {r.mention}" if r else "Everyone:"
     await channel.send(embed=discord.Embed(color=PINK).set_image(url=IMG + "IMG_9246.gif"))
-    await channel.send(text(member_mention), allowed_mentions=discord.AllowedMentions(users=ping, everyone=False, roles=False))
+    await channel.send(text(member_mention, call),
+                       allowed_mentions=discord.AllowedMentions(users=ping, everyone=False, roles=[r] if r else False))
     await channel.send("🌮 No taco GIF ready? Tap below, or type `/tenor taco` and hit send.", view=gif_button())
 
 

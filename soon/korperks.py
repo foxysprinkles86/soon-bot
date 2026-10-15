@@ -106,9 +106,8 @@ async def honk(message, bank: Bank):
         await bank.add(gid, uid, "honk bonus", chips=15)
     if h["crew"]:
         bonus = f"\n📯 Already in the van: +15 {C} each to " + " ".join(f"<@{x}>" for x in h["crew"])
-    subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
     buttons.remember(f"heist:{gid}", await message.channel.send(
-        await alert_roles.prefix(message.channel, "heistsubs", subs, heists.ALERTS_BTN) + "# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
+        await alert_roles.prefix(message.channel, "casino", bank) + "# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
             "It plays La Cucaracha. Badly.", "It sounds like a goose being stepped on.",
             "Every car alarm in the parking lot goes off in solidarity."]) +
         f"\n## Everyone who joins the heist <t:{int(time.time()) + win}:R> gets **+15 {C}**! Type `join`.{bonus}",

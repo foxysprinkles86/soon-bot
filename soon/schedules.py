@@ -16,7 +16,7 @@ import re
 
 import discord
 
-from . import config, racebets
+from . import alerts, config, racebets
 from .casino import IMG
 from .economy import Bank
 
@@ -40,8 +40,11 @@ STARTS = [  # 10-minute warnings: (weekday, UTC hour the race starts, headline, 
 ]
 
 
-def _ping(guild) -> tuple[str, discord.AllowedMentions]:
-    role = guild.get_role(config.CLAN_ROLE_ID) if config.CLAN_ROLE_ID else None
+async def _ping(guild, cat: str) -> tuple[str, discord.AllowedMentions]:
+    """The Race Alerts / Kraken Alerts role (alerts.py); the clan role if Soon can't make alert roles."""
+    role = await alerts.role(guild, cat)
+    if not role and config.CLAN_ROLE_ID:
+        role = guild.get_role(config.CLAN_ROLE_ID)
     if not role:
         return "", discord.AllowedMentions.none()
     return role.mention + "\n", discord.AllowedMentions(roles=[role], users=False, everyone=False)
@@ -76,7 +79,7 @@ async def races(guild, bank: Bank, t: dt.datetime | None = None):
     if not ch:
         return
     await bank.set_house(guild.id, "racepost", key)
-    ping, allowed = _ping(guild)
+    ping, allowed = await _ping(guild, "race")
     extra = ""
     if "pre-join is OPEN" in due[0]:
         extra = "\n🎲 Race betting is open in the casino: `race bet @name 20` on who scores the most for TnT."
@@ -151,7 +154,7 @@ async def kraken(guild, bank: Bank, now: int | None = None):
         return
     await bank.set_house(guild.id, "krakenlast", t)
     embed, text = kraken_post(kind, n, t, e)
-    ping, allowed = _ping(guild)
+    ping, allowed = await _ping(guild, "kraken")
     if embed:
         await ch.send(embed=embed)
     await ch.send(ping + text, allowed_mentions=allowed)
@@ -179,14 +182,15 @@ async def race_book(guild, bank: Bank, t: dt.datetime | None = None):
         return
     await bank.set_house(guild.id, "racebookpost", key)
     ch = _casino_channel(guild)
+    ping, allowed = (await _ping(guild, "race")) if config.SCHEDULES else ("", discord.AllowedMentions.none())
     if opening and await racebets.open_book(bank, guild.id, opening):
         if ch:
-            await ch.send(f"# 🏁 {opening} race betting is OPEN!\nPre-join just opened. Who's going to score the most for "
+            await ch.send(f"{ping}# 🏁 {opening} race betting is OPEN!\nPre-join just opened. Who's going to score the most for "
                           "TnT? `race bet @name 20` (up to 100 chips).\n-# Betting closes when pre-join closes. "
-                          "Betting on yourself is allowed.", view=racebets._view())
+                          "Betting on yourself is allowed.", view=racebets._view(), allowed_mentions=allowed)
     elif closing and await racebets.close_book(bank, guild.id) and ch:
-        await ch.send("# 🔒 Race betting is CLOSED!\nPre-join is over and the race is on. A mod will call the winner "
-                      "after the race with `race winner @name`.", view=racebets._view())
+        await ch.send(f"{ping}# 🔒 Race betting is CLOSED!\nPre-join is over and the race is on. A mod will call the winner "
+                      "after the race with `race winner @name`.", view=racebets._view(), allowed_mentions=allowed)
 
 
 async def tick(guild, bank: Bank):
@@ -227,14 +231,14 @@ async def command(message, bank: Bank, mod: bool) -> bool:
         await message.channel.send("🧪 **Kraken image test.** You should see 9 pictures below. Any blank one = broken link.",
                                    embeds=embeds)
         _, sample = kraken_post("open", 5, e - 2 * DAY - DAY, e)
-        await message.channel.send("🧪 **Sample post (no ping):**\n@Clan Member\n" + sample)
+        await message.channel.send("🧪 **Sample post (no ping):**\n@Kraken Alerts\n" + sample)
         return True
     if word == "go":
         try:
             await message.delete()
         except discord.HTTPException:
             pass
-        ping, allowed = _ping(message.guild) if live else ("", discord.AllowedMentions.none())
+        ping, allowed = await _ping(message.guild, "kraken") if live else ("", discord.AllowedMentions.none())
         await message.channel.send(embed=banner("Kraken%20Day%207%20ATTACK%20KRAKEN.png", RED))
         await message.channel.send(ping + "# ⚔️ ATTACK THE KRAKEN!\nThe battle plan is GO. Hit Krill McKraken with "
                                    "everything you've got! 🦑💥\n" + (f"📋 {rest}\n" if rest else "")
