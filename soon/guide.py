@@ -10,7 +10,8 @@ import discord
 from . import config
 
 FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK} (in DMs: just `help`)."
-DM_FOOT = ("\n🔒 **Private suggestion box:** type `suggest <your idea>` right here. Only Master Foxy and the mods see it."
+DM_FOOT = ("\n⚙️ Type `settings` here to see and change all your settings with me."
+           "\n🔒 **Private suggestion box:** type `suggest <your idea>` right here. Only Master Foxy and the mods see it."
            "\n-# Type `help` here any time to start over.")
 
 # key: (button label, emoji, parent, text, children)
@@ -18,7 +19,10 @@ PAGES = {
     "home": ("Start over", "🏠", None,
              "## 👋 Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
-             ["talk", "vibe", "casino", "tacos", "pings", "clan", "me"]),
+             ["settings", "talk", "vibe", "casino", "tacos", "pings", "clan", "me"]),
+    "settings": ("My settings", "⚙️", "home",
+                 "## ⚙️ Everything I know about your settings\nChange anything with the buttons below.",
+                 ["vibe", "pings", "me", "clan"]),
     "talk": ("Talking to me", "🗣️", "home",
              "## 🗣️ Talking to me\n"
              "• Start a message with **soon**, @ me, or reply to one of my messages.\n"
@@ -113,25 +117,32 @@ PAGES = {
              "• Race + Kraken reminders post in **#race-and-event-announcements**. `alerts` to get pinged.\n"
              "• `soon who is <name>`: who someone is in game.",
              ["racebet", "me"]),
-    "me": ("Tell Soon about you", "📇", "home",
-           "## 📇 Tell me about you\n"
-           "• `soon my name is <in-game name>`\n"
-           "• `soon my timezone is <city or zone>` · `soon my birthday is March 14`\n"
-           "• `soon give me a new nickname` (I pick it. You'll live.)\n"
-           "• `soon suggest <idea>`: ideas, complaints, changes. Master Foxy reads every one.\n"
-           "• 🔒 Private? DM me `suggest <idea>` instead.\n"
-           "• For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
-           ["vibe", "talk"]),
+    "me": ("About me, nickname & suggestions", "📇", "home",
+           "## 📇 Tell me about you\nTap a **green** button: a little form pops up.\n"
+           "• 📝 your in-game name · 🕐 your city or time zone · 🎂 your birthday\n"
+           "• 🎲 **New nickname**: I'll invent one next time you talk to me. 🚫 **No nicknames**: your own name back.\n"
+           "• 📮 **Suggestion**: ideas, complaints, changes. 🔒 Only Master Foxy and the mods see it.\n"
+           "-# For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
+           ["settings", "talk"]),
 }
 # Real buttons on some pages (Shannon: "make buttons for these things vs just explaining them"). Each changes the
 # TAPPER's own setting and shows the page again with a ✅ line on top. bot.py sets ACT: async (interaction, act) -> str.
-ACT = None
+ACT = None        # async (interaction, act, value=None) -> str
+STATUS = None     # async (interaction) -> str: the "My settings" overview
+MODALS = {  # act: (form title, field label, placeholder, max length)
+    "modal-ign": ("Your in-game name", "In-game name (Mob Control)", "e.g. TacoQueen", 40),
+    "modal-tz": ("Where are you?", "City or time zone", "e.g. Amsterdam, Sydney, EST, UTC+10", 60),
+    "modal-bday": ("Your birthday", "Month and day", "e.g. March 14", 30),
+    "modal-suggest": ("📮 Private suggestion", "Idea, complaint or change", "Only Master Foxy and the mods see this.", 500),
+}
 ACTIONS = {
     "pings": [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
               ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅"), ("tags", "My pings", "🔔")],
     "roast": [("heat-savage", "Savage", "😈"), ("heat-unhinged", "Unhinged", "🤬"), ("heat-spicy", "Spicy", "🌶️")],
     "nice": [("heat-sweet", "Sweet", "🥰"), ("heat-mild", "Mild", "😇"), ("heat-auto", "Auto: earn it", "🔄")],
     "ignore": [("ignore", "Ignore me / talk to me", "🙈"), ("pester", "Random call-outs", "📣"), ("tags", "My pings", "🔔")],
+    "me": [("modal-ign", "In-game name", "📝"), ("modal-tz", "Time zone", "🕐"), ("modal-bday", "Birthday", "🎂"),
+           ("nick-new", "New nickname", "🎲"), ("nick-stop", "No nicknames", "🚫"), ("modal-suggest", "Suggestion", "📮")],
     "clan": [("zone-raccoon", "Raccoons", "🦝"), ("zone-lion", "Lions", "🦁"), ("zone-panda", "Pandas", "🐼"),
              ("zone-platypus", "Platypus", "🦆")],
 }
@@ -159,6 +170,39 @@ def text(key: str) -> str:
     return PAGES[key][3] + FOOT
 
 
+async def page_text(interaction, key: str) -> str:
+    if key == "settings" and STATUS:
+        return PAGES[key][3] + "\n" + await STATUS(interaction) + FOOT
+    return text(key)
+
+
+async def show(interaction, key: str, top: str = ""):
+    """Flip their private copy / DM to this page, or open a private copy from the public panel."""
+    body = (top + "\n\n" if top else "") + await page_text(interaction, key)
+    msg = interaction.message
+    if interaction.guild is None or (msg is not None and msg.flags.ephemeral):
+        await interaction.response.edit_message(content=body[:2000], view=view(key))
+    else:
+        await interaction.response.send_message(body[:2000], view=view(key), ephemeral=True)
+
+
+class GuideModal(discord.ui.Modal):
+    def __init__(self, page: str, act: str):
+        title, label, hint, size = MODALS[act]
+        super().__init__(title=title, timeout=600)
+        self.page, self.act = page, act
+        self.box = discord.ui.TextInput(label=label, placeholder=hint, max_length=size,
+                                        style=discord.TextStyle.paragraph if size > 100 else discord.TextStyle.short)
+        self.add_item(self.box)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        done = await ACT(interaction, self.act, str(self.box.value).strip()) if ACT else "Not now."
+        try:
+            await show(interaction, self.page, f"✅ {done}")
+        except discord.HTTPException:
+            await interaction.response.send_message(f"✅ {done}", ephemeral=True)
+
+
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
     def __init__(self, key: str, back: bool = False):
         label, emoji, *_ = PAGES.get(key) or ("DM me: guide + private suggestions", "📬")
@@ -182,11 +226,7 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
                 await interaction.response.send_message("Your DMs are closed. Here's your private copy instead:\n\n"
                                                         + text("home"), view=view("home"), ephemeral=True)
             return
-        msg = interaction.message
-        if interaction.guild is None or (msg is not None and msg.flags.ephemeral):   # their DM / private copy: flip the page
-            await interaction.response.edit_message(content=text(self.key), view=view(self.key))
-        else:                                            # the public panel: open a private copy for the tapper
-            await interaction.response.send_message(text(self.key), view=view(self.key), ephemeral=True)
+        await show(interaction, self.key)
 
 
 class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga:(?P<p>[a-z]+):(?P<a>[a-z-]+)"):
@@ -204,12 +244,11 @@ class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga
         return cls(match["p"] if match["p"] in PAGES else "home", match["a"])
 
     async def callback(self, interaction: discord.Interaction):
+        if self.act in MODALS:                           # a little form pops up (name, time zone, birthday, suggestion)
+            await interaction.response.send_modal(GuideModal(self.page, self.act))
+            return
         done = await ACT(interaction, self.act) if ACT else "Not now. Try again in a minute."
-        msg = interaction.message
-        if interaction.guild is None or (msg is not None and msg.flags.ephemeral):
-            await interaction.response.edit_message(content=f"✅ {done}\n\n" + text(self.page), view=view(self.page))
-        else:
-            await interaction.response.send_message(f"✅ {done}", ephemeral=True)
+        await show(interaction, self.page, f"✅ {done}")
 
 
 async def post(channel, reply_to=None):
@@ -240,8 +279,19 @@ async def command(message, is_mod: bool, in_her_channel: bool) -> bool:
 DM_HELP_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:help|guide|how ?to|menu|start|start over|commands|hi|hello|hey)\s*[!?.]*\s*$")
 
 
+SETTINGS_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:my\s+)?settings\s*[!?.]*\s*$")
+
+
+class _Who:                     # just enough of an "interaction" for STATUS when it's a typed DM
+    def __init__(self, user):
+        self.user, self.guild, self.message = user, None, None
+
+
 async def dm(message) -> bool:
-    """`help` in DMs: the whole guide right there."""
+    """`help` in DMs: the whole guide right there. `settings`: straight to ⚙️ My settings."""
+    if SETTINGS_RE.match(message.content or ""):
+        await message.channel.send((await page_text(_Who(message.author), "settings"))[:2000], view=view("settings"))
+        return True
     if not DM_HELP_RE.match(message.content or ""):
         return False
     await message.channel.send(PAGES["home"][3] + DM_FOOT, view=view("home"))

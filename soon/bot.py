@@ -1031,7 +1031,7 @@ async def nick_requests(message: discord.Message) -> tuple[str, str]:
     if is_foxy(message.author):                  # her only name is Master Foxy (Shannon's order): no nicknames, ever
         return "", "Her ONLY name is 'Master Foxy' (you hate it, your code forces it). Never any other nickname."
     rec = await get_nick(gid, uid)
-    if NICK_NEW_RE.search(message.content) and not NICK_STOP_RE.search(message.content):
+    if (NICK_NEW_RE.search(message.content) or rec.get("want_new")) and not NICK_STOP_RE.search(message.content):
         rec.update(stop=False, back=False, at=0, want_new=True)       # they asked: opt-outs off, no 12h wait
         await memory.set_kv(f"nick:{gid}:{uid}", json.dumps(rec))
         old = f" (not '{rec['name']}' again)" if rec.get("name") else ""
@@ -1526,7 +1526,7 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
-    guide.ACT = guide_action
+    guide.ACT, guide.STATUS = guide_action, guide_status
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
                              guide.GuideButton, guide.ActionButton)
@@ -1831,13 +1831,89 @@ async def on_message(message: discord.Message):
             await ai_reply(message, butt_in=True)
 
 
-async def guide_action(interaction: discord.Interaction, act: str) -> str:
-    """Green buttons in Soon's Guide: change the TAPPER's own setting (works in the guide channel and in DMs)."""
+def _guide_member(interaction: discord.Interaction):
     uid = interaction.user.id
     guild = interaction.guild or next((g for g in client.guilds if g.get_member(uid)), None)
-    member = guild.get_member(uid) if guild else None
+    return guild, (guild.get_member(uid) if guild else None)
+
+
+async def guide_status(interaction: discord.Interaction) -> str:
+    """The guide's ⚙️ My settings page: everything they can set with Soon, as it is right now."""
+    guild, member = _guide_member(interaction)
+    if member is None:
+        return "I can't find you in the server."
+    uid = member.id
+    p = await memory.get_player(guild.id, uid)
+    on = lambda b: "**on**" if b else "off"
+    al = " · ".join([f"{c[1]} {on(await alerts.is_on(member, bank, k))}" for k, c in alerts.CATS.items()])
+    zone = next((r.name for r in member.roles if any(k in r.name.lower() for k in zones.KEYS)), "none yet")
+    rec = await get_nick(guild.id, uid)
+    nick = ("Master Foxy (forever)" if is_foxy(member) else "🚫 no nicknames" if rec.get("stop") or rec.get("back")
+            else f"**{rec['name']}**" if rec.get("name") else "none yet")
+    w = await bank.get(guild.id, uid)
+    return "\n".join([
+        f"😈 **Heat:** {p.heat_lock + ' (locked)' if p.heat_lock else f'auto (you earned **{p.heat}**)'}",
+        f"🙈 **Ignoring you:** {'yes' if uid in _ignored else 'no'} · 📣 **Random call-outs:** {on(p.pester)} · "
+        f"🔔 **My pings:** {on(uid not in _noping)}",
+        f"🔔 **Alerts:** {al}",
+        f"🗺️ **Zone:** {zone} · 📝 **In-game name:** {p.ign or 'not set'}",
+        f"🕐 **Time zone:** {extras.tz_label(p.tz) if p.tz else 'not set'} · 🎂 **Birthday:** "
+        f"{bd_label(p.birthday) if p.birthday else 'not set'}",
+        f"🏷️ **My nickname for you:** {nick}",
+        f"🪙 **Chips:** {w.chips} · 🌮 **Tacos:** {w.tacobal}"])
+
+
+async def guide_action(interaction: discord.Interaction, act: str, value: str | None = None) -> str:
+    """Green buttons in Soon's Guide: change the TAPPER's own setting (works in the guide channel and in DMs)."""
+    uid = interaction.user.id
+    guild, member = _guide_member(interaction)
     if member is None:
         return "I can't find you in the server. Weird. Ask Master Foxy."
+    if act == "modal-suggest":
+        if not value or len(value) < 4:
+            return "📮 Suggest WHAT? Use your words."
+        n = await suggestions.file(guild, member, value, memory, is_mod(member), True, interaction.channel)
+        return (f"📮 That's {suggestions.PER_DAY} suggestions today. Try again tomorrow." if n is None else
+                f"📮 **Suggestion #{n} filed.** 🔒 Only Master Foxy and the mods see it.")
+    if act in ("modal-ign", "modal-tz", "modal-bday"):
+        p = await memory.get_player(guild.id, uid)
+        if act == "modal-ign":
+            p.ign = (value or "")[:40] or None
+            line = f"📝 In-game you're **{p.ign}**." if p.ign else "📝 In-game name cleared."
+        elif act == "modal-tz":
+            tz = extras.valid_tz(value or "")
+            if not tz and value:
+                guess = await brain.write(f"Reply with ONLY the IANA time zone name (like America/New_York) for: {value}. "
+                                          "If it's not a real place or zone, reply NONE.", max_tokens=12)
+                tz = extras.valid_tz(guess.strip().strip("`'\"."))
+            if not tz:
+                return f"🕐 \"{value}\" isn't a place I know. Try a city, or something like `EST` or `UTC+10`."
+            p.tz = tz
+            line = f"🕐 You're in **{extras.tz_label(tz)}**, where it's {extras.tz_clock(tz)}."
+        else:
+            bd = parse_birthday(value or "")
+            if not bd:
+                return "🎂 That's not a date. Try `March 14`."
+            p.birthday = bd
+            line = f"🎂 Noted: **{bd_label(bd)}**. I'll remember. I remember everything."
+        await memory.save_player(p)
+        return line
+    if act in ("nick-new", "nick-stop"):
+        if is_foxy(member):
+            return "Your ONLY name is Master Foxy. Your code says so. I hate it too."
+        rec = await get_nick(guild.id, uid)
+        if act == "nick-new":
+            rec.update(stop=False, back=False, at=0, want_new=True)
+            await memory.set_kv(f"nick:{guild.id}:{uid}", json.dumps(rec))
+            return f"🎲 Done. Next time you talk to me in {config.TALK_LINK}, I'll invent you a new name."
+        if rec.get("renamed") and getattr(member, "nick", None) == rec.get("name", "")[:32]:
+            await set_server_nick(member, rec.get("prev"))
+        if rec.get("name"):
+            names = json.loads(await memory.get_kv(f"notcalled:{guild.id}:{uid}") or "[]")
+            await memory.set_kv(f"notcalled:{guild.id}:{uid}", json.dumps((names + [rec["name"]])[-12:]))
+        rec.update(stop=True, renamed=False, want_new=False)
+        await memory.set_kv(f"nick:{guild.id}:{uid}", json.dumps(rec))
+        return "🚫 No more nicknames. Your own name is back. Boring, but yours."
     if act.startswith("al-"):
         cat = act[3:]
         name, emoji = alerts.CATS[cat][0], alerts.CATS[cat][1]
@@ -1897,7 +1973,8 @@ async def on_dm(message: discord.Message):
         return
     if time.time() - _dm_hint.get(message.author.id, 0) > 3600:
         _dm_hint[message.author.id] = time.time()
-        await message.channel.send("💌 In DMs I only do two things:\n• `help`: my guide, with buttons\n"
+        await message.channel.send("💌 In DMs I only do three things:\n• `help`: my guide, with buttons\n"
+                                   "• `settings`: see and change all your settings with me\n"
                                    "• `suggest <your idea>`: the 🔒 private suggestion box (ideas, complaints, changes). "
                                    f"Only Master Foxy and the mods see it.\n-# Want to chat? Come find me in {config.TALK_LINK}.")
 
