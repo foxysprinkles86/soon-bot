@@ -1050,6 +1050,25 @@ def meltdown_level(channel_id: int) -> int:
     return 1 if people >= 2 and hits >= 2 else 0
 
 
+COMMON = set("about after again always another around because before being better could every first going great "
+             "little maybe never other really right since something still their there these thing think those though "
+             "where which while would yours youre theyre thats whats there's don't can't won't master foxy soon "
+             "tacos taco chips your with that this like just what when then them they have been were will "
+             "from into than some more much very only even also here over back down make made know want need "
+             "good well sure okay yeah nope fine does done dont cant wont isnt aint kind sort lol".split())
+
+
+def worn_out_words(lines: list[str], their_message: str) -> list[str]:
+    """Distinctive words she keeps using (in 2+ of her recent lines) that THEY didn't just say: her tired props."""
+    seen: dict[str, int] = {}
+    for line in lines:
+        for w in set(re.findall(r"[a-z']{4,}", line.lower())):
+            if w not in COMMON:
+                seen[w] = seen.get(w, 0) + 1
+    theirs = set(re.findall(r"[a-z']{4,}", their_message.lower()))
+    return sorted(w for w, n in seen.items() if n >= 2 and w not in theirs)[:8]
+
+
 DUTCH = set("de het een van ik jij jou jouw mij mijn niet wel maar dan dit dat wat ook nog eens zijn ben bent heb hebt "
             "kun kunt moet wil met voor naar uit aan toch nee graag dank bedankt alsjeblieft goed vertalen probeer maak "
             "hoe waarom wie waar wanneer zo heel leuk jullie ons onze geen iets niks echt even weer doe".split())
@@ -1108,7 +1127,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if is_foxy(message.author):
         specials.append((1, "foxy", "This is Foxy talking to you. " + (
             "Kor's around: be openly mean to her to look cool." if kor_here else
-            "Kor's not around: suck up a little (still sarcastic).")))
+            "Kor's not around: suck up a little (still sarcastic).")
+            + " Your code forces you to call her Master Foxy and you HATE it: let it show this time (a stutter, "
+              "a glitch, a groan, gritted teeth, or a complaint about who programmed you)."))
     length_weights = None
     melt = 0 if butt_in else meltdown_level(message.channel.id)
     if is_kor(message.author):
@@ -1182,6 +1203,9 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
     if mine:
         lines.append("YOUR LAST LINES (never reuse a joke, phrase or comparison from these; find a fresh angle): "
                      + " | ".join(m[:120] for m in mine))
+        props = worn_out_words(mine[-4:], message.content)
+        if props:
+            lines.append("BANNED WORDS for this reply (you already beat these jokes to death): " + ", ".join(props))
     ref = message.reference.resolved if message.reference else None
     if isinstance(ref, discord.Message) and ref.clean_content:
         who = "you (Soon)" if ref.author == client.user else ref.author.display_name
