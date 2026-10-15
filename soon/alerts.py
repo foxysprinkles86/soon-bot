@@ -111,7 +111,7 @@ async def prefix(channel, cat: str, bank=None) -> str:
 
 
 async def menu(message, bank):
-    lines = ["## 🔔 Soon's alerts\nPick what I should ping you for. Tap a button to turn it on or off (just for you)."]
+    lines = ["## 🔔 Soon's alerts\nPick what I should ping you for. **Anyone** can tap these: a tap turns that alert on or off for YOU."]
     for cat, (name, emoji, what, _) in CATS.items():
         on = await is_on(message.author, bank, cat)
         lines.append(f"{emoji} **{name}**: {what} • you: **{'ON' if on else 'off'}**")
@@ -132,13 +132,17 @@ async def handle(message, bank, mod: bool) -> bool:
     name, emoji, what, _ = CATS[cat]
     on = (not await is_on(message.author, bank, cat)) if word == "toggle" else not re.match(r"off|stop|no|unsub", word)
     by_role = await set_on(message.author, bank, cat, on)
-    u = message.author.mention
+    press = getattr(message, "interaction", None)          # a button tap: answer just the tapper, privately
+    u = "" if press else message.author.mention + " "
     if on:
         how = f"You've got the **{name}** role: I ping it for {what}." if by_role else f"I'll tag you for {what}."
-        await message.channel.send(f"{emoji} {u} {name} **on**. {how}\n-# `alerts` shows all your alerts.")
+        text = f"{emoji} {u}{name} **on**. {how}\n-# `alerts` shows all your alerts."
     else:
-        await message.channel.send(f"{emoji} {u} {name} **off**. Enjoy the silence. You'll miss everything.\n"
-                                   "-# `alerts` shows all your alerts.")
+        text = f"{emoji} {u}{name} **off**. Enjoy the silence. You'll miss everything.\n-# `alerts` shows all your alerts."
+    if press:
+        await press.followup.send(text, ephemeral=True)
+    else:
+        await message.channel.send(text)
     return True
 
 

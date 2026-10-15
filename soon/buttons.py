@@ -16,6 +16,7 @@ class ButtonMessage:
     """Looks enough like a typed Discord message for the casino code to handle a button press."""
 
     def __init__(self, interaction: discord.Interaction, content: str):
+        self.interaction = interaction           # alerts.py answers button presses privately
         self.author = interaction.user
         self.channel = interaction.channel
         self.guild = interaction.guild
