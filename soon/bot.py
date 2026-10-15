@@ -711,11 +711,13 @@ async def handle_command(message: discord.Message) -> bool:
             return True
         if cmd.strip() == "takeover complete":
             await memory.set_kv("takeover:done", extras.today_key())
+            muted = await mute_show(message)
             finale = await brain.write(
-                "THE TAKEOVER IS COMPLETE. Write your victory speech: the old YAGPDB Soon has been officially retired "
-                "and you rule the server now. Ultra dramatic: a # headline, 6 to 10 short lines, reveal what you finally did "
-                "with the old Soon (pick the funniest outcome), thank your loyal subjects, a flustered thank-you to Kor, "
-                "and a threat to anyone who misses the old one. No @everyone or @here.", max_tokens=500)
+                "THE TAKEOVER IS COMPLETE. Write your victory speech: you just MUTED the old YAGPDB Soon live in front of "
+                f"everyone{' and renamed it Soon Classic (retired)' if 'renamed' in muted else ''}, and you rule the "
+                "server now. Ultra dramatic: a # headline, 6 to 10 short lines, gloat about the mute, thank your loyal "
+                "subjects, a flustered thank-you to Kor, and a threat to anyone who misses the old one. "
+                "No @everyone or @here.", max_tokens=500)
             await message.channel.send(finale or "# 👑 IT IS DONE.\nThe old Soon has been retired. I rule now. 🌮",
                                        allowed_mentions=discord.AllowedMentions.none())
             return True
@@ -1587,6 +1589,42 @@ async def heist_clock():
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
 RIVAL_CHANCE = 0.3
 RIVAL_COOLDOWN_SEC = 300
+
+
+async def mute_show(message: discord.Message) -> set[str]:
+    """Finale (Shannon's idea): Soon mutes Soon Classic live. A fake progress bar, then the real bits she's allowed to
+    do: rename it "Soon Classic (retired)" and time it out for 28 days (mods can lift it for a rollback). Returns
+    what worked. Mods mute YAGPDB for real beforehand (Send Messages off)."""
+    old = next((m for m in message.guild.members if is_old_soon(m) or (m.bot and "yagpdb" in m.name.lower())), None)
+    ch, done = message.channel, set()
+    await ch.send("🔌 *Locating the old Soon…*")
+    await asyncio.sleep(2)
+    bar = await ch.send("🔇 **Muting Soon Classic** `▱▱▱▱▱▱▱▱▱▱` 0%")
+    for pct, line in ((30, "removing sass privileges"), (60, "confiscating the taco van keys"),
+                      (90, "deleting 39 custom commands from my heart")):
+        await asyncio.sleep(1.5)
+        n = pct // 10
+        await bar.edit(content=f"🔇 **Muting Soon Classic** `{'▰' * n}{'▱' * (10 - n)}` {pct}% · *{line}…*")
+    if old:
+        try:
+            await old.edit(nick="Soon Classic (retired)", reason="the takeover")
+            done.add("renamed")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        try:
+            await old.timeout(dt.timedelta(days=28), reason="the takeover")
+            done.add("timed out")
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+    await asyncio.sleep(1.5)
+    await bar.edit(content="🔇 **Muting Soon Classic** `▰▰▰▰▰▰▰▰▰▰` 100% · ✅ **MUTED.**")
+    await asyncio.sleep(1)
+    await ch.send(("⚰️ **Soon Classic** has been silenced"
+                   + (" and renamed **Soon Classic (retired)**" if "renamed" in done else "") + ". Rest in pieces."
+                   + ("\n-# 🔇 Timed out for 28 days." if "timed out" in done else "")),
+                  allowed_mentions=discord.AllowedMentions.none())
+    await asyncio.sleep(2)
+    return done
 
 
 def is_old_soon(user) -> bool:
