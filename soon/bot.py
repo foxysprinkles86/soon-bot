@@ -1444,7 +1444,7 @@ async def maybe_ask_forget(message, label: str):
         if name:
             await pushback.ask(message.channel, message.author, "nick", name)
         return                                          # a nickname complaint isn't also a topic complaint
-    if label:
+    if label and not is_panda(message.author):   # Panda never gets a way out of his Panda facts (Shannon's call)
         ready = await pushback.count(message.guild.id, message.author.id, "topic", label)
         if ready:
             await pushback.ask(message.channel, message.author, "topic", ready[1])
