@@ -259,7 +259,7 @@ class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga
 
 async def post(channel, reply_to=None):
     kw = dict(view=view("home", dm_button=True), allowed_mentions=discord.AllowedMentions.none())
-    body = PAGES["home"][3] + "\n-# Tap a button. Lost later? Type `soon help` in one of my channels."
+    body = PAGES["home"][3] + f"\n-# Tap a button. Lost later? Type `soon help` in {config.TALK_LINK}."
     if reply_to is not None:
         await reply_to.reply(body, mention_author=False, **kw)
     else:
