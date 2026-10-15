@@ -6,7 +6,7 @@ OFF until cutover (Classic still welcomes people): set WELCOME=1 in Railway on c
 Mods can preview it any time with `soon welcome test` (no pings)."""
 import discord
 
-from . import alerts, config
+from . import alerts, config, recruits
 from .casino import IMG
 
 ROLE_WORDS = ("recruit", "clan member")
@@ -90,12 +90,41 @@ async def on_join_message(message) -> bool:
         return False
     kind = wants_welcome(message.author)
     if not kind:
-        return False
-    if kind == "friend":
-        await send_friend(message.channel, message.author.mention)
-    else:
-        await send(message.channel, message.author.mention)
+        return False                     # no role yet (e.g. still in Discord onboarding): on_roles catches it later
+    await welcome(message.author, kind, message.channel)
     return True
+
+
+MEMORY = None   # bot.py sets this (kv store): remembers who was already welcomed, so nobody gets it twice
+
+
+async def welcome(member, kind: str, channel=None):
+    key = f"welcomed:{member.guild.id}:{member.id}"
+    if MEMORY and await MEMORY.get_kv(key):
+        return
+    if MEMORY:
+        await MEMORY.set_kv(key, "1")
+    channel = channel or next((c for c in member.guild.text_channels if config.HELLO_CHANNEL in c.name.lower()), None)
+    if channel is None:
+        return
+    if kind == "friend":
+        await send_friend(channel, member.mention)
+    else:
+        await send(channel, member.mention)
+        if any("recruit" in r.name.lower() for r in member.roles):
+            await recruits.panel(member.guild, member)       # co-leaders' Tacos / Outlawz / Joined buttons
+
+
+async def on_roles(before, after):
+    """Roles given AFTER joining (Discord onboarding questions, or a mod adding them by hand): welcome them then.
+    Only the Recruit and Chips & Salsa roles trigger it (getting Clan Member from the panel doesn't)."""
+    if not config.WELCOME:
+        return
+    gained = [r.name.lower() for r in after.roles if r not in before.roles]
+    if any(w in n for n in gained for w in FRIEND_WORDS) and wants_welcome(after) == "friend":
+        await welcome(after, "friend")
+    elif any("recruit" in n for n in gained):
+        await welcome(after, "member")
 
 
 async def send_friend(channel, member_mention: str, ping: bool = True):
