@@ -20,6 +20,8 @@ PAGES = {
              "## 👋 Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
              ["settings", "talk", "vibe", "casino", "tacos", "pings", "clan", "me"]),
+    "dmbox": ("Suggestion box", "📮", "home",
+              "-# Another one? Tap **Write a suggestion** again.", []),
     "settings": ("My settings", "⚙️", "home",
                  "## ⚙️ Everything I know about your settings\nChange anything with the buttons below.",
                  ["vibe", "pings", "me", "clan"]),
@@ -141,6 +143,7 @@ ACTIONS = {
     "roast": [("heat-savage", "Savage", "😈"), ("heat-unhinged", "Unhinged", "🤬"), ("heat-spicy", "Spicy", "🌶️")],
     "nice": [("heat-sweet", "Sweet", "🥰"), ("heat-mild", "Mild", "😇"), ("heat-auto", "Auto: earn it", "🔄")],
     "ignore": [("ignore", "Ignore me / talk to me", "🙈"), ("pester", "Random call-outs", "📣"), ("tags", "My pings", "🔔")],
+    "dmbox": [("modal-suggest", "Write a suggestion", "📮")],
     "me": [("modal-ign", "In-game name", "📝"), ("modal-tz", "Time zone", "🕐"), ("modal-bday", "Birthday", "🎂"),
            ("nick-new", "New nickname", "🎲"), ("nick-stop", "No nicknames", "🚫"), ("modal-suggest", "Suggestion", "📮")],
     "clan": [("zone-raccoon", "Raccoons", "🦝"), ("zone-lion", "Lions", "🦁"), ("zone-panda", "Pandas", "🐼"),
@@ -157,17 +160,17 @@ def view(key: str, dm_button: bool = False) -> discord.ui.View:
         v.add_item(ActionButton(key, act, label, emoji))
     for k in kids:
         v.add_item(GuideButton(k))
-    if dm_button:                                       # public panel only: take the whole guide to their DMs
+    if dm_button:                                       # public panel only: the private suggestion box by DM
         v.add_item(GuideButton("dm"))
     if parent and parent != "home":
         v.add_item(GuideButton(parent, back=True))
-    if key != "home":
+    if key not in ("home", "dmbox"):
         v.add_item(GuideButton("home"))
     return v
 
 
 def text(key: str) -> str:
-    return PAGES[key][3] + FOOT
+    return PAGES[key][3] + ("" if key == "dmbox" else FOOT)
 
 
 async def page_text(interaction, key: str) -> str:
@@ -205,7 +208,7 @@ class GuideModal(discord.ui.Modal):
 
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
     def __init__(self, key: str, back: bool = False):
-        label, emoji, *_ = PAGES.get(key) or ("DM me: guide + private suggestions", "📬")
+        label, emoji, *_ = PAGES.get(key) or ("Private suggestion box (DM)", "📬")
         if back:
             label, emoji = "Back", "⬅️"
         style = discord.ButtonStyle.primary if key == "home" and not back else discord.ButtonStyle.secondary
@@ -218,13 +221,16 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
         return cls(match["k"] if match["k"] in PAGES or match["k"] == "dm" else "home", bool(match["b"]))
 
     async def callback(self, interaction: discord.Interaction):
-        if self.key == "dm":                             # 📬 the whole guide, privately, in their DMs
+        if self.key == "dm":                             # 📬 the private suggestion box, in their DMs (Shannon)
+            box = discord.ui.View(timeout=None)
+            box.add_item(ActionButton("dmbox", "modal-suggest", "Write a suggestion", "📮"))
             try:
-                await interaction.user.send(PAGES["home"][3] + DM_FOOT, view=view("home"))
-                await interaction.response.send_message("📬 Check your DMs. I slid in. Classy.", ephemeral=True)
+                await interaction.user.send(SUGGEST_DM, view=box)
+                await interaction.response.send_message("📬 Check your DMs. The suggestion box is waiting.", ephemeral=True)
             except discord.HTTPException:
-                await interaction.response.send_message("Your DMs are closed. Here's your private copy instead:\n\n"
-                                                        + text("home"), view=view("home"), ephemeral=True)
+                await interaction.response.send_message("Your DMs are closed, so use this instead. "
+                                                        "🔒 Still private: only Master Foxy and the mods see it.",
+                                                        view=box, ephemeral=True)
             return
         await show(interaction, self.key)
 
@@ -276,6 +282,9 @@ async def command(message, is_mod: bool, in_her_channel: bool) -> bool:
     return False
 
 
+SUGGEST_DM = ("## 📮 Soon's private suggestion box\nIdeas, complaints, changes, things I should stop doing. "
+              "Tap **Write a suggestion**, or just type `suggest <your idea>` here.\n"
+              "🔒 Only Master Foxy and the mods see it. Not the server. Not even the testers.")
 DM_HELP_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:help|guide|how ?to|menu|start|start over|commands|hi|hello|hey)\s*[!?.]*\s*$")
 
 
