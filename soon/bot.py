@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, tacovan, tips
+from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -516,6 +516,9 @@ async def handle_command(message: discord.Message) -> bool:
     if re.fullmatch(r"answer(?:\s+<@!?\d+>)?[.!?]*", cmd) and is_mod(message.author):   # Classic's Soon Answer (8-ball)
         await talk.soon_answer(message, lambda p: brain.write(p, max_tokens=80))
         return True
+
+    if await suggestions.handle(message, re.sub(r"(?i)^soon\s+", "", text).strip(), cmd, memory, is_mod(message.author)):
+        return True                                                  # the suggestion box
 
     if cmd in ("ping", "are you alive", "you there?"):
         await message.reply("I'm awake. Unfortunately. 🌮")
