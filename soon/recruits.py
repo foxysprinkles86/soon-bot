@@ -1,5 +1,5 @@
 """Recruit panel (Shannon's design, Oct 15): when a new recruit arrives, Soon posts a panel in the staff channel
-(RECRUIT_CHANNEL, default #moderator-only) with buttons only a co-leader (Taco Wrangler role) or mod can press:
+(RECRUIT_CHANNEL, default #glovebox-secrets, the co-leader chat) with buttons only a co-leader (Taco Wrangler role) or mod can press:
 🌮 Tacos / 🤠 Outlawz → removes JUST the plain "Recruit" role (the other recruit roles say where they came from,
 so they stay) and gives that clan's role • ✅ Joined in game → gives "Clan Member" (full member access) and the
 panel is done • ❌ Not joining → closes the panel, roles untouched.

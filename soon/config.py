@@ -85,7 +85,7 @@ REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or DIARY_C
 WELCOME_CHANNEL = os.environ.get("WELCOME_CHANNEL", "new-members").strip().lower()
 HELLO_CHANNEL = os.environ.get("HELLO_CHANNEL", "get-in-the-van").strip().lower()
 # Where the recruit panel (Tacos / Outlawz / Joined in game buttons for Taco Wranglers) posts.
-RECRUIT_CHANNEL = os.environ.get("RECRUIT_CHANNEL", "moderator-only").strip().lower()
+RECRUIT_CHANNEL = os.environ.get("RECRUIT_CHANNEL", "glovebox-secrets").strip().lower()
 # Where race/event reminders go. Defaults to the pester channel.
 # Race reminders, event reminders and Kraken posts all go to #race-and-event-announcements (Shannon, Oct 15).
 RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or "race-and-event"
