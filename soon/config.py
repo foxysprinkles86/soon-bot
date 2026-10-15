@@ -25,6 +25,9 @@ BACKUP_MODELS = [m.strip() for m in os.environ.get(
     "BACKUP_MODEL", "deepseek/deepseek-chat,deepseek/deepseek-chat-v3-0324,openai/gpt-4o-mini").split(",") if m.strip()]
 BACKUP_MODEL = BACKUP_MODELS[0]
 PRIMARY_TIMEOUT = float(os.environ.get("PRIMARY_TIMEOUT", "8"))
+# DeepSeek's own API quietly scales temperature down (1.1 there behaves like ~0.4); other hosts use it raw, which
+# turned the backup's replies into word salad. So the backup gets a calm temperature of its own.
+BACKUP_TEMPERATURE = float(os.environ.get("BACKUP_TEMPERATURE", "0.7"))
 
 # Where Soon 2.0 is allowed to talk. Comma-separated channel names (or parts of names).
 # Starts locked to the lab so the old Soon keeps running everywhere else.

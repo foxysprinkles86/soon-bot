@@ -112,7 +112,8 @@ class Brain:
                         raise
                     break
         try:
-            b = dict(body, model=config.BACKUP_MODELS[0])
+            b = dict(body, model=config.BACKUP_MODELS[0],
+                     temperature=min(body.get("temperature", 1.0), config.BACKUP_TEMPERATURE))
             if len(config.BACKUP_MODELS) > 1 and "openrouter" in config.BACKUP_BASE_URL:
                 b["models"] = config.BACKUP_MODELS            # OpenRouter tries these in order (busy/429 → next)
             try:
