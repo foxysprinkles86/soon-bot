@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import alerts, bar, notifyhelp, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
+from . import alerts, bar, guide, notifyhelp, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1527,7 +1527,8 @@ async def on_ready():
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
-    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton)
+    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
+                             guide.GuideButton)
     recruits.MEMBER, welcome.MEMORY = is_mod, memory
     pushback.MEMORY, pushback.ON_FORGET = memory, forget_it
     for g in client.guilds:                                 # people already on alert lists get the alert roles
@@ -1726,6 +1727,8 @@ async def on_message(message: discord.Message):
     if message.type == discord.MessageType.new_member:      # "X joined the server": Classic's welcome (WELCOME=1)
         await welcome.on_join_message(message)
         return
+    if not message.author.bot and await guide.command(message, is_mod(message.author), allowed_channel(message.channel)):
+        return                                              # `soon help` guide (+ mods' `soon guide post`, any channel)
     if not message.author.bot and await recruits.command(message):
         return                                              # `soon recruit @name` panel (wranglers/mods, any channel)
     if not message.author.bot and await schedules.command(message, bank, is_mod(message.author)):
