@@ -53,6 +53,23 @@ def _role(guild, key: str):
     return next((r for r in guild.roles if key in r.name.lower()), None)
 
 
+async def set_zone(member, pick: str) -> str:
+    """Guide button: switch someone's zone role. Returns the line to show them."""
+    new = _role(member.guild, pick)
+    if not new:
+        return "I can't find that zone's role. Tell Master Foxy to create it."
+    if new in member.roles:
+        return f"{EMOJI[pick]} You're already in **{new.name}**. Nothing changed."
+    old = [r for r in member.roles if any(k in r.name.lower() for k in KEYS if k != pick)]
+    try:
+        if old:
+            await member.remove_roles(*old, reason="zone switch")
+        await member.add_roles(new, reason="zone pick")
+    except discord.HTTPException:
+        return "Discord won't let me touch roles. Master Foxy needs to give me **Manage Roles**."
+    return f"{EMOJI[pick]} You're now a **{new.name}**! " + random.choice(LINES[pick])
+
+
 async def handle(message, bank: Bank, mod: bool) -> bool:
     if not taco_channel(message.channel):
         return False

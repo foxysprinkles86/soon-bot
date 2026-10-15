@@ -33,22 +33,21 @@ PAGES = {
              ["roast", "nice", "ignore", "pings"]),
     "roast": ("Ultimate roasts", "🔥", "vibe",
               "## 🔥 Ultimate roasts\n"
-              "• `soon heat savage` or `soon heat unhinged`: no mercy.\n"
+              "• Tap **Savage** or **Unhinged**: no mercy. **Spicy** is my normal.\n"
               "• `soon roast me` or `soon roast @name` (3 a day).\n"
               "• Be rude to me and I get meaner all by myself.\n"
               "• Gang up on me with friends and find out what happens. 👀",
               ["nice", "ignore"]),
     "nice": ("Make her nicer", "🥰", "vibe",
              "## 🥰 Make me nicer\n"
-             "• `soon heat sweet` or `soon heat mild`.\n"
-             "• `soon heat` shows your setting with buttons. `soon heat auto` = back to normal.\n"
+             "• Tap **Sweet** or **Mild**. **Auto** = I treat you how you treat me.\n"
              "• Be nice to me. Or tip me: `tip soon 10`. I warm up to big tippers.",
              ["roast", "ignore"]),
     "ignore": ("Leave me alone", "🙈", "vibe",
-               "## 🙈 Leave me alone\n"
-               "• `soon ignore me`: no replies, no tags, no notes. The casino still works. `soon talk to me` undoes it.\n"
-               "• `soon stop pestering me`: I stop randomly calling you out. `soon pester me` undoes it.\n"
-               "• `soon no tags`: I still talk to you, your phone just won't buzz.",
+               "## 🙈 Leave me alone\nTap to switch, tap again to undo:\n"
+               "• 🙈 **Ignore me**: no replies, no tags, no notes. The casino still works.\n"
+               "• 📣 **Random call-outs**: me tagging you out of nowhere.\n"
+               "• 🔔 **My pings**: I still talk to you, your phone just won't buzz.",
                ["pings", "nice"]),
     "casino": ("Casino & chips", "🎰", "home",
                f"## 🎰 Casa de Soon\nType these in {config.CASINO_LINK}.\n"
@@ -102,14 +101,14 @@ PAGES = {
               "• In taco debt? `sorry soon` once a day. Maybe I'll forgive you.",
               ["clan", "me"]),
     "pings": ("Pings & alerts", "🔔", "home",
-              "## 🔔 Pings & alerts\n"
-              "• `alerts`: pick what I ping you for: 🎰 casino, 🏁 race, 🦑 Kraken, 👋 new members, 📅 events.\n"
-              "• Tap **🔔 My pings on/off** under any of my messages, or type `soon no tags`.\n"
+              "## 🔔 Pings & alerts\nTap a **green** button to turn it on or off, just for you:\n"
+              "• 🎰 heists + duels · 🏁 race reminders · 🦑 Kraken · 👋 new members to welcome · 📅 events\n"
+              "• 🔔 **My pings**: off = I still talk to you, your phone just won't buzz.\n"
               "• Whole server too loud? Long-press the server icon → **Notifications** → **Only @mentions**.",
               ["ignore", "clan"]),
     "clan": ("Clan stuff", "🗺️", "home",
              "## 🗺️ Clan stuff\n"
-             "• `zone raccoon` / `lion` / `panda` / `platypus` (or your country): your world zone.\n"
+             "• Tap your world zone below (or type `zone` + your country).\n"
              "• `soon events`: upcoming race reminders.\n"
              "• Race + Kraken reminders post in **#race-and-event-announcements**. `alerts` to get pinged.\n"
              "• `soon who is <name>`: who someone is in game.",
@@ -124,6 +123,18 @@ PAGES = {
            "• For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
            ["vibe", "talk"]),
 }
+# Real buttons on some pages (Shannon: "make buttons for these things vs just explaining them"). Each changes the
+# TAPPER's own setting and shows the page again with a ✅ line on top. bot.py sets ACT: async (interaction, act) -> str.
+ACT = None
+ACTIONS = {
+    "pings": [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
+              ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅"), ("tags", "My pings", "🔔")],
+    "roast": [("heat-savage", "Savage", "😈"), ("heat-unhinged", "Unhinged", "🤬"), ("heat-spicy", "Spicy", "🌶️")],
+    "nice": [("heat-sweet", "Sweet", "🥰"), ("heat-mild", "Mild", "😇"), ("heat-auto", "Auto: earn it", "🔄")],
+    "ignore": [("ignore", "Ignore me / talk to me", "🙈"), ("pester", "Random call-outs", "📣"), ("tags", "My pings", "🔔")],
+    "clan": [("zone-raccoon", "Raccoons", "🦝"), ("zone-lion", "Lions", "🦁"), ("zone-panda", "Pandas", "🐼"),
+             ("zone-platypus", "Platypus", "🦆")],
+}
 CMD_RE = re.compile(r"(?i)^\s*soon\s+(?:help|guide|how ?to|what can you do\??|commands)\s*[!?.]*\s*$")
 POST_RE = re.compile(r"(?i)^\s*soon\s+guide\s+post\s*$")
 
@@ -131,6 +142,8 @@ POST_RE = re.compile(r"(?i)^\s*soon\s+guide\s+post\s*$")
 def view(key: str, dm_button: bool = False) -> discord.ui.View:
     _, _, parent, _, kids = PAGES[key]
     v = discord.ui.View(timeout=None)
+    for act, label, emoji in ACTIONS.get(key, []):
+        v.add_item(ActionButton(key, act, label, emoji))
     for k in kids:
         v.add_item(GuideButton(k))
     if dm_button:                                       # public panel only: take the whole guide to their DMs
@@ -174,6 +187,29 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
             await interaction.response.edit_message(content=text(self.key), view=view(self.key))
         else:                                            # the public panel: open a private copy for the tapper
             await interaction.response.send_message(text(self.key), view=view(self.key), ephemeral=True)
+
+
+class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga:(?P<p>[a-z]+):(?P<a>[a-z-]+)"):
+    """A guide button that DOES something for whoever taps it (alerts, heat, ignore, zone...)."""
+
+    def __init__(self, page: str, act: str, label: str = "", emoji: str | None = None):
+        if not label:
+            label, emoji = next(((lb, em) for a, lb, em in ACTIONS.get(page, []) if a == act), (act, None))
+        super().__init__(discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.success,
+                                           custom_id=f"soon:ga:{page}:{act}"))
+        self.page, self.act = page, act
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match: re.Match):
+        return cls(match["p"] if match["p"] in PAGES else "home", match["a"])
+
+    async def callback(self, interaction: discord.Interaction):
+        done = await ACT(interaction, self.act) if ACT else "Not now. Try again in a minute."
+        msg = interaction.message
+        if interaction.guild is None or (msg is not None and msg.flags.ephemeral):
+            await interaction.response.edit_message(content=f"✅ {done}\n\n" + text(self.page), view=view(self.page))
+        else:
+            await interaction.response.send_message(f"✅ {done}", ephemeral=True)
 
 
 async def post(channel, reply_to=None):

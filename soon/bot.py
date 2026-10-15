@@ -1526,9 +1526,10 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
+    guide.ACT = guide_action
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
-                             guide.GuideButton)
+                             guide.GuideButton, guide.ActionButton)
     recruits.MEMBER, welcome.MEMORY = is_mod, memory
     pushback.MEMORY, pushback.ON_FORGET = memory, forget_it
     for g in client.guilds:                                 # people already on alert lists get the alert roles
@@ -1828,6 +1829,56 @@ async def on_message(message: discord.Message):
         if now - _last_butt_in[message.channel.id] > config.BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
             _last_butt_in[message.channel.id] = now
             await ai_reply(message, butt_in=True)
+
+
+async def guide_action(interaction: discord.Interaction, act: str) -> str:
+    """Green buttons in Soon's Guide: change the TAPPER's own setting (works in the guide channel and in DMs)."""
+    uid = interaction.user.id
+    guild = interaction.guild or next((g for g in client.guilds if g.get_member(uid)), None)
+    member = guild.get_member(uid) if guild else None
+    if member is None:
+        return "I can't find you in the server. Weird. Ask Master Foxy."
+    if act.startswith("al-"):
+        cat = act[3:]
+        name, emoji = alerts.CATS[cat][0], alerts.CATS[cat][1]
+        on = not await alerts.is_on(member, bank, cat)
+        await alerts.set_on(member, bank, cat, on)
+        return f"{emoji} {name} **{'ON' if on else 'off'}**."
+    if act == "tags":
+        if uid in _noping:
+            _noping.discard(uid)
+            line = "🔔 Your pings are **ON**. Your phone buzzes when I tag you."
+        else:
+            _noping.add(uid)
+            line = "🔕 Your pings are **OFF**. I still talk to you, your phone just won't buzz."
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        return line
+    p = await memory.get_player(guild.id, uid)
+    if act.startswith("heat-"):
+        level = act[5:]
+        p.heat_lock = None if level == "auto" else level
+        await memory.save_player(p)
+        return (f"🔄 Auto mood: you get what you earn (**{p.heat}** right now)." if level == "auto"
+                else f"I'll be **{level}** with you from now on.")
+    if act == "ignore":
+        if uid in _ignored:
+            _ignored.discard(uid)
+            p.pester = True
+            line = "🗣️ I'm talking to you again. Try to keep up."
+        else:
+            _ignored.add(uid)
+            p.pester = False
+            line = "🙈 You're invisible to me now. Tap again when you miss me. You will."
+        await save_ignored()
+        await memory.save_player(p)
+        return line
+    if act == "pester":
+        p.pester = not p.pester
+        await memory.save_player(p)
+        return "📣 Random call-outs **ON**. Watch your back." if p.pester else "📣 Random call-outs **off**. For now."
+    if act.startswith("zone-"):
+        return await zones.set_zone(member, act[5:])
+    return "That button's broken. Tell Master Foxy."
 
 
 _dm_hint: dict[int, float] = {}       # user -> last "here's what I do in DMs" reply
