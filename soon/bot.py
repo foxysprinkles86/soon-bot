@@ -923,6 +923,8 @@ async def nick_requests(message: discord.Message) -> tuple[str, str]:
     """Handle 'change my name back' / 'stop calling me that' before she replies.
     Returns (special instruction for her reply, line about what she calls them)."""
     gid, uid = message.guild.id, message.author.id
+    if is_foxy(message.author):                  # her only name is Master Foxy (Shannon's order): no nicknames, ever
+        return "", "Her ONLY name is 'Master Foxy' (you hate it, your code forces it). Never any other nickname."
     rec = await get_nick(gid, uid)
     if not rec.get("name"):
         return "", ""
@@ -949,8 +951,8 @@ async def nick_requests(message: discord.Message) -> tuple[str, str]:
 async def apply_nickname(message: discord.Message, name: str):
     """She just made up a name for them: it becomes their server nickname (max one new name per 12 hours each)."""
     name = re.sub(r"[@#`*_~|<>]", "", name).strip()[:32]
-    if not name or len(name) < 2 or not hasattr(message.author, "edit"):
-        return
+    if not name or len(name) < 2 or not hasattr(message.author, "edit") or is_foxy(message.author):
+        return                                   # Foxy is "Master Foxy", nothing else
     gid, uid = message.guild.id, message.author.id
     rec = await get_nick(gid, uid)
     if rec.get("stop") or rec.get("back"):
