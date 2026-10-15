@@ -1961,22 +1961,22 @@ _dm_hint: dict[int, float] = {}       # user -> last "here's what I do in DMs" r
 
 
 async def on_dm(message: discord.Message):
-    """In DMs Soon does two things (Shannon's call): the tap-through guide (`help`) and the PRIVATE suggestion box
-    (`suggest <idea>`: copied to the mod log, never #soon-lab). Anything else gets a short pointer (once an hour)."""
+    """DMs = the PRIVATE suggestion box only (Shannon: the guide stays in #soon-guide). `suggest <idea>` files it
+    (copied to the mod log, never #soon-lab); `help`/`settings`/`suggest` = the box with its form button; anything
+    else gets a short pointer (once an hour)."""
     guild = next((g for g in client.guilds if g.get_member(message.author.id)), None)
     if guild is None:
         return
-    if await guide.dm(message):
+    if await guide.dm(message, guild):
         return
     text = re.sub(r"(?i)^\s*soon[,:]?\s+", "", (message.content or "").strip())
     if await suggestions.handle(message, text, text.lower(), memory, is_mod(guild.get_member(message.author.id)), guild):
         return
     if time.time() - _dm_hint.get(message.author.id, 0) > 3600:
         _dm_hint[message.author.id] = time.time()
-        await message.channel.send("💌 In DMs I only do three things:\n• `help`: my guide, with buttons\n"
-                                   "• `settings`: see and change all your settings with me\n"
-                                   "• `suggest <your idea>`: the 🔒 private suggestion box (ideas, complaints, changes). "
-                                   f"Only Master Foxy and the mods see it.\n-# Want to chat? Come find me in {config.TALK_LINK}.")
+        await message.channel.send("💌 My DMs are just for the 🔒 **private suggestion box**: type `suggest <your idea>` "
+                                   "(ideas, complaints, changes). Only Master Foxy and the mods see it.\n"
+                                   f"-# Help and settings: {guide.guide_link(guild)} · Want to chat? {config.TALK_LINK}")
 
 
 async def side_eye(message: discord.Message):

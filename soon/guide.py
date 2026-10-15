@@ -9,10 +9,7 @@ import discord
 
 from . import config
 
-FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK} (in DMs: just `help`)."
-DM_FOOT = ("\n⚙️ Type `settings` here to see and change all your settings with me."
-           "\n🔒 **Private suggestion box:** type `suggest <your idea>` right here. Only Master Foxy and the mods see it."
-           "\n-# Type `help` here any time to start over.")
+FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK}."
 
 # key: (button label, emoji, parent, text, children)
 PAGES = {
@@ -288,20 +285,22 @@ SUGGEST_DM = ("## 📮 Soon's private suggestion box\nIdeas, complaints, changes
 DM_HELP_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:help|guide|how ?to|menu|start|start over|commands|hi|hello|hey)\s*[!?.]*\s*$")
 
 
-SETTINGS_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:my\s+)?settings\s*[!?.]*\s*$")
-
-
-class _Who:                     # just enough of an "interaction" for STATUS when it's a typed DM
-    def __init__(self, user):
-        self.user, self.guild, self.message = user, None, None
-
-
-async def dm(message) -> bool:
-    """`help` in DMs: the whole guide right there. `settings`: straight to ⚙️ My settings."""
-    if SETTINGS_RE.match(message.content or ""):
-        await message.channel.send((await page_text(_Who(message.author), "settings"))[:2000], view=view("settings"))
-        return True
-    if not DM_HELP_RE.match(message.content or ""):
+async def dm(message, guild) -> bool:
+    """DMs are for the private suggestion box only (Shannon: keep the guide in the channel). `help` / `settings` /
+    `suggest` with nothing after it = the suggestion box with its 📮 form button, plus a link to #soon-guide."""
+    if not (DM_HELP_RE.match(message.content or "") or re.match(r"(?i)^\s*(?:soon\s+)?(?:my\s+)?(?:settings|suggest(?:ion)?"
+                                                             r"(?: box)?)\s*[!?.]*\s*$", message.content or "")):
         return False
-    await message.channel.send(PAGES["home"][3] + DM_FOOT, view=view("home"))
+    await send_box(message.channel, guild)
     return True
+
+
+def guide_link(guild) -> str:
+    ch = next((c for c in getattr(guild, "text_channels", []) if "soon-guide" in c.name.lower()), None)
+    return ch.mention if ch else "#soon-guide"
+
+
+async def send_box(channel, guild):
+    box = discord.ui.View(timeout=None)
+    box.add_item(ActionButton("dmbox", "modal-suggest", "Write a suggestion", "📮"))
+    await channel.send(SUGGEST_DM + f"\n-# Help and all your settings live in {guide_link(guild)}.", view=box)
