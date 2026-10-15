@@ -7,14 +7,14 @@ import re
 
 import discord
 
-from . import config
+from . import config, extras
 
 FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK}."
 
 # key: (button label, emoji, parent, text, children)
 PAGES = {
     "home": ("Start over", "🏠", None,
-             "## 👋 Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
+             "## {SOON} Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
              ["settings", "talk", "vibe", "casino", "tacos", "pings", "clan", "me"]),
     "dmbox": ("Suggestion box", "📮", "home",
@@ -166,14 +166,16 @@ def view(key: str, dm_button: bool = False) -> discord.ui.View:
     return v
 
 
-def text(key: str) -> str:
-    return PAGES[key][3] + ("" if key == "dmbox" else FOOT)
+def text(key: str, guild=None) -> str:
+    """{SOON} = her own :soon_smug: emoji (Shannon), 👋 if the server doesn't have it."""
+    body = PAGES[key][3].replace("{SOON}", extras.face(guild, "soon_smug", "👋"))
+    return body + ("" if key == "dmbox" else FOOT)
 
 
 async def page_text(interaction, key: str) -> str:
     if key == "settings" and STATUS:
         return PAGES[key][3] + "\n" + await STATUS(interaction) + FOOT
-    return text(key)
+    return text(key, interaction.guild)
 
 
 async def show(interaction, key: str, top: str = ""):
@@ -256,7 +258,7 @@ class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga
 
 async def post(channel, reply_to=None):
     kw = dict(view=view("home", dm_button=True), allowed_mentions=discord.AllowedMentions.none())
-    body = PAGES["home"][3] + f"\n-# Tap a button. Lost later? Type `soon help` in {config.TALK_LINK}."
+    body = PAGES["home"][3].replace("{SOON}", extras.face(channel.guild, "soon_smug", "👋")) + f"\n-# Tap a button. Lost later? Type `soon help` in {config.TALK_LINK}."
     if reply_to is not None:
         await reply_to.reply(body, mention_author=False, **kw)
     else:
