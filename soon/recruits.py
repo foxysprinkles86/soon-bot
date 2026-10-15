@@ -13,7 +13,7 @@ import discord
 from . import config
 
 MEMBER = None          # bot.py sets: is_mod(member) -> bool
-CLANS = {"tacos": ("Tacos", "🌮"), "outlawz": ("Outlawz", "🤠")}
+CLANS = {"tacos": (config.TACOS_ROLE, "🌮"), "outlawz": (config.OUTLAWZ_ROLE, "🤠")}   # the in-game clans' roles
 RECRUIT_RE = re.compile(r"(?i)^\s*soon\s+recruit\b")
 ALUMNI_RE = re.compile(r"(?i)^\s*soon\s+(?:alumni|alum|left(?:\s+the)?\s+clan|retire)\b")
 
