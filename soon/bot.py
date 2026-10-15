@@ -1745,8 +1745,8 @@ async def on_message(message: discord.Message):
                 await rival_reply(message)
         return
     if not allowed_channel(message.channel):
-        if not ignored(message.author):
-            await notifyhelp.check(message)                 # "too many pings!": how-to, in ANY channel she can see
+        if not ignored(message.author) and not await notifyhelp.check(message):  # "too many pings!": how-to
+            await side_eye(message)                         # funny reactions work in ANY channel she can see
         return
     if message.channel.id in buttons.PAUSED:          # a duel fight is on: sweep everything so the button stays in view
         try:
@@ -1816,13 +1816,7 @@ async def on_message(message: discord.Message):
             _last_jealous[message.guild.id] = now
             await ai_reply(message, butt_in=True)
             return
-    # Side-eye: sometimes she just reacts instead of talking.
-    emoji = extras.pick_reaction(message.content, message.guild)
-    if emoji:
-        try:
-            await message.add_reaction(emoji)
-        except discord.HTTPException:
-            pass
+    await side_eye(message)                                 # sometimes she just reacts instead of talking
     # Butting in: rare, only on real sentences, with a cooldown per channel.
     if len(message.content.split()) >= 4 and random.random() < config.BUTT_IN_CHANCE:
         now = time.time()
@@ -1831,10 +1825,26 @@ async def on_message(message: discord.Message):
             await ai_reply(message, butt_in=True)
 
 
+async def side_eye(message: discord.Message):
+    """A funny emoji reaction now and then (REACT_CHANCE). Non-invasive, so it works in every channel."""
+    emoji = extras.pick_reaction(message.content, message.guild)
+    if emoji:
+        try:
+            await message.add_reaction(emoji)
+        except discord.HTTPException:
+            pass
+
+
 async def visiting(message: discord.Message):
     """Not her channel (Shannon's call): talked to directly = one short answer + an invite to her channel (once per
-    person per 5 min); otherwise silent apart from a rare friendly butt-in. No roasts, reactions, Panda pounces."""
+    person per 5 min); otherwise side-eye reactions, an occasional Panda pounce and a rare friendly butt-in. No roasts."""
     asyncio.create_task(eavesdrop(message))                 # still learns about people (notes only, says nothing)
+    if is_panda(message.author):                            # Shannon: an occasional Panda pounce, even here
+        now = time.time()
+        if now - _last_panda_fact[message.channel.id] > config.VISIT_PANDA_COOLDOWN_SEC and random.random() < 0.15:
+            _last_panda_fact[message.channel.id] = now
+            await ai_reply(message, butt_in=True)
+            return
     home = extras.find_channel(message.guild, config.PESTER_CHANNEL)
     there = f"#{home.name}" if home else "my channels"
     if talking_to_soon(message):
@@ -1845,6 +1855,7 @@ async def visiting(message: discord.Message):
                 f"You're only VISITING #{message.channel.name}, it's not your channel. Answer them in ONE short, "
                 f"friendly sentence (no roast), then invite them to {there} if they want more of you."))
         return
+    await side_eye(message)                                 # reactions are fine anywhere (Shannon)
     if len(message.content.split()) >= 4 and random.random() < config.VISIT_BUTT_IN_CHANCE:
         now = time.time()
         if now - _last_butt_in[message.channel.id] > config.VISIT_BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
