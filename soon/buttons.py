@@ -69,6 +69,22 @@ def view(*buttons: tuple) -> discord.ui.View:
     return v
 
 
+async def alert_pings(channel, subs: str, btn: tuple) -> str:
+    """The 🔔 alerts list (up to 109 people). Short list: returned as a line to put on top of the alert. Long list
+    (Discord caps a message at 2,000 characters): sent first as its own message(s) with the alerts button."""
+    if len(subs) <= 900:
+        return f"🔔 {subs}\n" if subs else ""
+    chunk = ""
+    for tag in subs.split():
+        if len(chunk) + len(tag) > 1800:
+            await channel.send("🔔 " + chunk, view=view(btn), allowed_mentions=discord.AllowedMentions(users=True))
+            chunk = ""
+        chunk += tag + " "
+    if chunk:
+        await channel.send("🔔 " + chunk, view=view(btn), allowed_mentions=discord.AllowedMentions(users=True))
+    return ""
+
+
 # ---------- retiring old buttons: only the newest message keeps a live button ----------
 
 _live: dict[str, list] = {}       # key -> messages whose buttons are still showing

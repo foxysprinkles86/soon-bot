@@ -23,7 +23,7 @@ from .economy import Bank
 ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
 WAIT, BETTING, MIN_BET, MAX_BET, MAX_BETS, MAX_STAKE = 300, 120, 5, 25, 6, 100
 DON_WAIT, DON_BETTING, DON_BET = 60, 120, 20      # double or nothing: decide window, betting window, flat bet
-MAX_SUBS = 40
+MAX_SUBS = 109
 WARNING = 10                  # seconds of heads-up before the fight
 
 DUEL_RE = re.compile(r"(?i)^\s*duel\b(?!\s+record)")
@@ -164,7 +164,7 @@ async def challenge(message, bank: Bank):
     await save(bank, gid, d)
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (me, t))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        (f"🔔 {subs}\n" if subs else "") +
+        await buttons.alert_pings(message.channel, subs, ALERTS_BTN) +
         f"# ⚔️🤺⚔️ DUEL! ⚔️🤺⚔️\n{u} challenges <@{t}> to a **quick-draw duel** for **{a} {C}** each!{capped}\n"
         f"## <@{t}> type `accept` or `decline`\nThe challenge expires <t:{int(d['until'])}:R>.\n"
         f"🍿 **Everyone else:** `bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. Winners get double. "
@@ -435,7 +435,7 @@ async def double_or_nothing(message, bank: Bank) -> bool:
     await buttons.retire(f"don:{gid}")
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (d["c"], d["t"]))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        (f"🔔 {subs}\n" if subs else "") +
+        await buttons.alert_pings(message.channel, subs, ALERTS_BTN) +
         f"# 🎲 DOUBLE OR NOTHING! 🎲\n<@{d['c']}> vs <@{d['t']}> for **{d['a']} {C}** each. " + random.choice([
             "Nobody learned anything. I love it.", "Greed: the family business.", "Kor is hiding behind the van."]) +
         f"\n## 🍿 Bets reopen for 2 minutes: **{DON_BET} {C}** a bet, winners get double!\n"
