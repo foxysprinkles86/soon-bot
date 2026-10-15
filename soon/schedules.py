@@ -22,7 +22,6 @@ from .economy import Bank
 
 DAY, PERIOD = 86400, 35 * 86400
 ANCHOR = 1791743400              # Classic's default boss-end time (a Sunday 18:30 UTC); `kraken date` changes it
-KRAKEN_CHANNEL = "kraken-clash"
 PINK, RED, GOLD = 0xFF45A3, 0xFF0000, 0xFFD700
 KRAKEN_RE = re.compile(r"(?i)^\s*kraken\s+(go|date|test)\b(.*)$", re.S)
 
@@ -149,7 +148,7 @@ async def kraken(guild, bank: Bank, now: int | None = None):
     kind, n, t = ev
     if int(await bank.get_house(guild.id, "krakenlast", 0) or 0) == t:
         return
-    ch = _channel(guild, KRAKEN_CHANNEL)
+    ch = _channel(guild, config.KRAKEN_CHANNEL) or _channel(guild, "kraken-clash")
     if not ch:
         return
     await bank.set_house(guild.id, "krakenlast", t)

@@ -83,7 +83,9 @@ MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
 DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "soon-lab").strip().lower()
 PESTER_CHANNEL = os.environ.get("PESTER_CHANNEL", "soon-lab").strip().lower()
 # Where race/event reminders go. Defaults to the pester channel.
-RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or PESTER_CHANNEL
+# Race reminders, event reminders and Kraken posts all go to #race-and-event-announcements (Shannon, Oct 15).
+RACE_CHANNEL = os.environ.get("RACE_CHANNEL", "").strip().lower() or "race-and-event"
+KRAKEN_CHANNEL = os.environ.get("KRAKEN_CHANNEL", "").strip().lower() or RACE_CHANNEL
 # Roasts on demand per person per day.
 ROASTS_PER_DAY = int(_float("ROASTS_PER_DAY", 3))
 # Panda gets tagged at least once a day: part of his Discord username or nickname.
