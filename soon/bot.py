@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, suggestions, tacovan, tips
+from . import alerts, bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -189,7 +189,7 @@ async def _send_filtered(self, content=None, **kw):
             ref = kw.get("reference")
             ref_author = getattr(getattr(ref, "author", None), "id", None)
             kw["allowed_mentions"] = discord.AllowedMentions(
-                everyone=bool(am and am.everyone), roles=False,
+                everyone=bool(am and am.everyone), roles=am.roles if am is not None and am is not PING else False,
                 users=[discord.Object(i) for i in ids if i not in _noping],
                 replied_user=ref_author not in _noping if ref_author else True)
             if ids - _noping - {buttons.ACTOR.get(), getattr(self, "id", None)}:
@@ -1445,6 +1445,8 @@ async def on_ready():
     buttons.BANK = bank
     buttons.ROUTERS[:] = [casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton)
+    for g in client.guilds:                                 # people already on alert lists get the alert roles
+        asyncio.create_task(alerts.sync(g, bank))
     if not heist_clock.is_running():
         heist_clock.start()
     if not daily.is_running():

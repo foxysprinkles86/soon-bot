@@ -10,14 +10,14 @@ import time
 
 import discord
 
-from . import buttons, heists
+from . import alerts as alert_roles, buttons, heists
 from .casino import C, casino_channel, test_note
 from .economy import Bank
 
 ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
 MENU_RE = re.compile(r"(?i)^\s*kor'?s?\s+(?:menu|commands|perks)\s*[!?.]*\s*$")
 PERK_RE = re.compile(r"(?i)^\s*(?:floor\s+it|honk(?:\s+honk)*|churro\s+break|it\s+was\s+me|kor'?s\s+revenge)\s*[!.]*\s*$")
-HERE = discord.AllowedMentions(everyone=False, users=True, roles=False)
+HERE = discord.AllowedMentions(everyone=False, users=True, roles=True)
 APOLOGY = 10     # "it was me": chips Kor pays each busted crew member (Shannon raised it from Classic's 5)
 
 
@@ -108,7 +108,7 @@ async def honk(message, bank: Bank):
         bonus = f"\n📯 Already in the van: +15 {C} each to " + " ".join(f"<@{x}>" for x in h["crew"])
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
     buttons.remember(f"heist:{gid}", await message.channel.send(
-        await buttons.alert_pings(message.channel, subs, heists.ALERTS_BTN) + "# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
+        await alert_roles.prefix(message.channel, "heistsubs", subs, heists.ALERTS_BTN) + "# 🚐📯 HONK HONK! 📯🚐\n**Kor is honking the van horn!** " + random.choice([
             "It plays La Cucaracha. Badly.", "It sounds like a goose being stepped on.",
             "Every car alarm in the parking lot goes off in solidarity."]) +
         f"\n## Everyone who joins the heist <t:{int(time.time()) + win}:R> gets **+15 {C}**! Type `join`.{bonus}",

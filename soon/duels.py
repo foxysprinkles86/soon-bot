@@ -15,7 +15,7 @@ import time
 
 import discord
 
-from . import buttons
+from . import alerts as alert_roles, buttons
 from .casino import C, casino_channel, test_note
 from .duel import DrawView
 from .economy import Bank
@@ -88,9 +88,15 @@ async def alerts(message, bank: Bank):
     toggle_off = "toggle" in message.content.lower() and me in subs
     if toggle_off or re.search(r"(?i)\boff\b|\bstop\b|\bno\b|unsub", message.content):
         await bank.set_house(gid, "duelsubs", [s for s in subs if s != me])
+        await alert_roles.set_member(message.author, "duelsubs", False)
         await message.channel.send(f"🔔 {u} Duel alerts **off**. Enjoy missing the bloodshed.")
     elif me in subs:
+        await alert_roles.set_member(message.author, "duelsubs", True)
         await message.channel.send(f"🔔 {u} You're already on the duel list. `duel alerts off` to stop.")
+    elif await alert_roles.set_member(message.author, "duelsubs", True):      # the Duel Alerts role: no list limit
+        await bank.set_house(gid, "duelsubs", subs + [me])
+        await message.channel.send(f"🔔 {u} Duel alerts **on**. You've got the **Duel Alerts** role: I ping it whenever a "
+                                   "duel starts, so you can bet on it. `duel alerts off` to stop.")
     elif len(subs) >= MAX_SUBS:
         await message.channel.send(f"🔔 {u} The duel list is full ({MAX_SUBS}).")
     else:
@@ -164,13 +170,13 @@ async def challenge(message, bank: Bank):
     await save(bank, gid, d)
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (me, t))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        await buttons.alert_pings(message.channel, subs, ALERTS_BTN) +
+        await alert_roles.prefix(message.channel, "duelsubs", subs, ALERTS_BTN) +
         f"# ⚔️🤺⚔️ DUEL! ⚔️🤺⚔️\n{u} challenges <@{t}> to a **quick-draw duel** for **{a} {C}** each!{capped}\n"
         f"## <@{t}> type `accept` or `decline`\nThe challenge expires <t:{int(d['until'])}:R>.\n"
         f"🍿 **Everyone else:** `bet {MIN_BET}-{MAX_BET} on @name` to back a fighter. Winners get double. "
         "Betting stays open 2 minutes after they accept.\n"
         f"-# Pot: {a * 2} {C} • Fastest finger wins. Tap before DRAW and you lose.",
-        view=bet_buttons(d, False)))
+        view=bet_buttons(d, False), allowed_mentions=alert_roles.MENTIONS))
 
 
 async def answer(message, bank: Bank, word: str) -> bool:
@@ -435,10 +441,10 @@ async def double_or_nothing(message, bank: Bank) -> bool:
     await buttons.retire(f"don:{gid}")
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "duelsubs", []) if int(s) not in (d["c"], d["t"]))
     buttons.remember(f"duel:{gid}", await message.channel.send(
-        await buttons.alert_pings(message.channel, subs, ALERTS_BTN) +
+        await alert_roles.prefix(message.channel, "duelsubs", subs, ALERTS_BTN) +
         f"# 🎲 DOUBLE OR NOTHING! 🎲\n<@{d['c']}> vs <@{d['t']}> for **{d['a']} {C}** each. " + random.choice([
             "Nobody learned anything. I love it.", "Greed: the family business.", "Kor is hiding behind the van."]) +
         f"\n## 🍿 Bets reopen for 2 minutes: **{DON_BET} {C}** a bet, winners get double!\n"
         f"`bet {DON_BET} on @name` or use the buttons. The draw starts <t:{int(d['until'])}:R>.",
-        view=bet_buttons(d, True)))
+        view=bet_buttons(d, True), allowed_mentions=alert_roles.MENTIONS))
     return True
