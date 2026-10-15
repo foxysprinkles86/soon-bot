@@ -133,7 +133,7 @@ class Brain:
             ],
             "response_format": {"type": "json_object"},
             "temperature": 1.1,
-            "max_tokens": 220,
+            "max_tokens": 450,          # room for a long meltdown + the JSON fields (220 could cut answers off)
         }
         try:
             data = await self._post(body)
@@ -141,6 +141,11 @@ class Brain:
             out = json.loads(data["choices"][0]["message"]["content"])
         except Exception as e:  # network, budget, bad JSON: never show an error to players
             print(f"AI error: {e!r}")
+            if isinstance(e, (ValueError, KeyError, IndexError)):    # DeepSeek answered, but garbled / cut off
+                if self.health["calls"]:
+                    self.health["calls"][-1] = None
+                self.health["streak"] += 1
+                self.health.update(last_error="DeepSeek's answer came back cut off or garbled", last_error_at=time.time())
             return self._fallback(butt_in or maybe)
 
         reply = trim_sentences(str(out.get("reply") or "").strip(), max_sentences)
