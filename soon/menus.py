@@ -118,7 +118,7 @@ Spectators: bet 5–25 on @name • betting stays open 2 minutes after they acce
 duel alerts on: get tagged whenever a duel starts
 
 **🏁 RACE BETTING** • race bet @name 20 (1–100 per race, one pick each, betting on yourself allowed)
-Opens when race pre-join opens, closes 10 minutes before the race • a mod calls the winner
+Opens when race pre-join opens, closes when pre-join closes • a mod calls the winner
 Winners split the whole pot **+20% house bonus**, by how much they bet • nobody picked the winner = refunds
 
 **🎡 WHEEL OF FORTACO** • surprise!

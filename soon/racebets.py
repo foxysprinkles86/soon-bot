@@ -1,7 +1,7 @@
 """Race betting (Shannon's add): bet chips on who'll be TnT's top scorer in the clan race.
 `race bet @name 20` (1-100 per race, one pick each, top up the same pick any time) • `race bets` = the betting book.
 Mods: `race bets open [note]` • `race bets close` • `race winner @name` (a tie: @ both) • `race bets cancel` (refunds).
-With SCHEDULES=1 the book opens by itself when pre-join opens and closes at the 10-minute race warning.
+The book opens by itself when pre-join opens and closes when pre-join closes (schedules.race_book, runs even before cutover).
 Payout: winners split the WHOLE pot plus a 20% house bonus, by how much they bet. Nobody picked the winner = refunds.
 Betting on yourself is allowed (and encouraged: it's motivation). Saved in house kv `racebook`."""
 import random

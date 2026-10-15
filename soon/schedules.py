@@ -78,10 +78,10 @@ async def races(guild, bank: Bank, t: dt.datetime | None = None):
     await bank.set_house(guild.id, "racepost", key)
     ping, allowed = _ping(guild)
     extra = ""
-    if "pre-join is OPEN" in due[0] and await racebets.open_book(bank, guild.id, due[0].split(" race")[0][2:]):
+    if "pre-join is OPEN" in due[0]:
         extra = "\n🎲 Race betting is open in the casino: `race bet @name 20` on who scores the most for TnT."
-    elif "starts in 10" in due[0] and await racebets.close_book(bank, guild.id):
-        extra = "\n🔒 Race betting is now closed."
+    elif "starts in 10" in due[0]:
+        extra = "\n🎲 Last call for race bets: betting closes when pre-join closes."
     await ch.send(f"{ping}# {due[0]}\n{due[1]}{extra}", allowed_mentions=allowed)
 
 
@@ -157,8 +157,41 @@ async def kraken(guild, bank: Bank, now: int | None = None):
     await ch.send(ping + text, allowed_mentions=allowed)
 
 
+BOOK_OPENS = [(1, 7, "Midweek"), (3, 21, "Weekend")]      # same time as the pre-join OPEN reminders (UTC)
+BOOK_CLOSES = [(2, 7), (4, 21)]                          # pre-join closes = the race starts
+
+
+def _casino_channel(guild):
+    """Where race-bet news goes: the first casino channel Soon is allowed to talk in."""
+    return next((c for c in guild.text_channels if any(w in c.name.lower() for w in config.CASINO_CHANNELS)
+                 and any(w in c.name.lower() for w in config.ALLOWED_CHANNELS)), None)
+
+
+async def race_book(guild, bank: Bank, t: dt.datetime | None = None):
+    """Race betting opens and closes by itself with pre-join (runs even before cutover, unlike the reminders)."""
+    t = t or dt.datetime.now(dt.timezone.utc)
+    if t.minute >= 10:
+        return
+    key = t.strftime("%Y-%m-%d-%H")
+    opening = next((lab for wd, h, lab in BOOK_OPENS if t.weekday() == wd and t.hour == h), None)
+    closing = any(t.weekday() == wd and t.hour == h for wd, h in BOOK_CLOSES)
+    if not (opening or closing) or await bank.get_house(guild.id, "racebookpost") == key:
+        return
+    await bank.set_house(guild.id, "racebookpost", key)
+    ch = _casino_channel(guild)
+    if opening and await racebets.open_book(bank, guild.id, opening):
+        if ch:
+            await ch.send(f"# 🏁 {opening} race betting is OPEN!\nPre-join just opened. Who's going to score the most for "
+                          "TnT? `race bet @name 20` (up to 100 chips).\n-# Betting closes when pre-join closes. "
+                          "Betting on yourself is allowed.", view=racebets._view())
+    elif closing and await racebets.close_book(bank, guild.id) and ch:
+        await ch.send("# 🔒 Race betting is CLOSED!\nPre-join is over and the race is on. A mod will call the winner "
+                      "after the race with `race winner @name`.", view=racebets._view())
+
+
 async def tick(guild, bank: Bank):
     """Called every minute from bot.py's daily loop."""
+    await race_book(guild, bank)
     if not config.SCHEDULES:
         return
     await races(guild, bank)

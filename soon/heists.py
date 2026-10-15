@@ -24,7 +24,7 @@ PLANS = {
 SEATS, MAX_ODDS, MAX_SUBS = 7, 80, 40
 STORY_PAUSE = 5    # seconds each step of the getaway story stays on screen (Shannon: big and slow enough to follow)
 HOUSE = 0      # timers on user 0 = server-wide cooldowns
-HERE = discord.AllowedMentions(everyone=True, users=True, roles=False)   # heists ping @here, like Classic
+HERE = discord.AllowedMentions(everyone=False, users=True, roles=False)  # only the heist alerts list gets pinged (Shannon: no @here)
 
 ALERT_RE = re.compile(r"(?i)^\s*heists?\s+(?:alerts?|notif\w*|ping\w*|subscri\w*)\b.*$")
 JOIN_RE = re.compile(r"(?i)^\s*join(?:\s+(?:the\s+)?heist)?\s*[!.]*\s*$")
@@ -130,7 +130,7 @@ async def start(message, bank: Bank, ty: str):
                 "That's already a problem.\n## ⏰ 10 MINUTES TO JOIN • Type `join`")
     await buttons.retire(f"heistboard:{gid}")          # the board's Start buttons are stale now
     buttons.remember(f"heist:{gid}", await message.channel.send(
-        "@here" + (f" 🔔 {subs}" if subs else "") + "\n" + head +
+        (f"🔔 {subs}\n" if subs else "") + head +
         f"\n# 🚐 The van leaves <t:{int(end)}:R>\n## 📣 @mention your friends to join! Every new crew member = +10% odds\n"
         f"💰 Buy-in: {p['buy']} {C} • Success pays **{p['win']} {C} to EVERYONE**\n"
         f"📊 Odds: {odds(p, 1, False)}% solo, +10% for every crew member (max {MAX_ODDS}%) • Van seats {SEATS}\n"
@@ -230,7 +230,7 @@ async def warn(ch, bank: Bank, gid: int, h: dict):
     p = PLANS[h["ty"]]
     subs = " ".join(f"<@{s}>" for s in await bank.get_house(gid, "heistsubs", []) if int(s) not in h["crew"])
     buttons.remember(f"heist:{gid}", await ch.send(
-        "@here" + (f" 🔔 {subs}" if subs else "") + "\n" +
+        (f"🔔 {subs}\n" if subs else "") +
         f"## ⏰ 5 MINUTES LEFT TO JOIN THE {p['n'].upper()}! ⏰\n# 🚐 The van leaves <t:{int(h['end'])}:R>\n"
         f"Crew: **{len(h['crew'])}** • Odds: **{odds(p, len(h['crew']), h.get('boost'))}%**"
         f"{' (Kor floored it 🚐💨)' if h.get('boost') else ''}\n"
