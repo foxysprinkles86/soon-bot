@@ -1722,6 +1722,8 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 @client.event
 async def on_message(message: discord.Message):
     if not message.guild:
+        if not message.author.bot and message.author != client.user:
+            await on_dm(message)                            # DMs: the guide + private suggestion box
         return
     buttons.ACTOR.set(message.author.id)                     # their own command's replies don't get the ping button
     if message.type == discord.MessageType.new_member:      # "X joined the server": Classic's welcome (WELCOME=1)
@@ -1826,6 +1828,27 @@ async def on_message(message: discord.Message):
         if now - _last_butt_in[message.channel.id] > config.BUTT_IN_COOLDOWN_SEC and rate_ok(message.author.id):
             _last_butt_in[message.channel.id] = now
             await ai_reply(message, butt_in=True)
+
+
+_dm_hint: dict[int, float] = {}       # user -> last "here's what I do in DMs" reply
+
+
+async def on_dm(message: discord.Message):
+    """In DMs Soon does two things (Shannon's call): the tap-through guide (`help`) and the PRIVATE suggestion box
+    (`suggest <idea>`: copied to the mod log, never #soon-lab). Anything else gets a short pointer (once an hour)."""
+    guild = next((g for g in client.guilds if g.get_member(message.author.id)), None)
+    if guild is None:
+        return
+    if await guide.dm(message):
+        return
+    text = re.sub(r"(?i)^\s*soon[,:]?\s+", "", (message.content or "").strip())
+    if await suggestions.handle(message, text, text.lower(), memory, is_mod(guild.get_member(message.author.id)), guild):
+        return
+    if time.time() - _dm_hint.get(message.author.id, 0) > 3600:
+        _dm_hint[message.author.id] = time.time()
+        await message.channel.send("💌 In DMs I only do two things:\n• `help`: my guide, with buttons\n"
+                                   "• `suggest <your idea>`: the 🔒 private suggestion box (ideas, complaints, changes). "
+                                   "Only Master Foxy and the mods see it.\n-# Want to chat? Come find me in #taco-trash-talk.")
 
 
 async def side_eye(message: discord.Message):

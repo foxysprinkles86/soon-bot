@@ -7,7 +7,9 @@ import re
 
 import discord
 
-FOOT = "\n-# 🏠 Start over: tap **Start over**, or type `soon help` in one of my channels."
+FOOT = "\n-# 🏠 Start over: tap **Start over**, or type `soon help` (here in DMs: just `help`)."
+DM_FOOT = ("\n🔒 **Private suggestion box:** type `suggest <your idea>` right here. Only Master Foxy and the mods see it."
+           "\n-# Type `help` here any time to start over.")
 
 # key: (button label, emoji, parent, text, children)
 PAGES = {
@@ -115,6 +117,7 @@ PAGES = {
            "• `soon my timezone is <city or zone>` · `soon my birthday is March 14`\n"
            "• `soon give me a new nickname` (I pick it. You'll live.)\n"
            "• `soon suggest <idea>`: ideas, complaints, changes. Master Foxy reads every one.\n"
+           "• 🔒 Private? DM me `suggest <idea>` instead.\n"
            "• For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
            ["vibe", "talk"]),
 }
@@ -122,11 +125,13 @@ CMD_RE = re.compile(r"(?i)^\s*soon\s+(?:help|guide|how ?to|what can you do\??|co
 POST_RE = re.compile(r"(?i)^\s*soon\s+guide\s+post\s*$")
 
 
-def view(key: str) -> discord.ui.View:
+def view(key: str, dm_button: bool = False) -> discord.ui.View:
     _, _, parent, _, kids = PAGES[key]
     v = discord.ui.View(timeout=None)
     for k in kids:
         v.add_item(GuideButton(k))
+    if dm_button:                                       # public panel only: take the whole guide to their DMs
+        v.add_item(GuideButton("dm"))
     if parent and parent != "home":
         v.add_item(GuideButton(parent, back=True))
     if key != "home":
@@ -140,7 +145,7 @@ def text(key: str) -> str:
 
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
     def __init__(self, key: str, back: bool = False):
-        label, emoji, *_ = PAGES[key]
+        label, emoji, *_ = PAGES.get(key) or ("Open in my DMs", "📬")
         if back:
             label, emoji = "Back", "⬅️"
         style = discord.ButtonStyle.primary if key == "home" and not back else discord.ButtonStyle.secondary
@@ -150,18 +155,26 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
 
     @classmethod
     async def from_custom_id(cls, interaction, item, match: re.Match):
-        return cls(match["k"] if match["k"] in PAGES else "home", bool(match["b"]))
+        return cls(match["k"] if match["k"] in PAGES or match["k"] == "dm" else "home", bool(match["b"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if self.key == "dm":                             # 📬 the whole guide, privately, in their DMs
+            try:
+                await interaction.user.send(PAGES["home"][3] + DM_FOOT, view=view("home"))
+                await interaction.response.send_message("📬 Check your DMs. I slid in. Classy.", ephemeral=True)
+            except discord.HTTPException:
+                await interaction.response.send_message("Your DMs are closed. Here's your private copy instead:\n\n"
+                                                        + text("home"), view=view("home"), ephemeral=True)
+            return
         msg = interaction.message
-        if msg is not None and msg.flags.ephemeral:      # already in their private copy: flip the page
+        if interaction.guild is None or (msg is not None and msg.flags.ephemeral):   # their DM / private copy: flip the page
             await interaction.response.edit_message(content=text(self.key), view=view(self.key))
         else:                                            # the public panel: open a private copy for the tapper
             await interaction.response.send_message(text(self.key), view=view(self.key), ephemeral=True)
 
 
 async def post(channel, reply_to=None):
-    kw = dict(view=view("home"), allowed_mentions=discord.AllowedMentions.none())
+    kw = dict(view=view("home", dm_button=True), allowed_mentions=discord.AllowedMentions.none())
     body = PAGES["home"][3] + "\n-# Tap a button. Lost later? Type `soon help` in one of my channels."
     if reply_to is not None:
         await reply_to.reply(body, mention_author=False, **kw)
@@ -183,3 +196,14 @@ async def command(message, is_mod: bool, in_her_channel: bool) -> bool:
         await post(message.channel, reply_to=message)
         return True
     return False
+
+
+DM_HELP_RE = re.compile(r"(?i)^\s*(?:soon\s+)?(?:help|guide|how ?to|menu|start|start over|commands|hi|hello|hey)\s*[!?.]*\s*$")
+
+
+async def dm(message) -> bool:
+    """`help` in DMs: the whole guide right there."""
+    if not DM_HELP_RE.match(message.content or ""):
+        return False
+    await message.channel.send(PAGES["home"][3] + DM_FOOT, view=view("home"))
+    return True

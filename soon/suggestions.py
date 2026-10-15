@@ -26,16 +26,19 @@ THANKS = ["Filed. In a drawer. A nice drawer. Master Foxy reads the drawer.",
           "Got it. If this was about me being nicer: no. If it wasn't: we'll see."]
 
 
-async def handle(message, text: str, cmd: str, memory, mod: bool) -> bool:
-    """text = the command with its original capitals (after "soon"), cmd = lowercased. True if it was ours."""
-    gid, uid = message.guild.id, message.author.id
+async def handle(message, text: str, cmd: str, memory, mod: bool, guild=None) -> bool:
+    """text = the command with its original capitals (after "soon"), cmd = lowercased. True if it was ours.
+    guild = the server, for suggestions sent by DM (private: the copy goes to the mod log, not #soon-lab)."""
+    guild = guild or message.guild
+    gid, uid, private = guild.id, message.author.id, message.guild is None
     if BOX_RE.match(cmd) or (LIST_RE.match(cmd) and not mod):
         await message.reply("📮 **Soon's suggestion box.** Ideas, complaints, changes, things I should stop doing. Say it:\n"
                             "`soon suggest stop roasting my Piggy score` • `soon complaint the heist pings are too loud`\n"
+                            "🔒 Want it private? DM me: `suggest <your idea>`. Only Master Foxy and the mods see those.\n"
                             "-# Master Foxy reads every one. I read them too. I just pretend not to.", mention_author=False)
         return True
     if LIST_RE.match(cmd):
-        await send_list(message, memory)
+        await send_list(message, memory, guild)
         return True
     m = DONE_RE.match(cmd)
     if m and mod:
@@ -67,42 +70,47 @@ async def handle(message, text: str, cmd: str, memory, mod: bool) -> bool:
     items = json.loads(await memory.get_kv(f"suggestions:{gid}") or "[]")
     items.append({"n": n, "uid": uid, "name": message.author.display_name, "text": idea[:MAX_LEN],
                   "ts": int(dt.datetime.now(dt.timezone.utc).timestamp()), "ch": message.channel.id,
-                  "link": getattr(message, "jump_url", "")})
+                  "link": "" if private else getattr(message, "jump_url", ""), "private": private})
     await memory.set_kv(f"suggestions:{gid}", json.dumps(items[-300:]))
-    await forward(message, n, idea[:MAX_LEN])
+    await forward(message, guild, n, idea[:MAX_LEN], private)
     try:
         await message.add_reaction("📮")
     except discord.HTTPException:
         pass
-    await message.reply(f"📮 **Suggestion #{n} filed.** {random.choice(THANKS)}"
+    await message.reply(f"📮 **Suggestion #{n} filed.**{' 🔒 Private: only Master Foxy and the mods see it.' if private else ''} "
+                        f"{random.choice(THANKS)}"
                         + ("\n-# (I kept the first 500 characters. Brevity, darling.)" if len(idea) > MAX_LEN else ""),
                         mention_author=False)
     return True
 
 
-async def forward(message, n: int, idea: str):
-    """A copy for Master Foxy in #soon-lab (SUGGEST_CHANNEL), unless it was filed right there."""
-    ch = next((c for c in message.guild.text_channels if config.SUGGEST_CHANNEL in c.name.lower()), None)
+async def forward(message, guild, n: int, idea: str, private: bool = False):
+    """A copy for Master Foxy: #soon-lab (SUGGEST_CHANNEL) unless filed right there. Private (DM) ones go to the
+    mod-only log instead (#soon-roast-mod, else #moderator-only), because testers can see #soon-lab."""
+    want = [config.MOD_LOG_CHANNEL, "moderator"] if private else [config.SUGGEST_CHANNEL]
+    ch = next((c for w in want for c in guild.text_channels if w in c.name.lower()), None)
     if not ch or ch.id == message.channel.id:
         return
+    where = "🔒 **privately by DM**" if private else f"in {message.channel.mention}"
+    link = "" if private else f"[Jump to it]({getattr(message, 'jump_url', '')}) • "
     try:
-        await ch.send(f"📮 **New suggestion #{n}** from **{message.author.display_name}** in {message.channel.mention}:\n"
+        await ch.send(f"📮 **New suggestion #{n}** from **{message.author.display_name}** {where}:\n"
                       f"> {idea.replace(chr(10), chr(10) + '> ')}\n"
-                      f"-# [Jump to it]({getattr(message, 'jump_url', '')}) • done with it? `soon suggestion done {n}`",
+                      f"-# {link}done with it? `soon suggestion done {n}`",
                       allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
     except discord.HTTPException:
         pass
 
 
-async def send_list(message, memory):
-    """The open suggestions, oldest first, sent to the mod's DMs (falls back to the channel if DMs are closed)."""
-    gid = message.guild.id
+async def send_list(message, memory, guild=None):
+    """The open suggestions, oldest first, sent to the mod's DMs (never to a channel: some are private)."""
+    gid = (guild or message.guild).id
     items = json.loads(await memory.get_kv(f"suggestions:{gid}") or "[]")
     if not items:
         await message.reply("📮 The suggestion box is empty. Either everyone loves me, or nobody can type.",
                             mention_author=False)
         return
-    lines = [f"**#{s['n']}** {s['name']} (<t:{s['ts']}:d>): {s['text']}" + (f" [→]({s['link']})" if s.get("link") else "")
+    lines = [f"**#{s['n']}** {'🔒 ' if s.get('private') else ''}{s['name']} (<t:{s['ts']}:d>): {s['text']}" + (f" [→]({s['link']})" if s.get("link") else "")
              for s in items]
     pages, page = [], f"## 📮 Suggestion box: {len(items)} open\n"
     for line in lines:
@@ -114,7 +122,8 @@ async def send_list(message, memory):
     try:
         for p in pages:
             await message.author.send(p, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
-        await message.reply(f"📮 Sent you the list in DMs ({len(items)} open).", mention_author=False)
-    except discord.HTTPException:
-        for p in pages:
-            await message.channel.send(p, allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
+        if message.guild is not None:
+            await message.reply(f"📮 Sent you the list in DMs ({len(items)} open).", mention_author=False)
+    except discord.HTTPException:                       # some are private: never read them out in a channel
+        await message.reply("📮 Your DMs are closed, and I don't read suggestions out loud (some are private). "
+                            "Allow DMs from this server, then try again.", mention_author=False)
