@@ -145,7 +145,7 @@ def text(key: str) -> str:
 
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
     def __init__(self, key: str, back: bool = False):
-        label, emoji, *_ = PAGES.get(key) or ("Open in my DMs", "📬")
+        label, emoji, *_ = PAGES.get(key) or ("DM me: guide + private suggestions", "📬")
         if back:
             label, emoji = "Back", "⬅️"
         style = discord.ButtonStyle.primary if key == "home" and not back else discord.ButtonStyle.secondary
