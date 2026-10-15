@@ -15,7 +15,7 @@ from .personality import FALLBACK_LINES, SHEET
 TONES = {"nice", "neutral", "rude", "upset"}
 
 INSTRUCTIONS = """Reply with JSON only:
-{"reply": "", "tone": "nice|neutral|rude|upset", "at_you": false, "note": "", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": "", "nickname": ""}
+{"reply": "", "tone": "nice|neutral|rude|upset", "at_you": false, "note": "", "line_crossed": false, "timezone": "", "struggle": "", "panda_fact": "", "nickname": "", "pushback": ""}
 - reply: what Soon says ("" allowed only in BUTT-IN or MAYBE mode when there's nothing worth saying).
 - tone: how their latest message treated Soon or others (upset = genuinely hurt, not joking).
 - at_you: true only if that nice/rude tone is aimed at YOU (Soon) yourself, not at someone else or the game.
@@ -24,7 +24,8 @@ INSTRUCTIONS = """Reply with JSON only:
 - timezone: IANA zone (like "America/New_York") only if they just said where they live, else "".
 - struggle: a few words if they're confused or a command isn't working for them, else "".
 - panda_fact: only if your reply states a NEW made-up Panda fact, that fact in a few words, else "".
-- nickname: only if your reply calls THIS player by a NEW made-up name you invented for them (a fake name like a person's name or a title), that name (max 32 characters). Not their real name, not your existing nickname for them, not pet words like "sweetie" or "driver". Usually ""."""
+- nickname: only if your reply calls THIS player by a NEW made-up name you invented for them (a fake name like a person's name or a title), that name (max 32 characters). Not their real name, not your existing nickname for them, not pet words like "sweetie" or "driver". Usually "".
+- pushback: usually "". Only if they're SERIOUSLY telling you to stop a specific thing you do to them, or disagreeing with a specific claim/joke you keep making about them, that thing in 2-6 words (like "jokes about my Piggy score"). Playful comebacks and banter ("I'm not your sous-chef", "you wish") are NOT pushback. If it matches one in PUSHBACK SO FAR, use that exact label."""
 
 
 def trim_sentences(text: str, limit: int) -> str:
@@ -201,8 +202,9 @@ class Brain:
         struggle = str(out.get("struggle") or "").strip()[:150]
         panda_fact = str(out.get("panda_fact") or "").strip()[:160]
         nickname = str(out.get("nickname") or "").strip()[:32]
+        pushback = str(out.get("pushback") or "").strip()[:60]
         return {"reply": reply[:1900], "tone": tone, "at_you": out.get("at_you") is True, "note": note, "line_crossed": crossed, "timezone": tz,
-                "struggle": struggle, "panda_fact": panda_fact, "nickname": nickname, "ok": True}
+                "struggle": struggle, "panda_fact": panda_fact, "nickname": nickname, "pushback": pushback, "ok": True}
 
     async def write(self, task: str, max_tokens: int = 350) -> str:
         """Free-form writing in Soon's voice (diary entries, pestering, announcements). '' if unavailable."""
@@ -287,4 +289,4 @@ class Brain:
     @staticmethod
     def _fallback(butt_in: bool) -> dict:
         return {"reply": "" if butt_in else random.choice(FALLBACK_LINES), "tone": "neutral", "at_you": False, "note": "",
-                "line_crossed": False, "timezone": "", "struggle": "", "panda_fact": "", "nickname": "", "ok": False}
+                "line_crossed": False, "timezone": "", "struggle": "", "panda_fact": "", "nickname": "", "pushback": "", "ok": False}

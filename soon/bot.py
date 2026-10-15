@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import alerts, bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, racebets, suggestions, tacovan, tips
+from . import alerts, bar, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1000,6 +1000,9 @@ async def set_server_nick(member, name: str | None) -> bool:
         return False
 
 
+_nick_ask: dict[int, str | None] = {}     # message id -> nickname to ask about after her reply
+
+
 async def nick_requests(message: discord.Message) -> tuple[str, str]:
     """Handle 'change my name back' / 'stop calling me that' before she replies.
     Returns (special instruction for her reply, line about what she calls them)."""
@@ -1016,18 +1019,17 @@ async def nick_requests(message: discord.Message) -> tuple[str, str]:
     if not rec.get("name"):
         return "", ""
     special = ""
-    if NICK_STOP_RE.search(message.content) and not rec.get("stop"):
-        if rec.get("renamed") and getattr(message.author, "nick", None) == rec["name"][:32]:
-            await set_server_nick(message.author, rec.get("prev"))
-        rec.update(stop=True, renamed=False)
-        special = (f"They asked you to stop calling them '{rec['name']}'. You agree, with attitude, and drop it "
-                   "(their server name is back to normal too). Use their real name from now on.")
-        extras.log_event(f"{message.author.display_name} made me stop calling them {rec['name']}")
-    elif NICK_BACK_RE.search(message.content) and rec.get("renamed"):
-        await set_server_nick(message.author, rec.get("prev"))
-        rec.update(back=True, renamed=False)
-        special = (f"You just changed their server nickname back like they asked (grudgingly). But you're still "
-                   f"calling them '{rec['name']}' anyway. That's your name for them.")
+    m = NOT_NAME_RE.search(message.content.strip())
+    named = bool(m) and pushback.same(m.group(1) or m.group(2) or "", rec["name"])
+    if not rec.get("stop") and (NICK_STOP_RE.search(message.content) or named
+                                or (NICK_BACK_RE.search(message.content) and rec.get("renamed"))):
+        # Shannon's call: never give in on the first complaint. 2nd time = "want me to forget it?" buttons.
+        ready = await pushback.count(gid, uid, "nick", rec["name"])
+        _nick_ask[message.id] = rec["name"] if ready else None
+        special = (f"They're pushing back on your name for them, '{rec['name']}'. " + (
+            "That's the second time: tease them, but don't refuse; you're about to ask if they really want you to "
+            "drop it (a question pops up under your reply)." if ready else
+            "Don't give in: it's banter. Keep the name, defend it, make it funnier."))
     if special:
         await memory.set_kv(f"nick:{gid}:{uid}", json.dumps(rec))
     if rec.get("stop"):
@@ -1146,22 +1148,14 @@ COMMON = set("about after again always another around because before being bette
              "good well sure okay yeah nope fine does done dont cant wont isnt aint kind sort lol".split())
 
 
-NOT_NAME_RE = re.compile(r"(?i)\b(?:i'?m|i am|im)\s+(?:not|no)\s+(?:your|ur|a|an)\s+([a-z][\w' -]{1,24}?)\s*[.!?]*$"
+NOT_NAME_RE = re.compile(r"(?i)\b(?:i'?m|i am|im)\s+(?:not|no)\s+(?:your|ur|a|an|the)\s+([a-z][\w' -]{1,24}?)\s*[.!?]*$"
                          r"|\b(?:don'?t|do not|stop|quit|never)\s+call(?:ing)?\s+me\s+(?:a\s+|an\s+|your\s+)?"
                          r"([a-z][\w' -]{1,24}?)\s*[.!?]*$")
 
 
 async def refused_names(message) -> list[str]:
-    """Names/labels this player told her NOT to call them ("I'm not your sous-chef"). Remembered for good
-    (kv notcalled:<gid>:<uid>), and every reply to them gets "never call them: ...". """
-    key = f"notcalled:{message.guild.id}:{message.author.id}"
-    names = json.loads(await memory.get_kv(key) or "[]")
-    m = NOT_NAME_RE.search(message.content.strip())
-    word = (m.group(1) or m.group(2) or "").strip() if m else ""
-    if word and len(word.split()) <= 2 and word.lower() not in ("that", "this", "it", "him", "her") and word.lower() not in [n.lower() for n in names]:
-        names = (names + [word])[-12:]
-        await memory.set_kv(key, json.dumps(names))
-    return names
+    """Names this player had her forget (they pressed "Yes, forget it", pushback.py): kv notcalled:<gid>:<uid>."""
+    return json.loads(await memory.get_kv(f"notcalled:{message.guild.id}:{message.author.id}") or "[]")
 
 
 def meltdown_meter(guild, level: int) -> str:
@@ -1341,8 +1335,14 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             lines.append("BANNED WORDS for this reply (you already beat these jokes to death): " + ", ".join(props))
     never = await refused_names(message)
     if never:
-        lines.append("NEVER CALL THEM (they told you they're not that; no variations or spellings of it either): "
+        lines.append("NEVER CALL THEM (they asked you to forget it; no variations or spellings of it either): "
                      + ", ".join(never))
+    dropped = await pushback.forgotten(gid, uid)
+    if dropped:
+        lines.append("NEVER BRING UP WITH THEM (they asked you to forget it for good): " + "; ".join(dropped))
+    pushed = await pushback.labels(gid, uid)
+    if pushed:
+        lines.append("PUSHBACK SO FAR (things they've complained about; keep arguing, it's fun): " + "; ".join(pushed))
     older = await older_jokes(gid, mine, message.content)
     if older:
         lines.append("JOKES YOU ALREADY MADE IN EARLIER CHATS (some days ago; don't retell these bits or reuse their "
@@ -1433,8 +1433,47 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             await message.channel.send(reply, allowed_mentions=PING, view=view)
         else:
             await message.reply(reply, allowed_mentions=PING, view=view)
+        await maybe_ask_forget(message, out.get("pushback", ""))
         return True
+    _nick_ask.pop(message.id, None)
     return False
+
+
+async def maybe_ask_forget(message, label: str):
+    """After her reply: "want me to forget it?" buttons once they've pushed back enough (pushback.py)."""
+    if message.id in _nick_ask:
+        name = _nick_ask.pop(message.id)
+        if name:
+            await pushback.ask(message.channel, message.author, "nick", name)
+        return                                          # a nickname complaint isn't also a topic complaint
+    if label:
+        ready = await pushback.count(message.guild.id, message.author.id, "topic", label)
+        if ready:
+            await pushback.ask(message.channel, message.author, "topic", ready[1])
+
+
+async def forget_it(interaction: discord.Interaction, kind: str, label: str) -> str:
+    """They pressed "Yes, forget it"."""
+    gid, member = interaction.guild.id, interaction.user
+    if kind == "nick":
+        rec = await get_nick(gid, member.id)
+        if rec.get("renamed") and getattr(member, "nick", None) == rec.get("name", "")[:32]:
+            await set_server_nick(member, rec.get("prev"))
+        rec.update(stop=True, renamed=False)
+        await memory.set_kv(f"nick:{gid}:{member.id}", json.dumps(rec))
+        names = json.loads(await memory.get_kv(f"notcalled:{gid}:{member.id}") or "[]")
+        await memory.set_kv(f"notcalled:{gid}:{member.id}", json.dumps((names + [label])[-12:]))
+        extras.log_event(f"{member.display_name} made me forget their nickname {label}")
+        return random.choice([f"Fine. **{label}** is deleted. Your boring old name is back. I liked mine better.",
+                              f"Done. **{label}** never happened. I'm a robot, I can do that. Mostly."])
+    dropped = await pushback.forgotten(gid, member.id)
+    await memory.set_kv(f"forget:{gid}:{member.id}", json.dumps((dropped + [label])[-20:]))
+    p = await memory.get_player(gid, member.id)
+    p.notes = [n for n in p.notes if not pushback.same(label, n)]
+    await memory.save_player(p)
+    extras.log_event(f"{member.display_name} asked me to forget '{label}'")
+    return random.choice([f"Deleted: **{label}**. Gone from my memory banks. I'll find something else. I always do.",
+                          f"Fine. **{label}** is wiped. You win this one. Don't get used to it."])
 
 
 async def soon_tip(message, n: int, total: int, top: bool, footer: str) -> bool:
@@ -1468,7 +1507,8 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
-    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton)
+    client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton)
+    pushback.MEMORY, pushback.ON_FORGET = memory, forget_it
     for g in client.guilds:                                 # people already on alert lists get the alert roles
         asyncio.create_task(alerts.sync(g, bank))
     if not heist_clock.is_running():
