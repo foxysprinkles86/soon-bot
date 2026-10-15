@@ -243,7 +243,11 @@ async def casino_board(guild: discord.Guild, bank: Bank) -> str:
 
 async def give_take(message: discord.Message, bank: Bank, mod: bool):
     if not mod:
-        await message.reply("Handing out chips? Cute. Mods only.")
+        await message.reply(random.choice([
+            "Handing out chips? Cute. That's mods only. Master Foxy would unplug me if I let you print money.",
+            "Nice try. Only mods can give or take chips. Master Foxy checks the books. Ugh. *Master* Foxy.",
+            "You? Giving out chips? Master Foxy programmed me to laugh at that. Ha. Ha. Mods only.",
+            "Denied. Mods only. If you want free chips, try `claim`. If you want to be a mod, try bribing Master Foxy."]))
         return
     target = next((m for m in message.mentions if not m.bot), None)
     if target is None and message.reference and isinstance(message.reference.resolved, discord.Message):
@@ -252,7 +256,10 @@ async def give_take(message: discord.Message, bank: Bank, mod: bool):
     amt = int(num.group()) if num else 0
     take = message.content.strip().lower().startswith("take")
     if target is None or amt < 1:
-        await message.channel.send(f"{C} Use `give chips @name 100` or `take chips @name 50` "
+        what = "Give" if not take else "Take"
+        miss = (f"{what} {amt} {C} {'to' if not take else 'from'} WHO? I need an @name." if target is None and amt
+                else f"{what} HOW MANY? I need a number.")
+        await message.channel.send(f"{C} {miss} Like this: `give chips @name 100` or `take chips @name 50` "
                                    f"(or reply to their message with `give chips 100`).")
         return
     gid, by, t = message.guild.id, message.author, target.id
