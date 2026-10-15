@@ -35,7 +35,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - **@mentions** (Shannon's call): Soon pings people she responds to, addresses or pesters. `ping_names()` in bot.py turns the first time she names someone in the conversation (incl. "Foxy") into an @mention; **Kor is only pinged when he's the one she's replying to or he was @'d** (she talks about him a lot); plain-word names only when capitalized. Butt-ins @ the person. Hall of Shame + Sunday awards ping. Diary stays ping-free. Never @everyone/roles; @here ONLY for heists.
 - **Nicknames** (Shannon's call): when Soon invents a name for the player she's replying to (AI field `nickname`), it becomes their server nickname (max 1 new name / 12h each; kv `nick:<gid>:<uid>`). "Change my name back" (also "change it back", "put my handle back" while she has renamed them) → restores their old nick right away but she keeps CALLING them her name. "Stop calling me that" → restores + she stops. Either one ends future renames for that player. Needs Discord perm Manage Nicknames + Soon's role above theirs (owner can't be renamed). Panda is remembered by account (kv `panda_ids`) so a rename doesn't hide him.
 - Example lines must not be copy-able facts (she used "Gerald"/"hammock" verbatim once): describe the kind of joke instead.
-- `brain.py` — DeepSeek calls: `think()` (JSON reply/tone/at_you/note/line_crossed/timezone/struggle/panda_fact; reply length 75% one sentence), `write()`, `extract_notes()` (notes, violations, Hall of Shame picks).
+- `brain.py` — DeepSeek calls: `think()` (JSON reply/tone/at_you/note/line_crossed/timezone/struggle/panda_fact; reply length 60% one sentence / 32% two / 8% up to four, Shannon wanted her a tiny bit more conversational; most replies end with a hook: loaded question, dare, accusation), `write()`, `extract_notes()` (notes, violations, Hall of Shame picks).
 - `extras.py` — moods, reactions, strikes/timeouts, **takeover storyline**, zones, time-zone helpers.
 - `features.py` — Panda Fact archive, roast allowance, race/event reminders (manual + Discord scheduled events), Hall of Shame.
 - `economy.py` — the casino **Bank**: `wallets` (chips, tacobal, tacos, margs, eggcount, eggs, casnet, delivered — same names as Classic), `timers` (claimcd, cowin, bcwin…), `casino_day` (daily net), `econ_log` (every chip move), house pots in kv (`house:<gid>:jpot|jackpots|heistsubs`).
@@ -82,7 +82,7 @@ Read this first in every new conversation. It replaces the long history of the o
 - No invented facts/dates/tallies; lore is seasoning, don't repeat bits; argue back; answer real questions.
 
 ## Reviewing chat logs (when Shannon pastes one)
-Check: lines aimed at Soon Classic mistaken as hers; repeated phrases/sign-offs/props; replies that dead-end; too long (75% should be one sentence); made-up facts (only Panda facts allowed); Kor chats fun and easy English; Foxy two-faced; overused names/"boss"; missed openings (e.g. Panda posting). Fix in code, commit, wait for "push it".
+Check: lines aimed at Soon Classic mistaken as hers; repeated phrases/sign-offs/props; replies that dead-end; too long (60% one sentence, rest 2, rarely 4); made-up facts (only Panda facts allowed); Kor chats fun and easy English; Foxy two-faced; overused names/"boss"; missed openings (e.g. Panda posting). Fix in code, commit, wait for "push it".
 
 ## Roadmap (next)
 Step-by-step tracker: **'Move Plan' tab** of the Classic Soon checklist sheet (tick boxes as steps finish).
