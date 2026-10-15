@@ -360,6 +360,42 @@ class NiceButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:nice
             await heat_locked_dm(interaction.user, choice)
 
 
+_last_ai_alert = defaultdict(float)     # guild -> last "my AI brain is down" mod alert
+
+
+async def ai_status_text() -> str:
+    h = brain.health
+    calls = list(h["calls"])
+    ok = [c for c in calls if c is not None]
+    spent, n = await memory.month_spend()
+    out = ["🧠 **Soon's AI brain**"]
+    if calls:
+        out.append(f"Last {len(calls)} answers: **{len(ok)} ok** • **{len(calls) - len(ok)} failed**"
+                   + (f" • average {sum(ok) / len(ok):.1f}s (slowest {max(ok):.1f}s)" if ok else ""))
+    else:
+        out.append("No answers since my last restart yet.")
+    out.append(("🔴 " if h["streak"] >= 3 else "🟢 " if not h["streak"] else "🟡 ")
+               + f"Failures in a row right now: **{h['streak']}**")
+    if h["last_error"]:
+        out.append(f"Last problem: {h['last_error']} • <t:{int(h['last_error_at'])}:R>")
+    out.append(f"This month: **${spent:.2f}** of ${config.AI_MONTHLY_CAP_USD:.0f} cap • {n} calls"
+               + (" • 🔴 CAP REACHED: backup lines only" if spent >= config.AI_MONTHLY_CAP_USD else ""))
+    out.append("-# When the AI fails, I use backup lines for direct questions and stay quiet for the rest.")
+    return "\n".join(out)
+
+
+async def ai_alert(guild):
+    """3 failures in a row: tell the mods once an hour, so nobody thinks Soon is broken."""
+    if brain.health["streak"] < 3 or time.time() - _last_ai_alert[guild.id] < 3600:
+        return
+    _last_ai_alert[guild.id] = time.time()
+    ch = extras.find_channel(guild, config.MOD_LOG_CHANNEL)
+    if ch:
+        await ch.send(f"⚠️ **My AI brain isn't answering** ({brain.health['streak']} fails in a row: "
+                      f"{brain.health['last_error']}). I'm using backup lines and staying quiet until it's back. "
+                      "Nothing for you to fix unless it says out of credit or API key. Type `soon ai` for details.")
+
+
 async def ask_be_nice(message: discord.Message, asked_directly: bool) -> None:
     """DM them (or ask in the channel if DMs are closed) whether they want her nicer to THEM. Nothing changes until they press."""
     gid, uid = message.guild.id, message.author.id
@@ -391,6 +427,9 @@ async def handle_command(message: discord.Message) -> bool:
     cmd = m.group(1).strip()
     gid, uid = message.guild.id, message.author.id
 
+    if cmd in ("ai", "ai status", "brain", "status") and is_mod(message.author):     # is her AI brain OK?
+        await message.reply(await ai_status_text(), mention_author=False)
+        return True
     if cmd == "welcome test" and is_mod(message.author):           # preview the new-member welcome, no pings
         await welcome.send(message.channel, message.author.mention, ping=False)
         if not config.WELCOME:
@@ -1152,6 +1191,8 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
             length_weights=length_weights,
             help_desk=needs_help(message.content),
         )
+    if not out.get("ok"):
+        await ai_alert(message.guild)
     tone = out["tone"]
     p.drift(rude=(tone == "rude"))
     if tone == "nice":

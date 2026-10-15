@@ -1,7 +1,10 @@
 """Talking to DeepSeek. One request per reply: Soon's line, how the player treated her, and an optional note for her notebook."""
+import asyncio
 import json
 import random
 import re
+import time
+from collections import deque
 
 import httpx
 
@@ -54,7 +57,39 @@ def pick_notes(notes: list[str], message: str, limit: int = 12) -> list[str]:
 class Brain:
     def __init__(self, memory):
         self.memory = memory
-        self.client = httpx.AsyncClient(timeout=30)
+        self.client = httpx.AsyncClient(timeout=25)
+        # AI health, for `soon ai` and the mod alert: recent call times (s, or None = failed), failure streak, last error
+        self.health = {"calls": deque(maxlen=30), "streak": 0, "last_error": "", "last_error_at": 0.0}
+
+    async def _post(self, body: dict) -> dict:
+        """One DeepSeek call with one quick retry for blips (not for timeouts: those already took 25s).
+        Records timing/failures in self.health. Raises on failure."""
+        start = time.time()
+        for attempt in (1, 2):
+            try:
+                r = await self.client.post(f"{config.DEEPSEEK_BASE_URL}/chat/completions",
+                                           headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"}, json=body)
+                r.raise_for_status()
+                data = r.json()
+                self.health["calls"].append(round(time.time() - start, 1))
+                self.health["streak"] = 0
+                return data
+            except Exception as e:
+                timed_out = isinstance(e, httpx.TimeoutException)
+                if attempt == 1 and not timed_out and not (isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (401, 402)):
+                    await asyncio.sleep(1.5)
+                    continue
+                self.health["calls"].append(None)
+                self.health["streak"] += 1
+                why = ("took longer than 25 seconds (DeepSeek slow or down)" if timed_out else
+                       f"DeepSeek said {e.response.status_code}" + (" (out of credit: top up the DeepSeek balance)"
+                                                                     if e.response.status_code == 402 else
+                                                                     " (API key problem)" if e.response.status_code == 401 else "")
+                       if isinstance(e, httpx.HTTPStatusError) else
+                       "couldn't reach DeepSeek (their servers or the internet)" if isinstance(e, httpx.TransportError)
+                       else f"{type(e).__name__}")
+                self.health.update(last_error=why, last_error_at=time.time())
+                raise
 
     async def budget_left(self) -> bool:
         spent, _ = await self.memory.month_spend()
@@ -101,13 +136,7 @@ class Brain:
             "max_tokens": 220,
         }
         try:
-            r = await self.client.post(
-                f"{config.DEEPSEEK_BASE_URL}/chat/completions",
-                headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"},
-                json=body,
-            )
-            r.raise_for_status()
-            data = r.json()
+            data = await self._post(body)
             await self.memory.add_spend(self._cost(data.get("usage", {})))
             out = json.loads(data["choices"][0]["message"]["content"])
         except Exception as e:  # network, budget, bad JSON: never show an error to players
@@ -138,10 +167,7 @@ class Brain:
             "max_tokens": max_tokens,
         }
         try:
-            r = await self.client.post(f"{config.DEEPSEEK_BASE_URL}/chat/completions",
-                                       headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"}, json=body)
-            r.raise_for_status()
-            data = r.json()
+            data = await self._post(body)
             await self.memory.add_spend(self._cost(data.get("usage", {})))
             return data["choices"][0]["message"]["content"].strip()[:1900]
         except Exception as e:
@@ -181,10 +207,7 @@ class Brain:
             "max_tokens": 300,
         }
         try:
-            r = await self.client.post(f"{config.DEEPSEEK_BASE_URL}/chat/completions",
-                                       headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"}, json=body)
-            r.raise_for_status()
-            data = r.json()
+            data = await self._post(body)
             await self.memory.add_spend(self._cost(data.get("usage", {})))
             out = json.loads(data["choices"][0]["message"]["content"])
             notes = [(str(n.get("player", "")), str(n.get("note", ""))[:200])

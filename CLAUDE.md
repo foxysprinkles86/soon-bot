@@ -22,7 +22,7 @@ Read this first in every new conversation. It replaces the long history of the o
 
 ## Hosting / stack
 - Railway project: service **worker** (`python -u main.py`, restart ALWAYS) + **Postgres** (`DATABASE_URL=${{Postgres.DATABASE_URL}}`).
-- AI: **DeepSeek** `deepseek-chat` (OpenAI-compatible, JSON mode). Monthly cap **$10** (`AI_MONTHLY_CAP_USD`); falls back to canned lines when over.
+- AI: **DeepSeek** `deepseek-chat` (OpenAI-compatible, JSON mode). Monthly cap **$10** (`AI_MONTHLY_CAP_USD`); falls back to canned lines when over. 25s timeout, one quick retry for blips (`Brain._post`). When it fails: direct messages get a FALLBACK line (e.g. "I heard you. I'm choosing not to process it."), maybe/butt-in messages get silence ("typing" then nothing). **`soon ai`** (mods) = health: last 30 calls ok/failed, speed, failure streak, last error in plain words, month spend. 3 fails in a row → one alert/hour in the mod log channel.
 - Python 3.12, discord.py 2.5.2, asyncpg, httpx, tzdata, Pillow (game pictures). Time zone America/Chicago.
 - Talks only in channels matching `ALLOWED_CHANNELS` (currently `soon-lab,trash-talk`; casino channels contain "casa").
 - Casino words (claim, chips, cash out…) only work in `CASINO_CHANNELS` (default `casa,soon-lab`) and also need ALLOWED_CHANNELS.
