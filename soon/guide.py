@@ -11,17 +11,37 @@ from . import config, extras
 
 FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK}."
 
-# key: (button label, emoji, parent, text, children)
+# key: (button label, emoji, parent, text, children). Keys are lowercase letters only (they go in button ids).
+# Pages in DYNAMIC_KEYS get live info added under their text (bot.py fills it in: DYNAMIC hook).
 PAGES = {
     "home": ("Start over", "🏠", None,
              "## {SOON} Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
-             ["settings", "talk", "vibe", "casino", "tacos", "pings", "clan", "me"]),
-    "dmbox": ("Suggestion box", "📮", "home",
-              "-# Another one? Tap **Write a suggestion** again.", []),
+             ["settings", "new", "timers", "stats", "upcoming", "boards", "ask", "talk", "vibe", "casino", "tacos",
+              "pings", "clan", "me", "fun", "faq", "mod"]),
     "settings": ("My settings", "⚙️", "home",
                  "## ⚙️ Everything I know about your settings\nChange anything with the buttons below.",
                  ["vibe", "pings", "me", "clan"]),
+    "new": ("New here? Start here", "👋", "home",
+            "## 👋 New here? 3 quick steps\n"
+            "**1.** Tap your world zone: 🦝 Americas · 🦁 Europe & Africa · 🐼 Asia · 🦆 Australia & Oceania\n"
+            "**2.** Tap 📝 and tell me your Mob Control name.\n"
+            "**3.** Pick what I ping you for (tap again to turn off).\n"
+            f"Then come say hi in {config.TALK_LINK}. I bite. Lovingly.",
+            ["settings", "talk", "casino"]),
+    "timers": ("My timers", "⏰", "home", "## ⏰ Your timers\nCountdowns update by themselves.", ["casino", "stats"]),
+    "stats": ("My stats", "📊", "home", "## 📊 Your stats with me", ["boards", "timers"]),
+    "upcoming": ("Coming up", "📅", "home", "## 📅 Coming up\nTimes show in YOUR time zone.", ["pings", "clan"]),
+    "boards": ("Leaderboards", "🏆", "home", "## 🏆 Leaderboards\nPick one. Only you see it.",
+               ["btaco", "bbar", "begg", "bcasino"]),
+    "btaco": ("Taco board", "🌮", "boards", "## 🌮 The Taco Waitlist", ["bbar", "begg", "bcasino"]),
+    "bbar": ("Bar board", "🍹", "boards", "## 🍹 Bar Tabs", ["btaco", "begg", "bcasino"]),
+    "begg": ("Egg board", "🥚", "boards", "## 🥚 Egg Hunters", ["btaco", "bbar", "bcasino"]),
+    "bcasino": ("Casino board", "🎰", "boards", "-# Only you see this.", ["btaco", "bbar", "begg"]),
+    "ask": ("Ask Soon anything", "❓", "home",
+            "## ❓ Ask me anything\nHow does something work? What do I type? Where do I go? "
+            "Tap **Ask** and type your question. I answer privately. Usually helpfully.",
+            ["faq", "talk"]),
     "talk": ("Talking to me", "🗣️", "home",
              "## 🗣️ Talking to me\n"
              "• Start a message with **soon**, @ me, or reply to one of my messages.\n"
@@ -29,8 +49,9 @@ PAGES = {
              "Everywhere else I just pop in.\n"
              "• Say just **Soon** and I'll answer your last message.\n"
              "• Any language works. I read it all.\n"
-             "• I remember things about you. Forever. Choose your words.",
-             ["vibe", "me"]),
+             "• I remember things about you. Forever. Choose your words.\n"
+             "• `soon roast @name` (3 a day) · `soon who is <name>` · `soon mood`",
+             ["vibe", "me", "fun"]),
     "vibe": ("Roast me / be nice / leave me alone", "😈", "home",
              "## 😈 Pick your Soon experience\nWhat's your goal?",
              ["roast", "nice", "ignore", "pings"]),
@@ -57,15 +78,15 @@ PAGES = {
                "• `casino` main menu · `games` · `payouts` · `chips` · `timers` · `casino board`\n"
                "• Out of chips? `broke`. I have a menu for that.\n"
                "-# Rumor has it there's a `crimes` menu. I know nothing. 🤫",
-               ["chips", "games", "heists", "duels", "racebet"]),
+               ["chips", "games", "heists", "duels", "racebet", "extras"]),
     "chips": ("Getting chips", "🪙", "casino",
               "## 🪙 Getting chips\n"
               "• `claim`: 100 free chips every 12 hours.\n"
               "• `scratch`: a free scratch card every 12 hours.\n"
-              "• `buy chips 1` (1 taco = 40 chips) · `loan 100` · `cashier`\n"
-              "• `broke`: every free-chip route, plus a 💋 Bribe Soon button.\n"
-              "• Generous? `tip @name 10` · `make it rain 50`",
-              ["games", "heists"]),
+              "• `buy chips 1` (1 taco = 40 chips, debt allowed) · `loan 100` · `cashier`\n"
+              "• `cash out 50`: chips back into tacos (2 a day)\n"
+              "• `broke`: every free-chip route, plus a 💋 Bribe Soon button.",
+              ["games", "extras"]),
     "games": ("Games", "🎲", "casino",
               "## 🎲 Games\n"
               "• `spin`: slots, 5 chips. Triple tacos = jackpot.\n"
@@ -80,7 +101,8 @@ PAGES = {
                "• `heist`: start a Vault Heist (every hour) or a Grand Heist (every 8 hours).\n"
                "• Everyone else types `join` before the van leaves.\n"
                "• Kor drives. `kor menu` shows his perks.\n"
-               "• Want a ping when one starts? `casino alerts on`",
+               "• Grand Heist on cooldown? `bribe soon grand 20` adds to the shared bribe pot.\n"
+               "• Want a ping when one starts? Turn on 🎰 Casino alerts.",
                ["duels", "pings"]),
     "duels": ("Duels", "🤠", "casino",
               "## 🤠 Duels\n"
@@ -94,60 +116,116 @@ PAGES = {
                 "• `race bet @name 20`: who scores the most for TnT this race? (1–100, you can pick yourself)\n"
                 "• `race bets`: the betting book.\n"
                 "• Opens when race pre-join opens, closes when the race starts. Winners split the pot +20%.",
-                ["clan", "games"]),
+                ["upcoming", "games"]),
+    "extras": ("Tips, rain & more", "💸", "casino",
+               "## 💸 Being generous (or not)\n"
+               "• `tip @name 10` (max 100) · `tip soon 10`: tip ME. I remember big tippers.\n"
+               "• `make it rain 50`: split chips between people who gambled today.\n"
+               "• `rob the bartender`: 50/50. Win a marg and 25 chips, or get banned from the bar.\n"
+               "• `kor menu`: Kor's perks. Look, don't touch.",
+               ["chips", "games"]),
     "tacos": ("Tacos, bar & eggs", "🌮", "home",
               "## 🌮 Tacos, bar & Easter eggs\n"
               "• Say **taco** and I take your order. It's coming soon. It's always coming soon.\n"
-              "• `taco status` · `taco board`\n"
+              "• `taco status` · `taco board` · climb the taco ranks by asking (a lot).\n"
               "• Say **marg** for a margarita · `bar board`\n"
               "• Easter eggs are hidden all over. `egg hint` asks the Egg Oracle · `egg board` · `basket @name`\n"
               "• In taco debt? `sorry soon` once a day. Maybe I'll forgive you.",
-              ["clan", "me"]),
+              ["boards", "stats"]),
     "pings": ("Pings & alerts", "🔔", "home",
               "## 🔔 Pings & alerts\nTap a **green** button to turn it on or off, just for you:\n"
               "• 🎰 heists + duels · 🏁 race reminders · 🦑 Kraken · 👋 new members to welcome · 📅 events\n"
               "• 🔔 **My pings**: off = I still talk to you, your phone just won't buzz.\n"
               "• Whole server too loud? Long-press the server icon → **Notifications** → **Only @mentions**.",
-              ["ignore", "clan"]),
+              ["ignore", "upcoming"]),
     "clan": ("Clan stuff", "🗺️", "home",
              "## 🗺️ Clan stuff\n"
              "• Tap your world zone below (or type `zone` + your country).\n"
-             "• `soon events`: upcoming race reminders.\n"
-             "• Race + Kraken reminders post in **#race-and-event-announcements**. `alerts` to get pinged.\n"
+             "• Race + Kraken reminders post in **#race-and-event-announcements**. Turn on alerts to get pinged.\n"
              "• `soon who is <name>`: who someone is in game.",
-             ["racebet", "me"]),
+             ["upcoming", "me"]),
     "me": ("About me, nickname & suggestions", "📇", "home",
            "## 📇 Tell me about you\nTap a **green** button: a little form pops up.\n"
            "• 📝 your in-game name · 🕐 your city or time zone · 🎂 your birthday\n"
            "• 🎲 **New nickname**: I'll invent one next time you talk to me. 🚫 **No nicknames**: your own name back.\n"
-           "• 📮 **Suggestion**: ideas, complaints, changes. 🔒 Only Master Foxy and the mods see it.\n"
-           "-# For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
-           ["settings", "talk"]),
+           "• 📮 **Suggestion**: ideas, complaints, changes. 🔒 Only Master Foxy and the mods see it.",
+           ["settings", "fun"]),
+    "fun": ("Fun extras", "🎭", "home",
+            "## 🎭 Fun extras\nTap one. Only you see it.",
+            ["fpanda", "fshame", "fgrudge", "ffav"]),
+    "fpanda": ("Panda facts", "🐼", "fun", "-# Only you see this.", ["fshame", "fgrudge"]),
+    "fshame": ("Hall of Shame", "🤡", "fun", "-# Only you see this.", ["fpanda", "fgrudge"]),
+    "fgrudge": ("My grudges", "😤", "fun", "-# Only you see this.", ["ffav", "fpanda"]),
+    "ffav": ("My favorites", "💖", "fun", "-# Only you see this. Don't let it go to your head.", ["fgrudge", "fpanda"]),
+    "faq": ("FAQ", "🤔", "home",
+            "## 🤔 Questions people actually ask me\n"
+            "**Where are my tacos?** Coming soon. They've always been coming soon. That's the brand.\n"
+            "**Why is she so mean to me?** You earned it. Tap 🥰 in *Roast me / be nice* to change it.\n"
+            "**Why did she rename me?** I gave you a nickname. Tap 🚫 **No nicknames** in *About me* to undo it.\n"
+            "**Why won't she answer me here?** I only chat in my channels. Come find me in "
+            f"{config.TALK_LINK}.\n"
+            "**My phone won't stop buzzing!** *Pings & alerts* → turn off what you don't want.\n"
+            "**I'm out of chips.** Type `broke` in the casino. Nobody gets locked out.\n"
+            "**How do I complain about you?** 📮 Suggestion box. Master Foxy reads them. I pretend not to.",
+            ["ask", "pings", "vibe"]),
+    "mod": ("Mod tools", "🛠️", "home",
+            "## 🛠️ Mod tools\n"
+            "• `soon summon regulars [why]` · `soon says #channel text` · `soon answer @name`\n"
+            "• `soon recruit @name` · `soon alumni @name` · `give 50 chips @name`\n"
+            "• `race bets open/close` · `race winner @name` · `kraken date` · `kraken go`\n"
+            "• `soon takeover complete` · `soon notebook @name` · `soon pardon @name`",
+            []),
+    "dmbox": ("Suggestion box", "📮", "home",
+              "-# Another one? Tap **Write a suggestion** again.", []),
 }
+DYNAMIC_KEYS = {"settings", "timers", "stats", "upcoming", "btaco", "bbar", "begg", "bcasino",
+                "fpanda", "fshame", "fgrudge", "ffav", "mod"}
 # Real buttons on some pages (Shannon: "make buttons for these things vs just explaining them"). Each changes the
 # TAPPER's own setting and shows the page again with a ✅ line on top. bot.py sets ACT: async (interaction, act) -> str.
 ACT = None        # async (interaction, act, value=None) -> str
-STATUS = None     # async (interaction) -> str: the "My settings" overview
+DYNAMIC = None    # async (interaction, key) -> str: live info for DYNAMIC_KEYS pages (settings, timers, stats...)
 MODALS = {  # act: (form title, field label, placeholder, max length)
     "modal-ign": ("Your in-game name", "In-game name (Mob Control)", "e.g. TacoQueen", 40),
     "modal-tz": ("Where are you?", "City or time zone", "e.g. Amsterdam, Sydney, EST, UTC+10", 60),
     "modal-bday": ("Your birthday", "Month and day", "e.g. March 14", 30),
     "modal-suggest": ("📮 Private suggestion", "Idea, complaint or change", "Only Master Foxy and the mods see this.", 500),
+    "modal-ask": ("❓ Ask Soon", "Your question", "e.g. How do I get out of taco debt?", 300),
 }
+_ALERTS = [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
+           ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅")]
+_ZONES = [("zone-raccoon", "Raccoons", "🦝"), ("zone-lion", "Lions", "🦁"), ("zone-panda", "Pandas", "🐼"),
+          ("zone-platypus", "Platypus", "🦆")]
 ACTIONS = {
-    "pings": [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
-              ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅"), ("tags", "My pings", "🔔")],
+    "pings": _ALERTS + [("tags", "My pings", "🔔")],
+    "new": _ZONES + [("modal-ign", "My Mob Control name", "📝")] + _ALERTS,
+    "settings": [("reset", "Reset how Soon treats me", "🔄")],
+    "ask": [("modal-ask", "Ask", "❓")],
+    "mod": [("mod-sugg", "Suggestions → my DMs", "📮"), ("mod-ai", "AI health", "🧠"), ("mod-bank", "Bank totals", "🏦"),
+            ("mod-summon", "Summon regulars to the diary", "📣")],
     "roast": [("heat-savage", "Savage", "😈"), ("heat-unhinged", "Unhinged", "🤬"), ("heat-spicy", "Spicy", "🌶️")],
     "nice": [("heat-sweet", "Sweet", "🥰"), ("heat-mild", "Mild", "😇"), ("heat-auto", "Auto: earn it", "🔄")],
     "ignore": [("ignore", "Ignore me / talk to me", "🙈"), ("pester", "Random call-outs", "📣"), ("tags", "My pings", "🔔")],
     "dmbox": [("modal-suggest", "Write a suggestion", "📮")],
     "me": [("modal-ign", "In-game name", "📝"), ("modal-tz", "Time zone", "🕐"), ("modal-bday", "Birthday", "🎂"),
            ("nick-new", "New nickname", "🎲"), ("nick-stop", "No nicknames", "🚫"), ("modal-suggest", "Suggestion", "📮")],
-    "clan": [("zone-raccoon", "Raccoons", "🦝"), ("zone-lion", "Lions", "🦁"), ("zone-panda", "Pandas", "🐼"),
-             ("zone-platypus", "Platypus", "🦆")],
+    "clan": _ZONES,
 }
 CMD_RE = re.compile(r"(?i)^\s*soon\s+(?:help|guide|how ?to|what can you do\??|commands)\s*[!?.]*\s*$")
 POST_RE = re.compile(r"(?i)^\s*soon\s+guide\s+post\s*$")
+
+
+def welcome_view() -> discord.ui.View:
+    """The 👋 quick start under the #new-members welcome (Shannon): zone, name, alerts + the full guide, all private."""
+    v = discord.ui.View(timeout=None)
+    for act, label, emoji in ACTIONS["new"]:
+        v.add_item(ActionButton("new", act, label, emoji))
+    v.add_item(GuideButton("home", label="Soon's full guide"))
+    return v
+
+
+WELCOME_STEPS = ("**👋 Quick start** (tap below, only you see it):\n"
+                 "**1.** Your world zone 🦝🦁🐼🦆 · **2.** 📝 your Mob Control name · **3.** what I ping you for\n"
+                 "-# 🏠 opens my full guide: settings, timers, casino, everything.")
 
 
 def view(key: str, dm_button: bool = False) -> discord.ui.View:
@@ -173,8 +251,8 @@ def text(key: str, guild=None) -> str:
 
 
 async def page_text(interaction, key: str) -> str:
-    if key == "settings" and STATUS:
-        return PAGES[key][3] + "\n" + await STATUS(interaction) + FOOT
+    if key in DYNAMIC_KEYS and DYNAMIC:
+        return PAGES[key][3] + "\n" + await DYNAMIC(interaction, key) + FOOT
     return text(key, interaction.guild)
 
 
@@ -206,8 +284,9 @@ class GuideModal(discord.ui.Modal):
 
 
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
-    def __init__(self, key: str, back: bool = False):
-        label, emoji, *_ = PAGES.get(key) or ("Private suggestion box (DM)", "📬")
+    def __init__(self, key: str, back: bool = False, label: str = ""):
+        default, emoji, *_ = PAGES.get(key) or ("Private suggestion box (DM)", "📬")
+        label = label or default
         if back:
             label, emoji = "Back", "⬅️"
         style = discord.ButtonStyle.primary if key == "home" and not back else discord.ButtonStyle.secondary

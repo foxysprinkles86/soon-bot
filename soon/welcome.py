@@ -6,7 +6,7 @@ OFF until cutover (Classic still welcomes people): set WELCOME=1 in Railway on c
 Mods can preview it any time with `soon welcome test` (no pings)."""
 import discord
 
-from . import alerts, config, recruits
+from . import guide, alerts, config, recruits
 from .casino import IMG
 
 ROLE_WORDS = ("recruit", "clan member")
@@ -77,7 +77,7 @@ async def send(channel, member_mention: str, ping: bool = True):
     r = await alerts.role(guild, "newbie") if ping else None
     call = f"🔔 {r.mention}" if r else "Everyone:"
     await info_ch.send(embed=discord.Embed(color=PINK).set_image(url=IMG + "IMG_9246.gif"))
-    await info_ch.send(text(member_mention),
+    await info_ch.send(text(member_mention) + "\n\n" + guide.WELCOME_STEPS, view=guide.welcome_view(),
                        allowed_mentions=discord.AllowedMentions(users=ping, everyone=False, roles=False))
     await hi_ch.send(hello(member_mention, call) + "\n-# No taco GIF ready? Tap below, or type `/tenor taco` and hit send.",
                      view=gif_button(),

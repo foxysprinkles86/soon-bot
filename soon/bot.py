@@ -11,7 +11,7 @@ from discord.ext import tasks
 
 import json
 
-from . import alerts, bar, guide, notifyhelp, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
+from . import alerts, bar, guide, helpdesk, notifyhelp, boards, buttons, eggs, report, schedules, talk, welcome, zones, casino, config, crimes, duels, extras, features, games, heists, korperks, menus, pushback, racebets, recruits, suggestions, tacovan, tips
 from .duel import record_text
 from .brain import Brain
 from .db import HEAT_LEVELS, Memory
@@ -1528,7 +1528,7 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
-    guide.ACT, guide.STATUS = guide_action, guide_status
+    guide.ACT, guide.DYNAMIC = guide_action, guide_dynamic
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
                              guide.GuideButton, guide.ActionButton)
@@ -1865,6 +1865,95 @@ async def guide_status(interaction: discord.Interaction) -> str:
         f"🪙 **Chips:** {w.chips} · 🌮 **Tacos:** {w.tacobal}"])
 
 
+def _next_weekly(now: dt.datetime, wd: int, hour: int) -> dt.datetime:
+    t = now.replace(hour=hour, minute=0, second=0, microsecond=0) + dt.timedelta(days=(wd - now.weekday()) % 7)
+    return t if t > now else t + dt.timedelta(days=7)
+
+
+async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
+    """Live info under the guide's pages: settings, timers, stats, coming up, boards, fun lists, mod tools."""
+    guild, member = _guide_member(interaction)
+    if member is None:
+        return "I can't find you in the server."
+    gid, uid, ts = guild.id, member.id, casino.ts
+    if key == "settings":
+        return await guide_status(interaction)
+    if key == "mod":
+        return ("" if is_mod(member) else "\n💅 **Mods only.** These buttons won't work for you. Nice try. Noted.")
+    if key == "timers":
+        async def t(k, who=uid):
+            return await bank.timer(gid, who, k)
+        claim, sc, co, bc = await t("claimcd"), await t("scratchcd"), await t("cowin"), await t("bcwin")
+        vault, grand = await t("heistcd", heists.HOUSE), await t("gheistcd", heists.HOUSE)
+        lines = [f"💵 **Claim:** {ts(claim[0]) if claim else '**ready!** Type `claim` in the casino'}",
+                 f"🎟️ **Free scratch:** {ts(sc[0]) if sc else '**ready!** Type `scratch`'}",
+                 f"🧾 **Cash out:** {f'{co[1]}/{casino.CASHOUT_LIMIT} used, resets {ts(co[0])}' if co else 'all available'}",
+                 f"💳 **Chip loans:** {f'{bc[1]}/{casino.LOAN_LIMIT} used, resets {ts(bc[0])}' if bc else 'all available'}",
+                 f"🏦 **Vault Heist:** {f'next one {ts(vault[0])}' if vault else '**ready!** Type `heist`'}",
+                 f"💰 **Grand Heist:** {f'next one {ts(grand[0])}' if grand else '**ready!** Type `heist`'}"]
+        for k, label in (("robbar", "🍹 Rob the bartender again"), ("barban", "🚫 Banned from the bar until"),
+                         ("brokebribe", "💋 Next Bribe Soon"), ("hintcd", "🔮 Next egg hint"),
+                         ("sorrycd", "🙏 Next `sorry soon`"), ("stealh", "🚨 House job"), ("stealp", "🤏 Pickpocketing"),
+                         ("hidden", "🫣 Chips hidden until"), ("korchurro", "🥖 Next churro break")):
+            x = await t(k)
+            if x:
+                lines.append(f"{label}: {ts(x[0])}")
+        return "\n".join(lines)
+    if key == "stats":
+        w = await bank.get(gid, uid)
+        duel = (await memory.get_kv(f"duel:{gid}:{uid}") or "0,0").split(",")
+        tips_given = (await bank.get_house(gid, "soontips", {}) or {}).get(str(uid), 0)
+        return "\n".join([
+            f"🪙 **Chips:** {w.chips} · 🌮 **Tacos:** {w.tacobal}" + (" (in taco debt 😬)" if w.tacobal < 0 else ""),
+            f"🌮 **Taco requests:** {w.tacos} · rank **{tacovan.rank_for(w.tacos)[1]}**",
+            f"🍹 **Margaritas:** {w.margs} · rank **{bar.bar_rank(w.margs)}**",
+            f"🥚 **Easter eggs:** {w.eggcount}/{boards.TOTAL_EGGS}",
+            f"🎰 **Casino all-time:** {'+' if w.casnet >= 0 else ''}{w.casnet} chips",
+            f"⚔️ **Duels:** {duel[0]} wins, {duel[1]} losses · 💝 **Tipped me:** {tips_given} chips",
+            f"🎁 **Actual tacos delivered:** {w.delivered}"])
+    if key == "upcoming":
+        now = dt.datetime.now(dt.timezone.utc)
+        out = []
+        for name, (owd, oh), (swd, sh) in (("🏁 Midweek race", (1, 7), (2, 7)), ("🐷 Weekend race", (3, 21), (4, 21))):
+            opens, starts = _next_weekly(now, owd, oh), _next_weekly(now, swd, sh)
+            out.append(f"{name}: pre-join is **OPEN**, race starts {ts(starts)}" if starts < opens else
+                       f"{name}: pre-join opens {ts(opens, 'F')}")
+        book = await bank.get_house(gid, "racebook")
+        if book and book.get("state") == "open":
+            out.append("🎲 Race betting is **open**: `race bet @name 20` in the casino")
+        e = await schedules.boss_end(bank, gid, int(now.timestamp()))
+        day1 = e - 7 * schedules.DAY
+        now_i = int(now.timestamp())
+        out.append(f"🦑 Kraken: day {min(7, (now_i - day1) // schedules.DAY + 1)}/7 now, boss ends <t:{e}:R>"
+                   if day1 <= now_i < e else f"🦑 Kraken starts <t:{day1}:F>")
+        evs = sorted(await features.get_events(memory, gid) + features.discord_events(guild), key=lambda x: x["start"])
+        for ev in evs[:5]:
+            out.append(f"📅 **{ev['name']}** {ts(dt.datetime.fromisoformat(ev['start']), 'F')}")
+        return "\n".join(out)
+    if key in ("btaco", "bbar", "begg"):
+        field, unit = {"btaco": ("tacos", "requests"), "bbar": ("margs", "margaritas"), "begg": ("eggcount", "eggs")}[key]
+        top = [w for w in await bank.top(gid, field, 10) if getattr(w, field) > 0]
+        def name(i):
+            m = guild.get_member(i)
+            return m.display_name if m else "someone who left"
+        rows = [f"{i}. **{name(w.user_id)}** · {getattr(w, field)} {unit}" for i, w in enumerate(top, 1)]
+        mine = await bank.get(gid, uid)
+        return ("\n".join(rows) or "Nobody yet. Be the first. Embarrass yourself.") + \
+            f"\n-# You: {getattr(mine, field)} {unit}"
+    if key == "bcasino":
+        return await casino.casino_board(guild, bank)
+    if key == "fpanda":
+        return features.panda_facts_list(await features.panda_facts(memory, gid))
+    if key == "fshame":
+        return features.shame_text(await features.shame_list(memory, gid), None)
+    if key in ("fgrudge", "ffav"):
+        return await ranking_text(guild, key == "ffav")
+    return ""
+
+
+_asks: dict[int, list[float]] = {}      # user -> recent "Ask Soon" times (max 15 a day)
+
+
 async def guide_action(interaction: discord.Interaction, act: str, value: str | None = None) -> str:
     """Green buttons in Soon's Guide: change the TAPPER's own setting (works in the guide channel and in DMs)."""
     uid = interaction.user.id
@@ -1877,6 +1966,60 @@ async def guide_action(interaction: discord.Interaction, act: str, value: str | 
         n = await suggestions.file(guild, member, value, memory, is_mod(member), True, interaction.channel)
         return (f"📮 That's {suggestions.PER_DAY} suggestions today. Try again tomorrow." if n is None else
                 f"📮 **Suggestion #{n} filed.** 🔒 Only Master Foxy and the mods see it.")
+    if act == "modal-ask":
+        now = time.time()
+        recent = [x for x in _asks.get(uid, []) if now - x < 86400]
+        if len(recent) >= 15:
+            return "❓ That's 15 questions today. Even I need a break. Try the FAQ, or ask Master Foxy."
+        _asks[uid] = recent + [now]
+        answer = await brain.write(
+            "A clan member is using your help guide and asks you a question. Answer it like the casino's helpful-but-"
+            "sassy help desk: 1 to 4 short lines, the EXACT thing to type in backticks, and where to type it "
+            f"(casino = {config.CASINO_LINK}, chat = {config.TALK_LINK}, settings = the guide's buttons). "
+            "Only use the cheat sheet and guide below; if it's not there, say you don't know and to ask Master Foxy. "
+            "Never list or hint at specific Easter eggs. Never explain anything special about Kor's menu.\n\n"
+            f"{helpdesk.GUIDE}\n\nGUIDE PAGES (buttons they can tap): My settings, New here, My timers, My stats, "
+            "Coming up, Leaderboards, Talking to me, Roast me / be nice / leave me alone, Casino & chips, Tacos bar & "
+            "eggs, Pings & alerts, Clan stuff, About me (name, time zone, birthday, nickname, private suggestions), "
+            f"Fun extras, FAQ.\n\nTHEIR QUESTION: {(value or '')[:300]}", max_tokens=250)
+        return (f"❓ *{(value or '')[:120]}*\n" + answer) if answer else \
+            "❓ My brain is napping. Try the FAQ, or ask again in a minute."
+    if act == "reset":
+        p = await memory.get_player(guild.id, uid)
+        p.heat_lock, p.pester = None, True
+        _ignored.discard(uid)
+        _noping.discard(uid)
+        await save_ignored()
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        await memory.save_player(p)
+        return "🔄 Back to normal: auto mood, call-outs on, pings on, not ignoring you. Alerts and zone untouched."
+    if act.startswith("mod-"):
+        if not is_mod(member):
+            return "💅 Mods only. Nice try. Noted in the notebook."
+        if act == "mod-ai":
+            return await ai_status_text()
+        if act == "mod-bank":
+            t = await bank.totals(guild.id)
+            return f"🏦 **{t['players']}** players • **{t['chips']}** {casino.C} • **{t['tacobal']}** 🌮"
+        if act == "mod-sugg":
+            items = json.loads(await memory.get_kv(f"suggestions:{guild.id}") or "[]")
+            if not items:
+                return "📮 The suggestion box is empty."
+            fake = type("M", (), {})()
+            fake.guild, fake.author, fake.channel = guild, member, interaction.channel
+            async def _reply(*a, **k):
+                return None
+            fake.reply = _reply
+            await suggestions.send_list(fake, memory, guild)
+            return f"📮 Sent you the list in DMs ({len(items)} open)."
+        if act == "mod-summon":
+            fake = type("M", (), {})()
+            fake.guild, fake.channel, fake.channel_mentions = guild, interaction.channel, []
+            async def _reply(*a, **k):
+                return None
+            fake.reply = _reply
+            await summon_regulars(fake, "")
+            return "📣 Regulars summoned to the diary."
     if act in ("modal-ign", "modal-tz", "modal-bday"):
         p = await memory.get_player(guild.id, uid)
         if act == "modal-ign":
