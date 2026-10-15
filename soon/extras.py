@@ -95,6 +95,12 @@ def find_channel(guild: discord.Guild, word: str):
     return None
 
 
+def mod_log(guild, casino: bool = False):
+    """Soon's mod log (#soon-roast-mod) or the casino's (#casino-mod); falls back to #moderator-only."""
+    return (find_channel(guild, config.CASINO_LOG_CHANNEL if casino else config.MOD_LOG_CHANNEL)
+            or find_channel(guild, "moderator"))
+
+
 TIMEOUTS = {2: dt.timedelta(minutes=10), 3: dt.timedelta(hours=1)}
 LONG_TIMEOUT = dt.timedelta(hours=24)
 
@@ -125,7 +131,7 @@ async def add_strike(memory, member: discord.Member, why: str, where: discord.ab
             footer = f"-# ⚠️ Strike {p.strikes}. (I tried to time you out but I'm not allowed. Mods, you're up.)"
             action = "should be timed out (no permission)"
 
-    log = find_channel(member.guild, config.MOD_LOG_CHANNEL)
+    log = mod_log(member.guild)
     if log:
         jump = getattr(where, "jump_url", "")
         try:

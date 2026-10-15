@@ -74,8 +74,10 @@ AI_REPLIES_PER_MINUTE = int(_float("AI_REPLIES_PER_MINUTE", 4))
 # Role names that count as mods (any role whose name contains one of these words).
 MOD_ROLE_WORDS = [w.strip().lower() for w in os.environ.get("MOD_ROLE_WORDS", "mod,admin,leader").split(",") if w.strip()]
 
-# Where she logs warnings/timeouts (first channel whose name contains this word).
-MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "mod").strip().lower()
+# Shannon, Oct 15: Soon's mod log (strikes, AI trouble, errors, Monday report) → #soon-roast-mod; casino errors
+# (casino channels, game buttons, heists, duels) → #casino-mod. Missing channel → #moderator-only.
+MOD_LOG_CHANNEL = os.environ.get("MOD_LOG_CHANNEL", "soon-roast-mod").strip().lower()
+CASINO_LOG_CHANNEL = os.environ.get("CASINO_LOG_CHANNEL", "casino-mod").strip().lower()
 # Shannon, Oct 15: diary, Sunday awards and the Van Daily Report go to #soons-diary; daily pester tags and
 # regular summons go to #taco-trash-talk. A channel that can't be found falls back to #soon-lab.
 DIARY_CHANNEL = os.environ.get("DIARY_CHANNEL", "diary").strip().lower()

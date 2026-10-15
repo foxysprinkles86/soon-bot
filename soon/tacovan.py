@@ -10,7 +10,7 @@ from collections import defaultdict, deque
 
 import discord
 
-from . import config
+from . import config, extras
 from .economy import Bank, casino_day
 
 RANKS = [  # (requests needed, emoji + name, role name, lines)
@@ -328,14 +328,13 @@ async def deliver(message, bank: Bank, n: int):
             await message.author.add_roles(witness, reason="Actual taco delivered")
     except (discord.Forbidden, discord.HTTPException):
         pass
-    for ch in getattr(message.guild, "text_channels", []) or []:
-        if config.MOD_LOG_CHANNEL in ch.name.lower():
-            try:
-                await ch.send(f"🌮 **TACO DELIVERED** to {message.author.name} (ID {uid}) on request #{n} • "
-                              f"<t:{int(discord.utils.utcnow().timestamp())}:f>")
-            except discord.HTTPException:
-                pass
-            break
+    ch = extras.mod_log(message.guild)
+    if ch:
+        try:
+            await ch.send(f"🌮 **TACO DELIVERED** to {message.author.name} (ID {uid}) on request #{n} • "
+                          f"<t:{int(discord.utils.utcnow().timestamp())}:f>")
+        except discord.HTTPException:
+            pass
     await message.channel.send(
         f"🚨🎉🌮 **THIS IS NOT A DRILL** 🌮🎉🚨\n{u} just received an **ACTUAL TACO** on request #{n}!\n"
         "🎊 The van stopped. The door opened. History was made. 🎊\n-# Now a 🌮 Taco Witness. Everyone else: yours is coming soon.")

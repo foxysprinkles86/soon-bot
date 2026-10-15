@@ -465,7 +465,7 @@ async def ai_alert(guild):
     if brain.health["streak"] < 3 or time.time() - _last_ai_alert[guild.id] < 3600:
         return
     _last_ai_alert[guild.id] = time.time()
-    ch = extras.find_channel(guild, config.MOD_LOG_CHANNEL)
+    ch = extras.mod_log(guild)
     if ch:
         await ch.send(f"⚠️ **My AI brain isn't answering** ({brain.health['streak']} fails in a row: "
                       f"{brain.health['last_error']}). I'm using backup lines and staying quiet until it's back. "
@@ -1519,6 +1519,56 @@ async def on_ready():
     print(f"Soon 2.0 online as {client.user} in {len(client.guilds)} server(s). Talking in: {config.ALLOWED_CHANNELS}")
 
 
+_last_err: dict[str, float] = {}     # error text -> last time the mods were told (once per 30 min each)
+
+
+async def report_error(what: str, err: BaseException, casino: bool, guild=None, where=None):
+    """Something broke: tell the mods in plain words. Casino stuff → #casino-mod, the rest → #soon-roast-mod."""
+    key = f"{casino}:{type(err).__name__}:{str(err)[:80]}"
+    if time.time() - _last_err.get(key, 0) < 1800:
+        return
+    _last_err[key] = time.time()
+    for g in ([guild] if guild else client.guilds):
+        ch = extras.mod_log(g, casino)
+        if ch:
+            try:
+                await ch.send(f"🛠️ **Something broke** in {what}" + (f" ({where})" if where else "")
+                              + f": `{type(err).__name__}: {str(err)[:300]}`\n-# Screenshot this for Claude. "
+                              "Same error won't be reported again for 30 min.",
+                              allowed_mentions=discord.AllowedMentions.none())
+            except discord.HTTPException:
+                pass
+
+
+@client.event
+async def on_error(event: str, *args, **kwargs):
+    import sys, traceback
+    traceback.print_exc()
+    err = sys.exc_info()[1]
+    msg = args[0] if args and isinstance(args[0], discord.Message) else None
+    if err is None or msg is None or not msg.guild:
+        return
+    await report_error(f"a message from {msg.author.display_name}", err, casino.casino_channel(msg.channel),
+                       msg.guild, msg.jump_url)
+
+
+async def _view_error(self, interaction: discord.Interaction, error: Exception, item) -> None:
+    """A button press crashed (game buttons, panels...): log it and tell the right mod channel."""
+    import traceback
+    traceback.print_exception(type(error), error, error.__traceback__)
+    cid = getattr(item, "custom_id", "") or ""
+    await report_error(f"a button press by {interaction.user.display_name} (`{cid[:40]}`)", error,
+                       cid.startswith("soon:p:") or casino.casino_channel(interaction.channel), interaction.guild,
+                       getattr(interaction.message, "jump_url", None))
+    try:
+        if not interaction.response.is_done():
+            await interaction.response.send_message("Something broke. I told the mods.", ephemeral=True)
+    except discord.HTTPException:
+        pass
+
+discord.ui.View.on_error = _view_error
+
+
 @tasks.loop(seconds=10)
 async def heist_clock():
     """Heist warnings and getaways. Reads the saved heist each time, so a restart mid-heist is fine."""
@@ -1526,10 +1576,12 @@ async def heist_clock():
         await heists.tick(client, bank)
     except Exception as e:
         print(f"Heist clock error: {e!r}")
+        await report_error("the heist clock", e, casino=True)
     try:
         await duels.tick(client, bank)
     except Exception as e:
         print(f"Duel clock error: {e!r}")
+        await report_error("the duel clock", e, casino=True)
 
 
 _last_rival = defaultdict(float)     # channel_id -> last time she clapped back at the old Soon
@@ -1927,7 +1979,7 @@ async def weekly_jobs(guild: discord.Guild, now, today: str, gk: str):
                 extras.log_event("hosted the weekly Soon Awards")
     if now.weekday() == 0 and now.hour >= 9 and await memory.get_kv(f"modreport:{gk}") != today:
         await memory.set_kv(f"modreport:{gk}", today)
-        ch = extras.find_channel(guild, config.MOD_LOG_CHANNEL)
+        ch = extras.mod_log(guild)
         struggles = await pop_list(f"struggles:{guild.id}")
         players = await memory.all_players(guild.id)
         chatty = sorted(players, key=lambda p: p.chats, reverse=True)[:5]
