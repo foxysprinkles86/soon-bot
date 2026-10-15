@@ -1848,7 +1848,7 @@ async def on_dm(message: discord.Message):
         _dm_hint[message.author.id] = time.time()
         await message.channel.send("💌 In DMs I only do two things:\n• `help`: my guide, with buttons\n"
                                    "• `suggest <your idea>`: the 🔒 private suggestion box (ideas, complaints, changes). "
-                                   "Only Master Foxy and the mods see it.\n-# Want to chat? Come find me in #taco-trash-talk.")
+                                   f"Only Master Foxy and the mods see it.\n-# Want to chat? Come find me in {config.TALK_LINK}.")
 
 
 async def side_eye(message: discord.Message):
@@ -1872,7 +1872,7 @@ async def visiting(message: discord.Message):
             await ai_reply(message, butt_in=True)
             return
     home = extras.find_channel(message.guild, config.PESTER_CHANNEL)
-    there = f"#{home.name}" if home else "my channels"
+    there = home.mention if home else config.TALK_LINK
     if talking_to_soon(message):
         key, now = (message.channel.id, message.author.id), time.time()
         if now - _last_visit_reply.get(key, 0) > config.VISIT_REPLY_COOLDOWN_SEC and rate_ok(message.author.id):

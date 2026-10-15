@@ -96,6 +96,10 @@ REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or DIARY_C
 WELCOME_CHANNEL = os.environ.get("WELCOME_CHANNEL", "new-members").strip().lower()
 HELLO_CHANNEL = os.environ.get("HELLO_CHANNEL", "get-in-the-van").strip().lower()
 # Where the recruit panel (Tacos / Outlawz / Joined in game buttons for Taco Wranglers) posts.
+# Clickable channel links in the guide and DMs (Shannon gave the IDs, Oct 15). Override in Railway if a channel is remade.
+TALK_LINK = os.environ.get("TALK_LINK", "<#1558281375872716851>")        # #taco-trash-talk
+CASINO_LINK = os.environ.get("CASINO_LINK", "<#1557531311260831764>")    # #🌮casa-de-soon-casino🌮
+DIARY_LINK = os.environ.get("DIARY_LINK", "<#1560334180251078656>")      # #📔soon's-diary📔
 SUGGEST_CHANNEL = os.environ.get("SUGGEST_CHANNEL", "soon-lab").strip().lower()   # new suggestions copied here
 RECRUIT_CHANNEL = os.environ.get("RECRUIT_CHANNEL", "glovebox-secrets").strip().lower()
 # The two clans' Discord roles (exact names; emojis/punctuation ignored when matching).

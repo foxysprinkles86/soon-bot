@@ -7,7 +7,9 @@ import re
 
 import discord
 
-FOOT = "\n-# 🏠 Start over: tap **Start over**, or type `soon help` (here in DMs: just `help`)."
+from . import config
+
+FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {config.TALK_LINK} (in DMs: just `help`)."
 DM_FOOT = ("\n🔒 **Private suggestion box:** type `suggest <your idea>` right here. Only Master Foxy and the mods see it."
            "\n-# Type `help` here any time to start over.")
 
@@ -20,7 +22,8 @@ PAGES = {
     "talk": ("Talking to me", "🗣️", "home",
              "## 🗣️ Talking to me\n"
              "• Start a message with **soon**, @ me, or reply to one of my messages.\n"
-             "• I really chat in **#taco-trash-talk**, the casino and my diary. Everywhere else I just pop in.\n"
+             f"• I really chat in {config.TALK_LINK}, {config.CASINO_LINK} and {config.DIARY_LINK}. "
+             "Everywhere else I just pop in.\n"
              "• Say just **Soon** and I'll answer your last message.\n"
              "• Any language works. I read it all.\n"
              "• I remember things about you. Forever. Choose your words.",
@@ -48,7 +51,7 @@ PAGES = {
                "• `soon no tags`: I still talk to you, your phone just won't buzz.",
                ["pings", "nice"]),
     "casino": ("Casino & chips", "🎰", "home",
-               "## 🎰 Casa de Soon\nType these in the **casino channel**.\n"
+               f"## 🎰 Casa de Soon\nType these in {config.CASINO_LINK}.\n"
                "• `casino` main menu · `games` · `payouts` · `chips` · `timers` · `casino board`\n"
                "• Out of chips? `broke`. I have a menu for that.\n"
                "-# Rumor has it there's a `crimes` menu. I know nothing. 🤫",
