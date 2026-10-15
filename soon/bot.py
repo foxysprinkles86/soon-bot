@@ -376,8 +376,17 @@ async def ai_status_text() -> str:
         out.append("No answers since my last restart yet.")
     out.append(("🔴 " if h["streak"] >= 3 else "🟢 " if not h["streak"] else "🟡 ")
                + f"Failures in a row right now: **{h['streak']}**")
+    if config.BACKUP_API_KEY:
+        saved = sum(1 for b in h["brains"] if b == "backup")
+        skipping = time.time() < h["primary_down_until"]
+        out.append(f"🛟 Backup brain: **ON** ({config.BACKUP_MODEL}) • answered {saved} of the last {len(h['brains'])}"
+                   + (f" • DeepSeek skipped until <t:{int(h['primary_down_until'])}:t>" if skipping else ""))
+        if h["backup_error"]:
+            out.append(f"Backup's last problem: {h['backup_error']}")
+    else:
+        out.append("🛟 Backup brain: **OFF** (no BACKUP_API_KEY in Railway)")
     if h["last_error"]:
-        out.append(f"Last problem: {h['last_error']} • <t:{int(h['last_error_at'])}:R>")
+        out.append(f"Last DeepSeek problem: {h['last_error']} • <t:{int(h['last_error_at'])}:R>")
     out.append(f"This month: **${spent:.2f}** of ${config.AI_MONTHLY_CAP_USD:.0f} cap • {n} calls"
                + (" • 🔴 CAP REACHED: backup lines only" if spent >= config.AI_MONTHLY_CAP_USD else ""))
     out.append("-# When the AI fails, I use backup lines for direct questions and stay quiet for the rest.")

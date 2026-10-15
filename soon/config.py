@@ -16,6 +16,13 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 
+# Backup AI brain (any OpenAI-compatible service; default OpenRouter). Used when DeepSeek doesn't answer within
+# PRIMARY_TIMEOUT seconds. Off until BACKUP_API_KEY is set in Railway (Shannon pastes it there herself).
+BACKUP_API_KEY = os.environ.get("BACKUP_API_KEY", "").strip().strip("\"'")
+BACKUP_BASE_URL = os.environ.get("BACKUP_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
+BACKUP_MODEL = os.environ.get("BACKUP_MODEL", "deepseek/deepseek-chat")
+PRIMARY_TIMEOUT = float(os.environ.get("PRIMARY_TIMEOUT", "8"))
+
 # Where Soon 2.0 is allowed to talk. Comma-separated channel names (or parts of names).
 # Starts locked to the lab so the old Soon keeps running everywhere else.
 ALLOWED_CHANNELS = [c.strip().lower() for c in os.environ.get("ALLOWED_CHANNELS", "soon-lab").split(",") if c.strip()]

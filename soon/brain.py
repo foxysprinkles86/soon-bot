@@ -57,39 +57,72 @@ def pick_notes(notes: list[str], message: str, limit: int = 12) -> list[str]:
 class Brain:
     def __init__(self, memory):
         self.memory = memory
-        self.client = httpx.AsyncClient(timeout=25)
+        self.client = httpx.AsyncClient(timeout=25)        # per-call timeouts are set in _call
         # AI health, for `soon ai` and the mod alert: recent call times (s, or None = failed), failure streak, last error
-        self.health = {"calls": deque(maxlen=30), "streak": 0, "last_error": "", "last_error_at": 0.0}
+        self.health = {"calls": deque(maxlen=30), "brains": deque(maxlen=30), "streak": 0, "last_error": "",
+                       "last_error_at": 0.0, "backup_error": "", "primary_fails": 0, "primary_down_until": 0.0}
+
+    async def _call(self, base: str, key: str, body: dict, timeout: float) -> dict:
+        r = await self.client.post(f"{base}/chat/completions", headers={"Authorization": f"Bearer {key}"},
+                                   json=body, timeout=timeout)
+        r.raise_for_status()
+        return r.json()
+
+    @staticmethod
+    def _why(e: Exception, who: str, secs: float) -> str:
+        if isinstance(e, httpx.TimeoutException):
+            return f"{who} took longer than {secs:g} seconds (slow or down)"
+        if isinstance(e, httpx.HTTPStatusError):
+            code = e.response.status_code
+            return f"{who} said {code}" + (" (out of credit: top up the balance)" if code == 402 else
+                                           " (API key problem)" if code == 401 else "")
+        if isinstance(e, httpx.TransportError):
+            return f"couldn't reach {who} (their servers or the internet)"
+        return f"{who}: {type(e).__name__}"
 
     async def _post(self, body: dict) -> dict:
-        """One DeepSeek call with one quick retry for blips (not for timeouts: those already took 25s).
-        Records timing/failures in self.health. Raises on failure."""
-        start = time.time()
-        for attempt in (1, 2):
-            try:
-                r = await self.client.post(f"{config.DEEPSEEK_BASE_URL}/chat/completions",
-                                           headers={"Authorization": f"Bearer {config.DEEPSEEK_API_KEY}"}, json=body)
-                r.raise_for_status()
-                data = r.json()
-                self.health["calls"].append(round(time.time() - start, 1))
-                self.health["streak"] = 0
-                return data
-            except Exception as e:
-                timed_out = isinstance(e, httpx.TimeoutException)
-                if attempt == 1 and not timed_out and not (isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (401, 402)):
-                    await asyncio.sleep(1.5)
-                    continue
-                self.health["calls"].append(None)
-                self.health["streak"] += 1
-                why = ("took longer than 25 seconds (DeepSeek slow or down)" if timed_out else
-                       f"DeepSeek said {e.response.status_code}" + (" (out of credit: top up the DeepSeek balance)"
-                                                                     if e.response.status_code == 402 else
-                                                                     " (API key problem)" if e.response.status_code == 401 else "")
-                       if isinstance(e, httpx.HTTPStatusError) else
-                       "couldn't reach DeepSeek (their servers or the internet)" if isinstance(e, httpx.TransportError)
-                       else f"{type(e).__name__}")
-                self.health.update(last_error=why, last_error_at=time.time())
-                raise
+        """Ask DeepSeek; if it doesn't answer (within PRIMARY_TIMEOUT when a backup is set up), ask the backup brain.
+        After 2 DeepSeek failures in a row with a backup ready, skip DeepSeek for 10 minutes (no waiting at all).
+        Records everything in self.health for `soon ai`. Raises only if every brain failed."""
+        h, start = self.health, time.time()
+        backup = bool(config.BACKUP_API_KEY)
+        if not (backup and time.time() < h["primary_down_until"]):
+            wait = config.PRIMARY_TIMEOUT if backup else 25
+            for attempt in (1, 2):
+                try:
+                    data = await self._call(config.DEEPSEEK_BASE_URL, config.DEEPSEEK_API_KEY, body, wait)
+                    h["calls"].append(round(time.time() - start, 1))
+                    h["brains"].append("deepseek")
+                    h.update(streak=0, primary_fails=0)
+                    return data
+                except Exception as e:
+                    timed_out = isinstance(e, httpx.TimeoutException)
+                    quick = not timed_out and not (isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (401, 402))
+                    if attempt == 1 and quick and not backup:
+                        await asyncio.sleep(1.5)
+                        continue
+                    h["primary_fails"] += 1
+                    h.update(last_error=self._why(e, "DeepSeek", wait), last_error_at=time.time())
+                    if backup and h["primary_fails"] >= 2:
+                        h["primary_down_until"] = time.time() + 600
+                    if not backup:
+                        h["calls"].append(None)
+                        h["brains"].append("none")
+                        h["streak"] += 1
+                        raise
+                    break
+        try:
+            data = await self._call(config.BACKUP_BASE_URL, config.BACKUP_API_KEY, dict(body, model=config.BACKUP_MODEL), 25)
+            h["calls"].append(round(time.time() - start, 1))
+            h["brains"].append("backup")
+            h["streak"] = 0
+            return data
+        except Exception as e:
+            h["calls"].append(None)
+            h["brains"].append("none")
+            h["streak"] += 1
+            h.update(backup_error=self._why(e, "the backup brain", 25), last_error_at=time.time())
+            raise
 
     async def budget_left(self) -> bool:
         spent, _ = await self.memory.month_spend()
