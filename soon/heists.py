@@ -18,7 +18,7 @@ ARMS = "<a:dancingtacorainbowarmsv20:1556420777644003391>"
 PLANS = {
     "v": {"n": "Vault Heist", "buy": 15, "win": 35, "base": 30, "tot": 600, "cd": 3600, "ck": "heistcd",
           "tgt": "the Taco Vault"},
-    "g": {"n": "Grand Heist", "buy": 50, "win": 500, "base": 10, "tot": 900, "cd": 43200, "ck": "gheistcd",
+    "g": {"n": "Grand Heist", "buy": 50, "win": 500, "base": 10, "tot": 900, "cd": 8 * 3600, "ck": "gheistcd",
           "tgt": "the Casa de Soon Reserve"},
 }
 SEATS, MAX_ODDS = 7, 80
@@ -114,7 +114,7 @@ async def start(message, bank: Bank, ty: str):
         f"\n# 🚐 The van leaves <t:{int(end)}:R>\n## 📣 @mention your friends to join! Every new crew member = +10% odds\n"
         f"💰 Buy-in: {p['buy']} {C} • Success pays **{p['win']} {C} to EVERYONE**\n"
         f"📊 Odds: {odds(p, 1, False)}% solo, +10% for every crew member (max {MAX_ODDS}%) • Van seats {SEATS}\n"
-        f"-# {'One Grand Heist every 12 hours.' if ty == 'g' else 'One Vault Heist per hour.'} "
+        f"-# {'One Grand Heist every 8 hours.' if ty == 'g' else 'One Vault Heist per hour.'} "
         "`casino alerts on` to get pinged next time.",
         view=join_view(ty), allowed_mentions=HERE))
 

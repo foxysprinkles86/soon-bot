@@ -109,7 +109,7 @@ Soon stands on 17
 
 **🦹 HEISTS** • type heist for the heist board • max crew 7 • one heist at a time
 Vault Heist: 15 {C} buy-in • pays **35 each** • 40% solo, +10% per crew (max 80%) • 10 min to join • 1 per hour
-Grand Heist: 50 {C} buy-in • pays **500 each** • 20% solo, +10% per crew (80% with 7) • 15 min to join • 1 per 12 hours
+Grand Heist: 50 {C} buy-in • pays **500 each** • 20% solo, +10% per crew (80% with 7) • 15 min to join • 1 per 8 hours
 casino alerts on: get pinged whenever a heist or duel starts (`alerts` = all your alerts)
 
 **⚔️ DUELS** • duel @name 20 (1–100 each) • quick-draw: first tap on **DRAW!** wins, tapping early = misfire • winner takes both

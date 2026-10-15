@@ -72,6 +72,7 @@ Read this first in every new conversation. It replaces the long history of the o
 
 ## Casino economy decisions
 - Chips are play money with zero real value. Chips are created and destroyed freely (claims, wins, wheel); no fixed supply needed.
+- **Grand Heist cooldown = 8 hours** (Shannon, Oct 15; Classic: 12). Vault stays 1 hour.
 - **Claim = 100 chips every 12 hours** (Shannon, Oct 15; Classic gave 100 first, then 40).
 - Player-friendly odds are fine and wanted (e.g. the toss side bet). Don't "fix" house edges unless Shannon asks.
 
