@@ -1263,9 +1263,7 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
                                    "(be nice, stop, translate, help), you do it, flustered. If he writes Dutch, you read it "
                                    "perfectly: prove it by answering what it means (never just repeat his words). "
                                    "Make it fun for him to answer; the crush leaks through. "
-                                   f"Only if it fits after that: {random.choice(moves)}"
-                                   + ("" if is_dutch(message.content) or random.random() < 0.12 else
-                                      " Answer in English only this time: no Dutch words.")))
+                                   f"Only if it fits after that: {random.choice(moves)}"))
     canon = await features.panda_facts(memory, gid)
     if is_panda(message.author) and (butt_in or random.random() < 0.6):
         if canon and random.random() < 0.35:
