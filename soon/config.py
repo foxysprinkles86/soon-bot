@@ -96,6 +96,7 @@ REPORT_CHANNEL = os.environ.get("REPORT_CHANNEL", "").strip().lower() or DIARY_C
 WELCOME_CHANNEL = os.environ.get("WELCOME_CHANNEL", "new-members").strip().lower()
 HELLO_CHANNEL = os.environ.get("HELLO_CHANNEL", "get-in-the-van").strip().lower()
 # Where the recruit panel (Tacos / Outlawz / Joined in game buttons for Taco Wranglers) posts.
+SUGGEST_CHANNEL = os.environ.get("SUGGEST_CHANNEL", "soon-lab").strip().lower()   # new suggestions copied here
 RECRUIT_CHANNEL = os.environ.get("RECRUIT_CHANNEL", "glovebox-secrets").strip().lower()
 # The two clans' Discord roles (exact names; emojis/punctuation ignored when matching).
 TACOS_ROLE = os.environ.get("TACOS_ROLE", "We Have Tacos!").strip()

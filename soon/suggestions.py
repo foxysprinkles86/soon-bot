@@ -1,5 +1,6 @@
-"""Suggestion box (Shannon's add): players tell Soon what they'd like her to do (or stop doing); Foxy/mods pull the list.
-Anyone: `soon suggest <idea>` (also `soon suggestion ...`, `soon idea ...`, `soon feedback ...`), max 5 a day each.
+"""Suggestion box (Shannon's add): ideas, complaints, changes, things to stop; Foxy/mods pull the list, and each new
+one is copied to #soon-lab (SUGGEST_CHANNEL) so Master Foxy sees it right away.
+Anyone: `soon suggest <idea>` (also `soon suggestion/idea/feedback/complaint/complain/request ...`), max 5 a day each.
 `soon suggestion box` = how it works. Mods: `soon suggestions` (the open list, sent by DM), `soon suggestion done 3 5`
 (takes those off the list). Saved in kv `suggestions:<gid>` (open ones) and `suggestid:<gid>` (the number counter)."""
 import datetime as dt
@@ -9,9 +10,12 @@ import re
 
 import discord
 
-ADD_RE = re.compile(r"(?is)^(?:suggest(?:ion)?|idea|feedback)\s*[:\-]?\s+(.+)$")
+from . import config
+
+ADD_RE = re.compile(r"(?is)^(?:suggest(?:ion)?|idea|feedback|complain(?:t)?|request)\s*[:\-]?\s+(.+)$")
 LIST_RE = re.compile(r"(?i)^(?:suggestions|suggestion list|suggestions list|show suggestions|read suggestions)[.!?]*$")
-BOX_RE = re.compile(r"(?i)^(?:suggestion box|suggest|suggestion|idea|feedback|suggestions? help|how do i suggest\b.*)[.!?]*$")
+BOX_RE = re.compile(r"(?i)^(?:suggestion box|suggest|suggestion|idea|feedback|complain|complaint|request|suggestions? help|"
+                    r"how do i (?:suggest|complain)\b.*)[.!?]*$")
 DONE_RE = re.compile(r"(?i)^suggestions?\s+(?:done|delete|remove|clear)\s+([\d ,#and]+)$")
 PER_DAY, MAX_LEN = 5, 500
 THANKS = ["Filed. In a drawer. A nice drawer. Master Foxy reads the drawer.",
@@ -26,8 +30,8 @@ async def handle(message, text: str, cmd: str, memory, mod: bool) -> bool:
     """text = the command with its original capitals (after "soon"), cmd = lowercased. True if it was ours."""
     gid, uid = message.guild.id, message.author.id
     if BOX_RE.match(cmd) or (LIST_RE.match(cmd) and not mod):
-        await message.reply("📮 **Soon's suggestion box.** Want me to do something new? Stop doing something? Say it:\n"
-                            "`soon suggest stop roasting my Piggy score` • `soon suggest a game where...`\n"
+        await message.reply("📮 **Soon's suggestion box.** Ideas, complaints, changes, things I should stop doing. Say it:\n"
+                            "`soon suggest stop roasting my Piggy score` • `soon complaint the heist pings are too loud`\n"
                             "-# Master Foxy reads every one. I read them too. I just pretend not to.", mention_author=False)
         return True
     if LIST_RE.match(cmd):
@@ -65,6 +69,7 @@ async def handle(message, text: str, cmd: str, memory, mod: bool) -> bool:
                   "ts": int(dt.datetime.now(dt.timezone.utc).timestamp()), "ch": message.channel.id,
                   "link": getattr(message, "jump_url", "")})
     await memory.set_kv(f"suggestions:{gid}", json.dumps(items[-300:]))
+    await forward(message, n, idea[:MAX_LEN])
     try:
         await message.add_reaction("📮")
     except discord.HTTPException:
@@ -73,6 +78,20 @@ async def handle(message, text: str, cmd: str, memory, mod: bool) -> bool:
                         + ("\n-# (I kept the first 500 characters. Brevity, darling.)" if len(idea) > MAX_LEN else ""),
                         mention_author=False)
     return True
+
+
+async def forward(message, n: int, idea: str):
+    """A copy for Master Foxy in #soon-lab (SUGGEST_CHANNEL), unless it was filed right there."""
+    ch = next((c for c in message.guild.text_channels if config.SUGGEST_CHANNEL in c.name.lower()), None)
+    if not ch or ch.id == message.channel.id:
+        return
+    try:
+        await ch.send(f"📮 **New suggestion #{n}** from **{message.author.display_name}** in {message.channel.mention}:\n"
+                      f"> {idea.replace(chr(10), chr(10) + '> ')}\n"
+                      f"-# [Jump to it]({getattr(message, 'jump_url', '')}) • done with it? `soon suggestion done {n}`",
+                      allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
+    except discord.HTTPException:
+        pass
 
 
 async def send_list(message, memory):

@@ -114,7 +114,7 @@ PAGES = {
            "• `soon my name is <in-game name>`\n"
            "• `soon my timezone is <city or zone>` · `soon my birthday is March 14`\n"
            "• `soon give me a new nickname` (I pick it. You'll live.)\n"
-           "• `soon suggest <idea>`: the suggestion box. Master Foxy reads them.\n"
+           "• `soon suggest <idea>`: ideas, complaints, changes. Master Foxy reads every one.\n"
            "• For fun: `soon grudges` · `soon favorites` · `soon panda facts` · `soon hall of shame`",
            ["vibe", "talk"]),
 }
