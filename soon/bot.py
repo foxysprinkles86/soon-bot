@@ -358,8 +358,10 @@ async def heat_locked_dm(user, level: str):
     try:
         opener = ("💌 Sorry if I was too much. Truly. Mostly. 🥺" if level in ("sweet", "mild") else
                   "😈 You asked for it. Literally. You pressed the button.")
+        guild = next((g for g in client.guilds if g.get_member(user.id)), None)
         await user.send(f"{opener}\nFrom now on I'll stay **{level}** with you. "
-                        f"My automatic mood is off for you.\n\n{HEAT_HELP}")
+                        f"My automatic mood is off for you.\n\n{HEAT_HELP}"
+                        f"\n-# Every setting, with buttons: {guide.guide_link(guild)}")
     except discord.HTTPException:
         pass                                   # DMs closed: the channel reply already told them
 
@@ -1974,7 +1976,7 @@ async def on_dm(message: discord.Message):
         return
     if time.time() - _dm_hint.get(message.author.id, 0) > 3600:
         _dm_hint[message.author.id] = time.time()
-        await message.channel.send("💌 My DMs are just for the 🔒 **private suggestion box**: type `suggest <your idea>` "
+        await message.channel.send("💌 I don't chat in DMs. Here they're for the 🔒 **private suggestion box**: type `suggest <your idea>` "
                                    "(ideas, complaints, changes). Only Master Foxy and the mods see it.\n"
                                    f"-# Help and settings: {guide.guide_link(guild)} · Want to chat? {config.TALK_LINK}")
 
