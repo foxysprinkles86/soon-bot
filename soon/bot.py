@@ -1876,8 +1876,16 @@ async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
     if member is None:
         return "I can't find you in the server."
     gid, uid, ts = guild.id, member.id, casino.ts
+    if key == "mycasino":                                # ⏰ timers + 📊 stats on one page
+        return "### ⏰ Timers\n" + await guide_dynamic(interaction, "timers") + "\n### 📊 Stats\n" + \
+            await guide_dynamic(interaction, "stats")
+    key = {"profile": "settings", "clanlife": "upcoming"}.get(key, key)
     if key == "settings":
         return await guide_status(interaction)
+    if key == "basket":
+        return await boards.basket(gid, member, bank)
+    if key == "duel":
+        return await record_text(memory, member)
     if key == "mod":
         return ("" if is_mod(member) else "\n💅 **Mods only.** These buttons won't work for you. Nice try. Noted.")
     if key == "timers":
@@ -1938,7 +1946,8 @@ async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
             return m.display_name if m else "someone who left"
         rows = [f"{i}. **{name(w.user_id)}** · {getattr(w, field)} {unit}" for i, w in enumerate(top, 1)]
         mine = await bank.get(gid, uid)
-        return ("\n".join(rows) or "Nobody yet. Be the first. Embarrass yourself.") + \
+        title = {"btaco": "## 🌮 The Taco Waitlist", "bbar": "## 🍹 Bar Tabs", "begg": "## 🥚 Egg Hunters"}[key]
+        return title + "\n" + ("\n".join(rows) or "Nobody yet. Be the first. Embarrass yourself.") + \
             f"\n-# You: {getattr(mine, field)} {unit}"
     if key == "bcasino":
         return await casino.casino_board(guild, bank)
@@ -1984,6 +1993,22 @@ async def guide_action(interaction: discord.Interaction, act: str, value: str | 
             f"Fun extras, FAQ.\n\nTHEIR QUESTION: {(value or '')[:300]}", max_tokens=250)
         return (f"❓ *{(value or '')[:120]}*\n" + answer) if answer else \
             "❓ My brain is napping. Try the FAQ, or ask again in a minute."
+    if act == "erase-yes":                               # 🧠 Erase Soon's memory of me (NOT ignore)
+        p = await memory.get_player(guild.id, uid)
+        p.notes, p.mood, p.heat_lock, p.pester = [], 0, None, True
+        await memory.save_player(p)
+        _ignored.discard(uid)
+        _noping.discard(uid)
+        await save_ignored()
+        await memory.set_kv("noping", json.dumps(sorted(_noping)))
+        rec = await get_nick(guild.id, uid)
+        if rec.get("renamed") and getattr(member, "nick", None) == rec.get("name", "")[:32]:
+            await set_server_nick(member, rec.get("prev"))
+        await memory.set_kv(f"nick:{guild.id}:{uid}", "")
+        await memory.set_kv(f"push:{guild.id}:{uid}", "")
+        extras.log_event(f"{member.display_name} had me erase my memory of them")
+        return ("🧠 Done. Who are you again? Kidding. Clean slate: no notes, no grudges, no nickname. "
+                "I'll still talk to you. Like we just met.")
     if act == "reset":
         p = await memory.get_player(guild.id, uid)
         p.heat_lock, p.pester = None, True
