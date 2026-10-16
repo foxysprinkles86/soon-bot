@@ -1528,7 +1528,7 @@ async def on_ready():
     _lab_welcomed.update(json.loads(await memory.get_kv("labwelcome") or "[]"))
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
-    guide.ACT, guide.DYNAMIC = guide_action, guide_dynamic
+    guide.ACT, guide.DYNAMIC, guide.LOG = guide_action, guide_dynamic, guide_log
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
                              guide.GuideButton, guide.ActionButton)
@@ -1963,12 +1963,59 @@ async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
 _asks: dict[int, list[float]] = {}      # user -> recent "Ask Soon" times (max 15 a day)
 
 
+_help_seen: dict[int, float] = {}     # user -> when the mods were last told they opened the Help Desk
+
+
+async def guide_log(interaction: discord.Interaction, where: str):
+    """Shannon: tell the mods when someone uses the Help Desk (when, how often). Every tap is counted (kv
+    helpdesk:<gid>:<day>); a line goes to the mod log on their first tap per 30 min, with today's counts."""
+    try:
+        guild, member = _guide_member(interaction)
+        if member is None:
+            return
+        day = extras.today_key()
+        key = f"helpdesk:{guild.id}:{day}"
+        d = json.loads(await memory.get_kv(key) or '{"taps": 0, "users": {}}')
+        d["taps"] += 1
+        d["users"][str(member.id)] = d["users"].get(str(member.id), 0) + 1
+        await memory.set_kv(key, json.dumps(d))
+        if time.time() - _help_seen.get(member.id, 0) < 1800:
+            return
+        _help_seen[member.id] = time.time()
+        ch = extras.mod_log(guild)
+        if ch:
+            await ch.send(f"📖 **{member.display_name}** (<@{member.id}>) opened Soon's Help Desk → *{where}* · "
+                          f"<t:{int(time.time())}:t>\n-# Today: {d['taps']} taps from {len(d['users'])} "
+                          f"{'person' if len(d['users']) == 1 else 'people'} · their taps today: {d['users'][str(member.id)]}",
+                          allowed_mentions=discord.AllowedMentions.none())
+    except Exception as e:                               # logging must never break the guide
+        print(f"Help desk log error: {e!r}")
+
+
 async def guide_action(interaction: discord.Interaction, act: str, value: str | None = None) -> str:
     """Green buttons in Soon's Guide: change the TAPPER's own setting (works in the guide channel and in DMs)."""
     uid = interaction.user.id
     guild, member = _guide_member(interaction)
     if member is None:
         return "I can't find you in the server. Weird. Ask Master Foxy."
+    if act == "modal-help":                              # 🆘 Still need help? → DM'd to Master Foxy
+        if not value or len(value) < 3:
+            return "🆘 Tell me what you need help with. Use your words."
+        foxy = next((m for m in guild.members if is_foxy(m)), None)
+        where = getattr(interaction.channel, "mention", None) or "DMs"
+        text = (f"🆘 **Help request** from **{member.display_name}** (<@{uid}> · @{member.name}) in {where} · "
+                f"<t:{int(time.time())}:f>\n> " + value[:1000].replace("\n", "\n> "))
+        sent = False
+        if foxy:
+            try:
+                await foxy.send(text, allowed_mentions=discord.AllowedMentions.none())
+                sent = True
+            except discord.HTTPException:
+                pass
+        if not sent and (ch := extras.mod_log(guild)):   # Foxy's DMs closed: the mod log instead
+            await ch.send(text, allowed_mentions=discord.AllowedMentions.none())
+        extras.log_event(f"{member.display_name} asked for help in the Help Desk")
+        return "🆘 Sent to Master Foxy. A real human will get back to you. I'm not a real human. Obviously."
     if act == "modal-suggest":
         if not value or len(value) < 4:
             return "📮 Suggest WHAT? Use your words."
@@ -2450,6 +2497,16 @@ async def weekly_jobs(guild: discord.Guild, now, today: str, gk: str):
             f"{guild.get_member(p.user_id).display_name} ({p.chats})" for p in chatty
             if guild.get_member(p.user_id) and p.chats) or "nobody yet"))
         lines.append(f"**AI budget this month:** ${spent:.2f} of ${config.AI_MONTHLY_CAP_USD:.2f} ({calls} replies)")
+        taps, users = 0, {}                              # 📖 Help Desk use over the last 7 days (guide_log)
+        for back in range(1, 8):
+            day = (now - dt.timedelta(days=back)).strftime("%Y-%m-%d")
+            d = json.loads(await memory.get_kv(f"helpdesk:{guild.id}:{day}") or '{"taps": 0, "users": {}}')
+            taps += d["taps"]
+            for u, n in d["users"].items():
+                users[u] = users.get(u, 0) + n
+        top = sorted(users.items(), key=lambda x: -x[1])[:5]
+        lines.append(f"**📖 Help Desk this week:** {taps} taps from {len(users)} people"
+                     + (" · most: " + ", ".join(f"<@{u}> ({n})" for u, n in top) if top else ""))
         if ch:
             await ch.send("\n".join(lines)[:1900], allowed_mentions=discord.AllowedMentions.none())
 

@@ -1,4 +1,4 @@
-"""Soon's Guide (Shannon's add): a tap-through how-to. A public start panel ("What do you want to know?") with buttons;
+"""Soon's Help Desk (Shannon's add; was "Soon's Guide"): a tap-through how-to. A public start panel ("What do you want to know?") with buttons;
 each tap opens a PRIVATE page (only the tapper sees it) with more buttons, ⬅️ Back and 🏠 Start over, so nobody
 spams the channel and it works in a read-only channel. `soon help` / `soon guide` shows the start panel in her
 channels; mods type `soon guide post` in ANY channel (e.g. the read-only guide channel) to post a permanent one.
@@ -17,7 +17,7 @@ FOOT = f"\n-# 🏠 Start over: tap **Start over**, or type `soon help` in {confi
 # (boards, lists) on top of the page they're on.
 PAGES = {
     "home": ("Start over", "🏠", None,
-             "## {SOON} Soon's Guide\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
+             "## {SOON} Soon's Help Desk\nI'm Soon. Dealer, cashier, waitress, and the reason your tacos are always "
              "*coming soon*. What do you want to know? Tap one. Only you see my answers.",
              ["set", "sf", "casa", "ch"]),
     # ⚙️ SETTINGS
@@ -154,6 +154,7 @@ DYNAMIC_KEYS = {"profile", "mycasino", "clanlife", "mod"}
 # Real buttons on some pages (Shannon: "make buttons for these things vs just explaining them"). Each changes the
 # TAPPER's own setting and shows the page again with a ✅ line on top. bot.py sets ACT: async (interaction, act) -> str.
 ACT = None        # async (interaction, act, value=None) -> str
+LOG = None        # async (interaction, where) -> None: bot.py tells the mods someone is using the Help Desk
 DYNAMIC = None    # async (interaction, key) -> str: live info for DYNAMIC_KEYS pages (settings, timers, stats...)
 MODALS = {  # act: (form title, field label, placeholder, max length)
     "modal-ign": ("Your in-game name", "In-game name (Mob Control)", "e.g. TacoQueen", 40),
@@ -161,6 +162,8 @@ MODALS = {  # act: (form title, field label, placeholder, max length)
     "modal-bday": ("Your birthday", "Month and day", "e.g. March 14", 30),
     "modal-suggest": ("📮 Private suggestion", "Idea, complaint or change", "Only Master Foxy and the mods see this.", 500),
     "modal-ask": ("❓ Ask Soon", "Your question", "e.g. How do I get out of taco debt?", 300),
+    "modal-help": ("🆘 Still need help?", "What do you need help with?",
+                   "Tell us what's going on. Master Foxy gets this privately.", 1000),
 }
 _ALERTS = [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
            ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅")]
@@ -197,13 +200,13 @@ def welcome_view() -> discord.ui.View:
     v = discord.ui.View(timeout=None)
     for act, label, emoji in ACTIONS["new"]:
         v.add_item(ActionButton("new", act, label, emoji))
-    v.add_item(GuideButton("home", label="Soon's full guide"))
+    v.add_item(GuideButton("home", label="Soon's Help Desk"))
     return v
 
 
 WELCOME_STEPS = ("**👋 Quick start** (tap below, only you see it):\n"
                  "**1.** Your world zone 🦝🦁🐼🦆 · **2.** 📝 your Mob Control name · **3.** what I ping you for\n"
-                 "-# 🏠 opens my full guide: settings, timers, casino, everything.")
+                 "-# 🏠 opens my Help Desk: settings, timers, casino, everything.")
 
 
 def view(key: str, dm_button: bool = False) -> discord.ui.View:
@@ -221,6 +224,8 @@ def view(key: str, dm_button: bool = False) -> discord.ui.View:
         v.add_item(GuideButton(other))
     if key not in ("home", "dmbox"):
         v.add_item(GuideButton("home"))
+    if key != "dmbox":                                  # Shannon: on every page, a custom help form (DM'd to her)
+        v.add_item(ActionButton(key, "modal-help", "Still need help?", "🆘", discord.ButtonStyle.secondary))
     return v
 
 
@@ -279,6 +284,8 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
         return cls(match["k"] if match["k"] in PAGES or match["k"] == "dm" else "home", bool(match["b"]))
 
     async def callback(self, interaction: discord.Interaction):
+        if LOG:
+            await LOG(interaction, PAGES[self.key][0] if self.key in PAGES else "📬 Private suggestion box")
         if self.key == "dm":                             # 📬 the private suggestion box, in their DMs (Shannon)
             box = discord.ui.View(timeout=None)
             box.add_item(ActionButton("dmbox", "modal-suggest", "Write a suggestion", "📮"))
@@ -296,10 +303,12 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
 class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga:(?P<p>[a-z]+):(?P<a>[a-z-]+)"):
     """A guide button that DOES something for whoever taps it (alerts, heat, ignore, zone...)."""
 
-    def __init__(self, page: str, act: str, label: str = "", emoji: str | None = None):
+    def __init__(self, page: str, act: str, label: str = "", emoji: str | None = None,
+                 style: discord.ButtonStyle = discord.ButtonStyle.success):
         if not label:
-            label, emoji = next(((lb, em) for a, lb, em in ACTIONS.get(page, []) if a == act), (act, None))
-        super().__init__(discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.success,
+            label, emoji = next(((lb, em) for a, lb, em in ACTIONS.get(page, []) if a == act),
+                                ("Still need help?", "🆘") if act == "modal-help" else (act, None))
+        super().__init__(discord.ui.Button(label=label, emoji=emoji, style=style,
                                            custom_id=f"soon:ga:{page}:{act}"))
         self.page, self.act = page, act
 
@@ -308,6 +317,8 @@ class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga
         return cls(match["p"] if match["p"] in PAGES else "home", match["a"])
 
     async def callback(self, interaction: discord.Interaction):
+        if LOG:
+            await LOG(interaction, f"{PAGES[self.page][0]} → {self.act}")
         if self.act in MODALS:                           # a little form pops up (name, time zone, birthday, suggestion)
             await interaction.response.send_modal(GuideModal(self.page, self.act))
             return
@@ -364,8 +375,9 @@ async def dm(message, guild) -> bool:
 
 
 def guide_link(guild) -> str:
-    ch = next((c for c in getattr(guild, "text_channels", []) if "soon-guide" in c.name.lower()), None)
-    return ch.mention if ch else "#soon-guide"
+    ch = next((c for c in getattr(guild, "text_channels", [])
+               if "help-desk" in c.name.lower() or "soon-guide" in c.name.lower()), None)
+    return ch.mention if ch else "#soons-help-desk"
 
 
 async def send_box(channel, guild):

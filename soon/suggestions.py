@@ -88,7 +88,7 @@ async def file(guild, author, idea: str, memory, mod: bool = False, private: boo
     n = int(await memory.get_kv(f"suggestid:{gid}") or 0) + 1
     await memory.set_kv(f"suggestid:{gid}", str(n))
     items = json.loads(await memory.get_kv(f"suggestions:{gid}") or "[]")
-    items.append({"n": n, "uid": uid, "name": author.display_name, "text": idea[:MAX_LEN],
+    items.append({"n": n, "uid": uid, "name": f"{author.display_name} (@{author.name})", "text": idea[:MAX_LEN],
                   "ts": int(dt.datetime.now(dt.timezone.utc).timestamp()), "ch": getattr(channel, "id", 0),
                   "link": link, "private": private})
     await memory.set_kv(f"suggestions:{gid}", json.dumps(items[-300:]))
@@ -106,7 +106,7 @@ async def forward(author, channel, guild, n: int, idea: str, private: bool = Fal
     where = "🔒 **privately**" if private else f"in {channel.mention}"
     link = f"[Jump to it]({link}) • " if link and not private else ""
     try:
-        await ch.send(f"📮 **New suggestion #{n}** from **{author.display_name}** {where}:\n"
+        await ch.send(f"📮 **New suggestion #{n}** from **{author.display_name}** (<@{author.id}> · @{author.name}) {where}:\n"
                       f"> {idea.replace(chr(10), chr(10) + '> ')}\n"
                       f"-# {link}done with it? `soon suggestion done {n}`",
                       allowed_mentions=discord.AllowedMentions.none(), suppress_embeds=True)
@@ -122,7 +122,7 @@ async def send_list(message, memory, guild=None):
         await message.reply("📮 The suggestion box is empty. Either everyone loves me, or nobody can type.",
                             mention_author=False)
         return
-    lines = [f"**#{s['n']}** {'🔒 ' if s.get('private') else ''}{s['name']} (<t:{s['ts']}:d>): {s['text']}" + (f" [→]({s['link']})" if s.get("link") else "")
+    lines = [f"**#{s['n']}** {'🔒 ' if s.get('private') else ''}{s['name']} <@{s['uid']}> (<t:{s['ts']}:d>): {s['text']}" + (f" [→]({s['link']})" if s.get("link") else "")
              for s in items]
     pages, page = [], f"## 📮 Suggestion box: {len(items)} open\n"
     for line in lines:
