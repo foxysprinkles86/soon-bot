@@ -413,7 +413,7 @@ async def broke_help(message, bank: Bank):
     if bribed:
         lines.append(f"Your Broke Bitch Bribe is on cooldown ({when(bribed)}). Greedy.")
     else:
-        lines.append(f"**Tap below**: I reset your daily **loan**, **claim** and **scratch** cooldowns, **wipe** your chip debt "
+        lines.append(f"**Tap below**: I reset your **loan**, **claim** and **scratch** cooldowns, **wipe** your chip debt "
                      f"AND **slip** you {BROKE_GIFT} {C}. No chips needed. I accept winks."
                      + ("" if w.chips < BROKE_MIN else f" (**Only works when you're actually broke: under {BROKE_MIN} {C}.**)"))
     lines += ["",
