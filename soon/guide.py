@@ -216,7 +216,7 @@ def view(key: str, dm_button: bool = False) -> discord.ui.View:
         v.add_item(ActionButton(key, act, label, emoji))
     for k in kids:
         v.add_item(GuideButton(k))
-    if dm_button:                                       # public panel only: the private suggestion box by DM
+    if dm_button:                                       # public panel only: 📮 suggestion box (opens a form)
         v.add_item(GuideButton("dm"))
     if parent and parent != "home":
         v.add_item(GuideButton(parent, back=True))
@@ -270,7 +270,7 @@ class GuideModal(discord.ui.Modal):
 
 class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(?P<k>[a-z]+)(?P<b>:b)?"):
     def __init__(self, key: str, back: bool = False, label: str = ""):
-        default, emoji, *_ = PAGES.get(key) or ("Private suggestion box (DM)", "📬")
+        default, emoji, *_ = PAGES.get(key) or ("Suggestion box", "📮")
         label = label or default
         if back:
             label, emoji = "Back", "⬅️"
@@ -286,16 +286,8 @@ class GuideButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:g:(
     async def callback(self, interaction: discord.Interaction):
         if LOG:
             await LOG(interaction, PAGES[self.key][0] if self.key in PAGES else "📬 Private suggestion box")
-        if self.key == "dm":                             # 📬 the private suggestion box, in their DMs (Shannon)
-            box = discord.ui.View(timeout=None)
-            box.add_item(ActionButton("dmbox", "modal-suggest", "Write a suggestion", "📮"))
-            try:
-                await interaction.user.send(SUGGEST_DM, view=box)
-                await interaction.response.send_message("📬 Check your DMs. The suggestion box is waiting.", ephemeral=True)
-            except discord.HTTPException:
-                await interaction.response.send_message("Your DMs are closed, so use this instead. "
-                                                        "🔒 Still private: only Master Foxy and the mods see it.",
-                                                        view=box, ephemeral=True)
+        if self.key == "dm":                             # 📮 the suggestion box opens a form right here (Shannon)
+            await interaction.response.send_modal(GuideModal("home", "modal-suggest"))
             return
         await show(interaction, self.key)
 
