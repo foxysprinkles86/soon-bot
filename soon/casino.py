@@ -397,7 +397,7 @@ async def broke_help(message, bank: Bank):
         return f"next <t:{int(t[0].timestamp())}:R>" if t else "**ready now!**"
     claim, scratch, bribed = (await bank.timer(gid, uid, "claimcd"), await bank.timer(gid, uid, "scratchcd"),
                               await bank.timer(gid, uid, "brokebribe"))
-    lines = ["# 💋 The Broke Bitch Bribe Menu 💋", (f"{u}, you're in chip debt ({w.chips} {C}). Nobody leaves my casino without a way to play." if w.chips < 0 else
+    lines = ["# 💋 The Broke Bitch Menu 💋", (f"{u}, you're in chip debt ({w.chips} {C}). Nobody leaves my casino without a way to play." if w.chips < 0 else
               f"{u}, you're down to {w.chips} {C}. Nobody leaves my casino without a way to play." if w.chips < BROKE_MIN else
               f"{u} claims to be broke with **{w.chips} {C}**. Suspicious. Here's the menu anyway."),
              f"💵 `claim`: {CLAIM_EVERY} free {C} every 12 hours • {when(claim)}",
@@ -406,14 +406,14 @@ async def broke_help(message, bank: Bank):
              f"🌮 `buy chips 1`: trade 1 taco for {LOAN_RATE} {C} (taco debt is allowed, I'm not a monster)",
              "🌧️ hang around: someone always ends up making it rain"]
     if bribed:
-        lines.append(f"💋 My bribe is on cooldown for you ({when(bribed)}). Greedy.")
+        lines.append(f"💋 Your Broke Bitch Bribe is on cooldown ({when(bribed)}). Greedy.")
     else:
-        lines.append(f"💋 **Or bribe me.** Tap below: I forget your claim and scratch cooldowns, wipe your chip debt AND slip "
+        lines.append(f"💋 **Or take the 💋Broke Bitch Bribe💋.** Tap below: I forget your claim and scratch cooldowns, wipe your chip debt AND slip "
                      f"you {BROKE_GIFT} {C}. No chips needed. I accept winks."
                      + ("" if w.chips < BROKE_MIN else f" (Only works when you're actually broke: under {BROKE_MIN} {C}.)"))
     btns = [("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")]
     if not bribed:
-        btns.insert(0, ("bribe soon broke", "Bribe Soon", "💋", discord.ButtonStyle.primary))
+        btns.insert(0, ("bribe soon broke", "Broke Bitch Bribe", "💋", discord.ButtonStyle.primary))
     await message.channel.send("\n".join(lines), view=buttons.view(*btns))
 
 

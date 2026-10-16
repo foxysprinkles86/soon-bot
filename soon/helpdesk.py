@@ -4,7 +4,7 @@ GUIDE = """CASINO & COMMAND CHEAT SHEET (you run all of these now)
 NEW TO SOON? `soon help` opens your tap-through guide (buttons, private answers). Point lost people to it.
 Everything is typed as a plain message in the casino channel (casa-de-soon-casino). Amounts are examples.
 - casino: main menu · games: game list · payouts: what everything pays · chips: your stack · timers: cooldowns · casino board: leaderboards
-- broke / out of chips / free chips: every free-chip route + a 💋 Bribe Soon button (when under 5 chips, once per 3 hours: clears claim+scratch+bar cooldowns, wipes chip debt and gives 100 chips) · claim: 100 free chips every 12 hours · cashier: claim, borrow, cash out
+- broke / out of chips / free chips: every free-chip route + a 💋Broke Bitch Bribe💋 button (the Broke Bitch Menu) (when under 5 chips, once per 3 hours: clears claim+scratch+bar cooldowns, wipes chip debt and gives 100 chips) · claim: 100 free chips every 12 hours · cashier: claim, borrow, cash out
 - buy chips 1: trade 1 taco for 40 chips (taco debt allowed) · cash out 50: chips back into tacos · loan 100 / borrow 100
 - scratch: free scratch card every 12 hours · buy scratch: 5 chips a card
 - spin: slots, 5 chips. Any message with "spin" in it spins in the casino. Triple tacos = progressive jackpot (starts 2,000, +5 every spin)

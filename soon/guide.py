@@ -87,7 +87,7 @@ PAGES = {
               "## 🪙 Chips & cashier\n"
               "• `claim`: 100 free chips every 12 hours · `scratch`: a free scratch card every 12 hours\n"
               "• `buy chips 1` (1 taco = 40 chips, debt allowed) · `loan 100` · `cash out 50` · `cashier`\n"
-              "• Out of chips? `broke` = every free-chip route + a 💋 **Bribe Soon** button.\n"
+              "• Out of chips? `broke` = every free-chip route + a 💋**Broke Bitch Bribe**💋 button.\n"
               "• `tip @name 10` · `tip soon 10` · `make it rain 50` · `soon make it rain` · `rob the bartender`",
               []),
     "games": ("Games", "🎲", "casa",

@@ -1901,7 +1901,7 @@ async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
                  f"🏦 **Vault Heist:** {f'next one {ts(vault[0])}' if vault else '**ready!** Type `heist`'}",
                  f"💰 **Grand Heist:** {f'next one {ts(grand[0])}' if grand else '**ready!** Type `heist`'}"]
         for k, label in (("robbar", "🍹 Rob the bartender again"), ("barban", "🚫 Banned from the bar until"),
-                         ("brokebribe", "💋 Next Bribe Soon"), ("hintcd", "🔮 Next egg hint"),
+                         ("brokebribe", "💋 Next Broke Bitch Bribe"), ("hintcd", "🔮 Next egg hint"),
                          ("sorrycd", "🙏 Next `sorry soon`"), ("stealh", "🚨 House job"), ("stealp", "🤏 Pickpocketing"),
                          ("hidden", "🫣 Chips hidden until"), ("korchurro", "🥖 Next churro break")):
             x = await t(k)
