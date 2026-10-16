@@ -130,14 +130,13 @@ PAGES = {
             "the mods see it. Or DM me `suggest <idea>`.",
             []),
     "mod": ("Leader tools", "🛠️", "ch",
-            "## 🛠️ Leader tools\n"
-            "• **Clan:** `soon recruit @name` · `soon alumni @name` · `soon event <name> <time>` · "
-            "`kraken date` · `kraken go` · `race bets open/close` · `race winner @name`\n"
-            "• **Soon:** `soon says #channel text` · `soon answer @name` · `soon summon regulars [why]` · "
-            "`soon takeover complete` · `soon welcome test` · `soon guide post`\n"
-            "• **Casino:** `give 50 chips @name` · `spin wheel @name` · `van audit @name` · `soon bank`\n"
-            "• **Health:** `soon ai` · `soon budget` · `soon notebook @name` · `soon pardon @name` · "
-            "`soon suggestions` · `soon suggestion done 3`",
+            "## 🛠️ Leader tools\nMods and Taco Wranglers only. Tap a button, fill in the little form, and I post it in "
+            "the right channel for you. Results come back here, privately.\n"
+            "• 📢 **Soon says** (any channel, default #get-in-the-van) · 🎱 **Soon answer** (#taco-trash-talk)\n"
+            "• 🧾 **Recruit panel** · 🎓 **Alumni** (#glovebox-secrets) · 📅 **Add event** · 🦑 **Kraken go/date**\n"
+            "• 🪙 **Give/take chips** · 🏁 **Race book** · 🎡 **Spin wheel** · 🌮 **Van audit** (casino)\n"
+            "• 📓 **Notebook** · 🕊️ **Pardon** · 👀 **Welcome test** (#soon-lab) · 🧠 AI · 🏦 Bank · 📮 Suggestions\n"
+            "-# Typing the commands still works too: `soon says`, `kraken go`, `give chips @name 50`…",
             []),
     # not in the menu
     "new": ("New here? Start here", "👋", "home",
@@ -154,6 +153,7 @@ DYNAMIC_KEYS = {"profile", "mycasino", "clanlife", "mod"}
 # Real buttons on some pages (Shannon: "make buttons for these things vs just explaining them"). Each changes the
 # TAPPER's own setting and shows the page again with a ✅ line on top. bot.py sets ACT: async (interaction, act) -> str.
 ACT = None        # async (interaction, act, value=None) -> str
+IS_MOD = None     # bot.py: (member) -> bool, mods + Taco Wranglers (Leader tools)
 LOG = None        # async (interaction, where) -> None: bot.py tells the mods someone is using the Help Desk
 DYNAMIC = None    # async (interaction, key) -> str: live info for DYNAMIC_KEYS pages (settings, timers, stats...)
 MODALS = {  # act: (form title, field label, placeholder, max length)
@@ -164,6 +164,25 @@ MODALS = {  # act: (form title, field label, placeholder, max length)
     "modal-ask": ("❓ Ask Soon", "Your question", "e.g. How do I get out of taco debt?", 300),
     "modal-help": ("🆘 Still need help?", "What do you need help with?",
                    "Tell us what's going on. Master Foxy gets this privately.", 1000),
+}
+_WHO = ("who", "Who? (their name or @)", "e.g. Kor", 60, True)
+MOD_FORMS = {  # act: (form title, [(field, label, placeholder, max length, required)])
+    "mod-says": ("📢 Soon says", [("channel", "Channel (blank = get-in-the-van)", "e.g. trash-talk", 60, False),
+                                 ("text", "What should I say?", "Soon will post exactly this", 1800, True)]),
+    "mod-answer": ("🎱 Soon answer", [_WHO, ("text", "Their question", "e.g. Will I win the race?", 300, True)]),
+    "mod-recruit": ("🧾 Recruit panel", [_WHO]),
+    "mod-alumni": ("🎓 Left the clan → Alumni", [_WHO]),
+    "mod-event": ("📅 Add event", [("text", "Event and time", "e.g. Kraken starts Saturday 2pm every week", 200, True)]),
+    "mod-kraken": ("🦑 Kraken", [("action", "go or date", "go / date", 10, True),
+                                ("text", "Note (go) or date YYYY-MM-DD (date)", "e.g. ATTACK NOW / 2026-11-02", 200, False)]),
+    "mod-chips": ("🪙 Give / take chips", [_WHO, ("amount", "How many chips?", "e.g. 50", 6, True),
+                                          ("action", "give or take", "give", 5, False)]),
+    "mod-race": ("🏁 Race betting book", [("action", "open / close / cancel / winner", "open", 10, True),
+                                         ("who", "Winner's name (winner only) or label (open)", "e.g. Kor", 60, False)]),
+    "mod-wheel": ("🎡 Spin the Wheel of Fortaco", [_WHO]),
+    "mod-audit": ("🌮 Van audit", [_WHO, ("action", "audit / refund / surprise", "audit", 10, False)]),
+    "mod-notebook": ("📓 Soon's notebook", [_WHO]),
+    "mod-pardon": ("🕊️ Pardon (wipe strikes)", [_WHO]),
 }
 _ALERTS = [("al-casino", "Casino alerts", "🎰"), ("al-race", "Race alerts", "🏁"), ("al-kraken", "Kraken alerts", "🦑"),
            ("al-newbie", "New member alerts", "👋"), ("al-events", "Event alerts", "📅")]
@@ -186,8 +205,12 @@ ACTIONS = {
     "clanlife": _ZONES,
     "ask": [("modal-ask", "Ask", "❓")],
     "faq": [("modal-suggest", "Suggestion", "📮")],
-    "mod": [("mod-sugg", "Suggestions → my DMs", "📮"), ("mod-ai", "AI health", "🧠"), ("mod-bank", "Bank totals", "🏦"),
-            ("mod-summon", "Summon regulars to the diary", "📣")],
+    "mod": [("mod-says", "Soon says", "📢"), ("mod-answer", "Soon answer", "🎱"), ("mod-recruit", "Recruit panel", "🧾"),
+            ("mod-alumni", "Alumni", "🎓"), ("mod-event", "Add event", "📅"), ("mod-kraken", "Kraken go / date", "🦑"),
+            ("mod-chips", "Give/take chips", "🪙"), ("mod-race", "Race book", "🏁"), ("mod-wheel", "Spin wheel", "🎡"),
+            ("mod-audit", "Van audit", "🌮"), ("mod-notebook", "Notebook", "📓"), ("mod-pardon", "Pardon", "🕊️"),
+            ("mod-welcome", "Welcome test", "👀"), ("mod-ai", "AI health", "🧠"), ("mod-bank", "Bank totals", "🏦"),
+            ("mod-sugg", "Suggestions → my DMs", "📮")],
     "new": _ZONES + [("modal-ign", "My Mob Control name", "📝")] + _ALERTS,
     "dmbox": [("modal-suggest", "Write a suggestion", "📮")],
 }
@@ -252,16 +275,26 @@ async def show(interaction, key: str, top: str = ""):
 
 
 class GuideModal(discord.ui.Modal):
+    """A pop-up form. One box (MODALS: name, time zone, suggestion…) or several (MOD_FORMS: the Leader tools)."""
+
     def __init__(self, page: str, act: str):
-        title, label, hint, size = MODALS[act]
-        super().__init__(title=title, timeout=600)
-        self.page, self.act = page, act
-        self.box = discord.ui.TextInput(label=label, placeholder=hint, max_length=size,
-                                        style=discord.TextStyle.paragraph if size > 100 else discord.TextStyle.short)
-        self.add_item(self.box)
+        if act in MOD_FORMS:
+            title, fields = MOD_FORMS[act]
+        else:
+            title, label, hint, size = MODALS[act]
+            fields = [("value", label, hint, size, True)]
+        super().__init__(title=title[:45], timeout=600)
+        self.page, self.act, self.boxes = page, act, {}
+        for key, label, hint, size, req in fields:
+            box = discord.ui.TextInput(label=label[:45], placeholder=hint[:100], max_length=size, required=req,
+                                       style=discord.TextStyle.paragraph if size > 100 else discord.TextStyle.short)
+            self.boxes[key] = box
+            self.add_item(box)
 
     async def on_submit(self, interaction: discord.Interaction):
-        done = await ACT(interaction, self.act, str(self.box.value).strip()) if ACT else "Not now."
+        vals = {k: str(b.value).strip() for k, b in self.boxes.items()}
+        value = vals if self.act in MOD_FORMS else vals["value"]
+        done = await ACT(interaction, self.act, value) if ACT else "Not now."
         try:
             await show(interaction, self.page, f"✅ {done}")
         except discord.HTTPException:
@@ -311,7 +344,10 @@ class ActionButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:ga
     async def callback(self, interaction: discord.Interaction):
         if LOG:
             await LOG(interaction, f"{PAGES[self.page][0]} → {self.act}")
-        if self.act in MODALS:                           # a little form pops up (name, time zone, birthday, suggestion)
+        if self.act in MOD_FORMS and IS_MOD and not IS_MOD(interaction.user):
+            await interaction.response.send_message("💅 Leader tools are for mods and Taco Wranglers only.", ephemeral=True)
+            return
+        if self.act in MODALS or self.act in MOD_FORMS:  # a little form pops up
             await interaction.response.send_modal(GuideModal(self.page, self.act))
             return
         if self.act == "go-erase":                       # Erase my memory: confirm first

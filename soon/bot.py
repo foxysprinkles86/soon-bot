@@ -1529,6 +1529,7 @@ async def on_ready():
     buttons.BANK = bank
     buttons.AFTER = casino.broke_check
     guide.ACT, guide.DYNAMIC, guide.LOG = guide_action, guide_dynamic, guide_log
+    guide.IS_MOD = lambda m: is_mod(m) or recruits.is_wrangler(m)
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
                              guide.GuideButton, guide.ActionButton)
@@ -1963,6 +1964,58 @@ async def guide_dynamic(interaction: discord.Interaction, key: str) -> str:
 _asks: dict[int, list[float]] = {}      # user -> recent "Ask Soon" times (max 15 a day)
 
 
+def find_member(guild, text: str):
+    """A member from what a mod typed in a form: @mention, ID, or (part of) a name."""
+    t = (text or "").strip().lstrip("@").lower()
+    if not t:
+        return None
+    m = re.search(r"\d{15,}", t)
+    if m and guild.get_member(int(m.group())):
+        return guild.get_member(int(m.group()))
+    people = [x for x in guild.members if not x.bot]
+    exact = [x for x in people if t in (x.display_name.lower(), x.name.lower())]
+    if exact:
+        return exact[0]
+    for test in (lambda x: x.display_name.lower().startswith(t) or x.name.lower().startswith(t),
+                 lambda x: t in x.display_name.lower() or t in x.name.lower()):
+        hits = [x for x in people if test(x)]
+        if len(hits) == 1:
+            return hits[0]
+    return None
+
+
+class ModMsg:
+    """A fake typed message from a Leader-tools form: runs the normal command, in the right channel. Replies meant
+    for the mod (reply()) are collected and shown back to them privately; channel posts go to the real channel."""
+
+    def __init__(self, member, channel, content: str, mentions=()):
+        self.author, self.guild, self.channel, self.content = member, member.guild, channel, content
+        self.clean_content, self.mentions, self.channel_mentions, self.role_mentions = content, list(mentions), [], []
+        self.reference, self.jump_url, self.id, self.attachments, self.embeds = None, "", 0, [], []
+        self.type = discord.MessageType.default
+        self.replies: list[str] = []
+
+    async def reply(self, text: str = "", **kw):
+        self.replies.append(text)
+
+    async def add_reaction(self, *a):
+        pass
+
+    async def delete(self, *a, **k):
+        pass
+
+
+async def run_as(member, channel, content: str, mentions=()) -> list[str]:
+    """Run a typed command for a mod from a form. Returns what Soon would have replied to them."""
+    msg = ModMsg(member, channel, content, mentions)
+    buttons.ACTOR.set(member.id)
+    if not (await recruits.command(msg) or await schedules.command(msg, bank, True) or await handle_command(msg)):
+        for route in buttons.ROUTERS:
+            if await route(msg, bank, True):
+                break
+    return msg.replies
+
+
 _help_seen: dict[int, float] = {}     # user -> when the mods were last told they opened the Help Desk
 
 
@@ -1990,6 +2043,73 @@ async def guide_log(interaction: discord.Interaction, where: str):
                           allowed_mentions=discord.AllowedMentions.none())
     except Exception as e:                               # logging must never break the guide
         print(f"Help desk log error: {e!r}")
+
+
+async def mod_form(guild, member, act: str, v: dict) -> str:
+    """Leader tools (Shannon): each form posts in its proper channel and reports back privately."""
+    def chan(word, fallback="soon-lab"):
+        return extras.find_channel(guild, word) or extras.find_channel(guild, fallback)
+    casa = next((c for c in guild.text_channels if casino.casino_channel(c)), None) or chan("soon-lab")
+    who = find_member(guild, v.get("who", "")) if "who" in v else None
+    needs_who = act in ("mod-answer", "mod-recruit", "mod-alumni", "mod-chips", "mod-wheel", "mod-audit",
+                        "mod-notebook", "mod-pardon") or (act == "mod-race" and v.get("action", "").lower() == "winner")
+    if needs_who and not who:
+        return f"I can't find anyone called **{v.get('who', '')}**. Try their exact name, or copy their @."
+    tag = who.mention if who else ""
+    if act == "mod-says":
+        ch = chan(v["channel"].lstrip("#").lower() or "get-in-the-van", "get-in-the-van")
+        if not ch:
+            return f"I can't find a channel called **{v['channel']}**."
+        await ch.send(v["text"], allowed_mentions=discord.AllowedMentions(everyone=False, roles=False, users=True))
+        return f"📢 Posted in {ch.mention}."
+    if act == "mod-answer":
+        ch = chan(config.PESTER_CHANNEL)
+        line = await brain.write(f"You are a sassy taco-van magic 8-ball. Answer this question from {who.display_name} in "
+                                 "ONE short line. Start with 🎱 then 🟢 (yes), 🟡 (maybe), 🔴 (no) or 🌮 (taco nonsense). "
+                                 f'Question: "{v["text"][:300]}"', max_tokens=80)
+        line = line.strip() if line and line.strip().startswith("🎱") else random.choice(talk.EIGHT_BALL)
+        await ch.send(f"{who.mention} asked: *{v['text'][:200]}*\n**{line}**")
+        return f"🎱 Answered in {ch.mention}."
+    if act == "mod-recruit":
+        ch = recruits.staff_channel(guild) or chan("soon-lab")
+        await recruits.panel(guild, who, ch)
+        return f"🧾 Recruit panel for **{who.display_name}** posted in {ch.mention}."
+    if act == "mod-alumni":
+        ch = recruits.staff_channel(guild) or chan("soon-lab")
+        out = await run_as(member, ch, f"soon alumni {tag}", [who])
+        return "\n".join(out) or f"🎓 Confirm button for **{who.display_name}** posted in {ch.mention}."
+    if act == "mod-event":
+        out = await run_as(member, chan("soon-lab"), f"soon event {v['text']}")
+        return "\n".join(out) or "📅 Done."
+    if act == "mod-kraken":
+        word = "date" if v["action"].lower().startswith("d") else "go"
+        ch = chan(config.KRAKEN_CHANNEL, "soon-lab") if word == "go" and config.SCHEDULES else chan("soon-lab")
+        out = await run_as(member, ch, f"kraken {word} {v.get('text', '')}".strip())
+        return "\n".join(out) or (f"🦑 Posted in {ch.mention}." if word == "go" else "🦑 Done. Check `Clan life` for the new date.")
+    if act == "mod-chips":
+        word = "take" if v.get("action", "").lower().startswith("t") else "give"
+        n = re.sub(r"\D", "", v.get("amount", "")) or "0"
+        out = await run_as(member, casa, f"{word} chips {tag} {n}", [who])
+        return "\n".join(out) or f"🪙 Done in {casa.mention}."
+    if act == "mod-race":
+        word = v["action"].lower().strip()
+        cmd = (f"race winner {tag}" if word.startswith("win") else
+               f"race bets {word} {v.get('who', '') if word.startswith('open') else ''}".strip())
+        out = await run_as(member, casa, cmd, [who] if who else [])
+        return "\n".join(out) or f"🏁 Done in {casa.mention}."
+    if act == "mod-wheel":
+        out = await run_as(member, casa, f"spin wheel {tag}", [who])
+        return "\n".join(out) or f"🎡 Spinning for **{who.display_name}** in {casa.mention}."
+    if act == "mod-audit":
+        word = v.get("action", "").lower().strip()
+        cmd = {"refund": "van refund", "surprise": "van audit surprise"}.get(word, "van audit")
+        ch = next((c for c in guild.text_channels if tacovan.taco_channel(c)), None) or casa
+        out = await run_as(member, ch, f"{cmd} {tag}", [who])
+        return "\n".join(out) or f"🌮 Done in {ch.mention}."
+    if act in ("mod-notebook", "mod-pardon"):
+        out = await run_as(member, chan("soon-lab"), f"soon {act[4:]} {tag}", [who])
+        return "\n".join(out)[:1500] or "Done."
+    return "That button's broken. Tell Master Foxy."
 
 
 async def guide_action(interaction: discord.Interaction, act: str, value: str | None = None) -> str:
@@ -2066,8 +2186,11 @@ async def guide_action(interaction: discord.Interaction, act: str, value: str | 
         await memory.save_player(p)
         return "🔄 Back to normal: auto mood, call-outs on, pings on, not ignoring you. Alerts and zone untouched."
     if act.startswith("mod-"):
-        if not is_mod(member):
+        wrangler_ok = act in ("mod-recruit", "mod-alumni")      # Taco Wranglers: recruit tools only
+        if not (is_mod(member) or (wrangler_ok and recruits.is_wrangler(member))):
             return "💅 Mods only. Nice try. Noted in the notebook."
+        if isinstance(value, dict):                      # a Leader-tools form: run the command in its channel
+            return await mod_form(guild, member, act, value)
         if act == "mod-ai":
             return await ai_status_text()
         if act == "mod-bank":
@@ -2084,14 +2207,10 @@ async def guide_action(interaction: discord.Interaction, act: str, value: str | 
             fake.reply = _reply
             await suggestions.send_list(fake, memory, guild)
             return f"📮 Sent you the list in DMs ({len(items)} open)."
-        if act == "mod-summon":
-            fake = type("M", (), {})()
-            fake.guild, fake.channel, fake.channel_mentions = guild, interaction.channel, []
-            async def _reply(*a, **k):
-                return None
-            fake.reply = _reply
-            await summon_regulars(fake, "")
-            return "📣 Regulars summoned to the diary."
+        if act == "mod-welcome":
+            ch = extras.find_channel(guild, "soon-lab")
+            out = await run_as(member, ch, "soon welcome test")
+            return "\n".join(out) or f"👀 Welcome preview posted in {ch.mention if ch else 'soon-lab'}."
     if act in ("modal-ign", "modal-tz", "modal-bday"):
         p = await memory.get_player(guild.id, uid)
         if act == "modal-ign":
