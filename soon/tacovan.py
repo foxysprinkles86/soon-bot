@@ -144,7 +144,6 @@ POOL = [
     "Devo already drank 30 margs this week. He's the reason the bar is out of limes.",
     "Ryan proposed to me once. I said 'soon.' He's still waiting too.",
     "Devo and Kor think they're winning. Nobody is winning. That's the whole point.",
-    "Moochie warned you. We have tacos. We do not share.",
     "Nylarese was promised a taco salad. Nylarese is still waiting. Welcome to the van.",
     "Kor ate your taco, then ordered a marg to wash it down.", "Foxy built this van and even she doesn't get tacos.",
 ]
