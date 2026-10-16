@@ -274,8 +274,9 @@ async def request(message, bank: Bank, gif: bool = False, reply=None):
                 lines[await fresh(bank, gid, uid, "seenr", len(lines), 4)]
             special = (f"TACO REQUEST: they just asked the taco van for tacos" + (" by posting a taco GIF" if gif else "") +
                        f" (taco request #{n}, rank {rank}). Tacos are always 'coming soon' and never come. "
-                       "Deny it or give an excuse, your way, short, aimed at them. "
-                       f"If it fits, riff on this old taco-van line (don't just repeat it): \"{fallback}\"")
+                       "Deny it or give an excuse, your way, short, aimed at them. If their message says more than "
+                       "just 'tacos', answer THAT first. Only if it makes sense right now, riff on this old taco-van "
+                       f"line (never paste it as is; skip it if it doesn't fit; anyone it names is a joke, not a fact): \"{fallback}\"")
         sent = await reply(special, footer, fallback) if reply else False
         if not sent:
             await message.channel.send(f"{u} {fallback}{footer}")

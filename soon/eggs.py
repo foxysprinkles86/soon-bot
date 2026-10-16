@@ -13,6 +13,8 @@ import datetime as dt
 import random
 import re
 
+from zoneinfo import ZoneInfo
+
 from . import extras
 from .boards import BOARD_RE, EGG_NAMES, TOTAL_EGGS
 from .economy import Bank
@@ -166,6 +168,9 @@ def _day_lines(now: dt.datetime):
              "Wrong day. The tacos aren't coming today either. (They never are.)"])
 
 
+TZ_OF = None   # bot.py: async (member) -> their time zone name or None
+
+
 def _greeting_lines(text: str, now: dt.datetime):
     if re.search(r"(?i)morning|\bgm\b", text):
         if 5 <= now.hour < 12:
@@ -174,7 +179,7 @@ def _greeting_lines(text: str, now: dt.datetime):
                      "Morning. The van has been up all night not making tacos.", "Rise and shine! The tacos did neither.",
                      "Good morning! Today's forecast: 0% chance of tacos.", "Morning, sunshine. Coffee is ready. Tacos are soon."])
         clock = now.strftime("%I:%M%p").lstrip("0").lower()
-        return (f"They said good morning, but it's {clock} for the van (Chicago). Question their time zone.",
+        return (f"They said good morning, but it's {clock} where they are. Question their time zone.",
                 [f"Good morning? It's {clock}. Are you okay?", "Morning? What timezone is your brain in?",
                  "It's not morning. But sure. Morning. Still no tacos."])
     return ("They said goodnight. Night back, dream of tacos.",
@@ -205,8 +210,9 @@ async def fire(message, bank: Bank, egg, gist, lines, pen, why, text, reply):
     now = extras.local_now()
     if egg == "9":
         gist, lines = _day_lines(now)
-    elif egg == "20":
-        gist, lines = _greeting_lines(text, now)
+    elif egg == "20":   # judged by THEIR clock (Kor's 7 AM "good morning" isn't wrong just because Chicago is at midnight)
+        tz = await TZ_OF(message.author) if TZ_OF else None
+        gist, lines = _greeting_lines(text, dt.datetime.now(ZoneInfo(tz)) if tz else now)
     line = random.choice(lines)
     foot = ""
     if pen:

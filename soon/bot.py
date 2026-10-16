@@ -302,6 +302,9 @@ _participants: dict[int, list] = {}   # channel id -> people in the recent chat 
 PING = discord.AllowedMentions(everyone=False, roles=False, users=True, replied_user=True)
 
 
+_ping_btn: dict = {}   # (channel id, user id) -> when her chat reply last carried the 🔔 button
+
+
 def ping_names(text: str, people, case_sensitive: bool = False) -> str:
     """Turn the first time she names someone into a real @mention (nicknames, usernames, plus "Kor" and "Foxy")."""
     flags = 0 if case_sensitive else re.IGNORECASE
@@ -319,13 +322,18 @@ def ping_names(text: str, people, case_sensitive: bool = False) -> str:
                 break
             # "Master Foxy" (Shannon's order) stays readable: ping her elsewhere in the line, not inside her title
             keep = r"(?<!master )" if name == "Foxy" else ""
-            pat = re.compile(rf"(?<![\w@#-]){keep}{re.escape(name)}(?![\w-])", flags)
+            # the AI sometimes types "@Korehaan8" as plain text: that turns into the real ping too
+            pat = re.compile(rf"(?<![\w#-])@?{keep}{re.escape(name)}(?![\w-])", flags)
             # a plain-word name ("Rain") only counts when written like a name, so "make it rain" stays a ping-free joke
-            hit = next((m for m in pat.finditer(text) if m.group()[0].isupper() or not name.isalpha()), None)
+            hit = next((m for m in pat.finditer(text)
+                        if m.group().startswith("@") or m.group()[0].isupper() or not name.isalpha()), None)
             if hit:
                 text = text[:hit.start()] + person.mention + text[hit.end():]
                 done.add(person.id)
                 break
+        if f"<@{person.id}>" in text or f"<@!{person.id}>" in text:
+            for name in (n for n in names if n and len(n) >= 3):   # a 2nd typed "@Name" = just the name, no dead fake @
+                text = re.sub(rf"(?<![\w#-])@({re.escape(name)})(?![\w-])", r"\1", text, flags=flags)
     return text
 
 
@@ -1085,7 +1093,7 @@ async def apply_nickname(message: discord.Message, name: str):
 HELP_RE = re.compile(r"(?i)\bhow (?:do|can|to|does)\b|\bhelp\b|\bcommands?\b|what do i (?:type|say)|(?:is ?n.?t|does ?n.?t|not|won.?t) work"
                      r"|\bbroken\b|\bwhere do i\b|\b(?:claim|chips|cash ?out|spin|slots|toss|roulette|blackjack|scratch|heist|duel|tip|crimes?"
                      r"|zone|eggs?|margs?|margaritas?|taco board|payouts?|timers?)\b")
-TIME_RE = re.compile(r"(?i)\b(?:morning|night|nite|evening|sleep\w*|bed|awake|tired|late|early|time|clock|o.?clock|\d{1,2} ?[ap]m"
+TIME_RE = re.compile(r"(?i)\b(?:morning|afternoon|goedemorgen|goedemiddag|goedenavond|gm|gn|night|nite|evening|sleep\w*|bed|awake|tired|late|early|time|clock|o.?clock|\d{1,2} ?[ap]m"
                      r"|midnight|noon|tonight|tomorrow|today|weekend|zones?|timezone|where (?:do )?(?:you|u|i) live|what time)\b")
 JOIN_RE = re.compile(r"(?i)\b(?:join(?:ed)?|new here|how long|since when|been here|newbie|veteran|old.?timer|arriv\w+|older than)\b")
 
@@ -1116,7 +1124,9 @@ async def relevant_facts(message: discord.Message, p) -> list[str]:
             habit = extras.active_summary(pp.hours, pp.tz)
             if habit:
                 facts.append(f"{person.display_name} is {habit}")
-        facts.append(f"it's {extras.local_now().strftime('%-I:%M %p')} Central (Foxy's clock, not everyone's)")
+        facts.append(f"it's {extras.local_now().strftime('%-I:%M %p')} Central, but that's ONLY Master Foxy's clock. Judge "
+                     "greetings and 'it's late/early' by the SPEAKER's own time above (their 7 AM is morning, even if "
+                     "it's midnight in Central); never correct someone's greeting with Central time")
     if JOIN_RE.search(text):
         for person in people[:3]:
             joined = getattr(person, "joined_at", None)
@@ -1444,10 +1454,16 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         _last_chat_with[(message.channel.id, message.author.id)] = time.time()
         # Kor only gets pinged when she's actually talking to him (she talks ABOUT him constantly)
         people = [message.author] + list(message.mentions) + [m for m in _participants.get(message.channel.id, []) if not is_kor(m)]
+        # Shannon's order: she ALWAYS says "Master Foxy" (the AI slipped: "ja, Foxy is de baas")
+        reply = re.sub(r"(?i)(?<!master )(?<![\w@])foxy(?![\w-])", "Master Foxy", reply)
         reply = ping_names(reply, people)
         reply += footer
         tagged = {int(i) for i in re.findall(r"<@!?(\d+)>", reply)} | ({message.author.id} if not butt_in else set())
-        view = ping_view() if any(i not in _noping for i in tagged) else None    # her chat replies: always the button
+        # the 🔔 button once per person per channel per hour, not under every line of a long chat (Oct 16 review)
+        fresh = [i for i in tagged if i not in _noping and time.time() - _ping_btn.get((message.channel.id, i), 0) > 3600]
+        for i in fresh:
+            _ping_btn[(message.channel.id, i)] = time.time()
+        view = ping_view() if fresh else None
         if butt_in and not out.get("line_crossed"):
             if f"<@{message.author.id}>" not in reply:
                 reply = f"{message.author.mention} {reply}"
@@ -1458,6 +1474,12 @@ async def ai_reply(message: discord.Message, butt_in: bool = False, maybe: bool 
         return True
     _nick_ask.pop(message.id, None)
     return False
+
+
+async def tz_of(member) -> str | None:
+    """Their saved time zone (Kor: the Netherlands), for things judged by their own clock."""
+    p = await memory.get_player(member.guild.id, member.id) if getattr(member, "guild", None) else None
+    return (p.tz if p else None) or ("Europe/Amsterdam" if is_kor(member) else None)
 
 
 async def maybe_ask_forget(message, label: str):
@@ -1530,6 +1552,7 @@ async def on_ready():
     buttons.AFTER = casino.broke_check
     guide.ACT, guide.DYNAMIC, guide.LOG = guide_action, guide_dynamic, guide_log
     guide.IS_MOD = lambda m: is_mod(m) or recruits.is_wrangler(m)
+    eggs.TZ_OF = tz_of
     buttons.ROUTERS[:] = [alerts.handle, casino.handle, games.handle, heists.handle, duels.handle, tips.handle, racebets.handle, crimes.handle, korperks.handle, menus.handle, boards.handle, zones.handle, eggs.handle, tacovan.handle, bar.handle]
     client.add_dynamic_items(buttons.PlayButton, NiceButton, PingButton, pushback.ForgetButton, recruits.RecruitButton, recruits.AlumniButton,
                              guide.GuideButton, guide.ActionButton)
@@ -2447,12 +2470,18 @@ async def daily():
             # Panda gets tagged at least once a day.
             panda = next((m for m in guild.members if not m.bot and config.PANDA_NAME
                           and (config.PANDA_NAME in m.name.lower() or config.PANDA_NAME in m.display_name.lower())), None)
-            panda_hour = extras.zone_local_hour(panda) if panda else None
-            hour_now = panda_hour if panda_hour is not None else now.hour
-            if 12 <= hour_now <= 22 and hour_now >= _planned_hour("panda", 12, 21) and await memory.get_kv(f"panda:{gk}") != today:
+            # Only in HIS daytime (Shannon: no 1 AM pings): saved time zone, zone role, then his usual hours.
+            pp = await memory.get_player(guild.id, panda.id) if panda else None
+            lh = extras.local_hour(panda, pp.tz) if panda else None
+            if lh is not None:
+                awake = 12 <= lh <= 22 and lh >= _planned_hour("panda", 12, 21)
+            else:
+                habit = extras.usually_active_now(pp.hours) if pp else None
+                awake = habit if habit is not None else (12 <= now.hour <= 22 and now.hour >= _planned_hour("panda", 12, 21))
+            if panda and awake and await memory.get_kv(f"panda:{gk}") != today:
                 await memory.set_kv(f"panda:{gk}", today)
                 ch = (extras.find_channel(guild, config.PESTER_CHANNEL) or extras.find_channel(guild, "soon-lab"))
-                if panda and ch and (await memory.get_player(guild.id, panda.id)).pester:
+                if ch and pp.pester:
                     await ensure_intro(ch)
                     line = await brain.write(
                         "Write ONE short line tagging Panda, your favorite target, who is barely ever active. Call him out "
@@ -2501,7 +2530,7 @@ async def daily():
                     if habit is not None:
                         awake = habit
                     else:
-                        lh = extras.zone_local_hour(m) if m else None
+                        lh = extras.local_hour(m, p.tz or ("Europe/Amsterdam" if is_kor(m) else None)) if m else None
                         awake = lh is None or 9 <= lh <= 23
                     if m and not m.bot and awake and p.pester and p.chats >= 3 and p.last_seen >= cutoff:
                         pool += [m, m] if is_kor(m) else [m]

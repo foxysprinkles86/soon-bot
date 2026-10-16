@@ -24,9 +24,9 @@ ASK_NICK = ["Okay {u}, that's twice. Real question, don't get used to it: do you
             "**{x}**, or are we having fun?",
             "Systems check, {u}: is **{x}** genuinely bugging you, or is this our thing now? I can delete it. I'm a robot.",
             "{u}, you've complained about **{x}** twice. I need to know if I'm winning or if you're actually mad."]
-ASK_TOPIC = ["Okay {u}, you keep pushing back on **{x}**. Real question: want me to drop it for good, or is this fun for you?",
-             "Systems check, {u}: is **{x}** actually annoying you, or are we just bickering? One tap and it's deleted.",
-             "{u}, third time you've fought me on **{x}**. Do I delete it from my memory, or do we keep going?"]
+ASK_TOPIC = ["Okay {u}, you keep pushing back on this one: **{x}**. Real question: want me to drop it for good, or is this fun for you?",
+             "Systems check, {u}. You keep fighting me on this: **{x}**. Actually annoying you, or are we just bickering? One tap and it's deleted.",
+             "{u}, third time you've fought me on this: **{x}**. Do I delete it from my memory, or do we keep going?"]
 
 
 FILLER = set("the and about you your my me that this jokes joke calling call stop keep always saying say thing things "
@@ -126,7 +126,8 @@ class ForgetButton(discord.ui.DynamicItem[discord.ui.Button], template=r"soon:fg
             if it:
                 it.update(n=0, fun=time.time() + FUN_FOR)
                 await _put(q["g"], q["u"], d)
-            line = random.choice(["I KNEW it. You love it. Carry on suffering.", "Good. I was going to keep doing it anyway.",
-                                  "Noted: you're having fun. I'll tell everyone.", "Excellent. Round two starts now."])
+            x = q["label"]   # say WHAT stays, so "No, it's fun" isn't a riddle (Kor: "What round two?")
+            line = random.choice([f"I KNEW it. **{x}** stays. You love it.", f"Good. Keeping **{x}**. I was going to anyway.",
+                                  f"Noted: **{x}** is fun for you. I'll tell everyone."])
         await interaction.response.edit_message(view=None)
         await interaction.followup.send(f"{interaction.user.mention} {line}")

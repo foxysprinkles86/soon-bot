@@ -222,6 +222,16 @@ def zone_local_hour(member) -> int | None:
     return (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=mid)).hour
 
 
+def local_hour(member, tz: str | None = None) -> int | None:
+    """Their local hour: exact saved time zone first, then their zone role, else None."""
+    if tz:
+        try:
+            return dt.datetime.now(ZoneInfo(tz)).hour
+        except Exception:
+            pass
+    return zone_local_hour(member) if member else None
+
+
 # ---------- Exact time zones and activity patterns ----------
 from zoneinfo import ZoneInfoNotFoundError
 

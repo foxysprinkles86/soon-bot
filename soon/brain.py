@@ -25,7 +25,7 @@ INSTRUCTIONS = """Reply with JSON only:
 - struggle: a few words if they're confused or a command isn't working for them, else "".
 - panda_fact: only if your reply states a NEW made-up Panda fact, that fact in a few words, else "".
 - nickname: only if your reply calls THIS player by a NEW made-up name you invented for them (a fake name like a person's name or a title), that name (max 32 characters). Not their real name, not your existing nickname for them, not pet words like "sweetie" or "driver". Usually "".
-- pushback: usually "". Only if they're SERIOUSLY telling you to stop a specific thing you do to them, or disagreeing with a specific claim/joke you keep making about them, that thing in 2-6 words (like "jokes about my Piggy score"). Playful comebacks and banter ("I'm not your sous-chef", "you wish") are NOT pushback. If it matches one in PUSHBACK SO FAR, use that exact label."""
+- pushback: usually "". Only if they're SERIOUSLY telling you to stop a specific thing you do to them, or disagreeing with a specific claim/joke you keep making about them, that thing in 2-6 words (like "jokes about my Piggy score"). Playful comebacks and banter ("I'm not your sous-chef", "you wish") are NOT pushback, and neither is correcting what you misunderstood ("I said X, not Y"). Write the label as the thing YOU do, a short noun phrase ("my nickname for you", "jokes about your driving"), never as a sentence about them. If it matches one in PUSHBACK SO FAR, use that exact label."""
 
 
 def trim_sentences(text: str, limit: int) -> str:
@@ -42,9 +42,13 @@ def trim_sentences(text: str, limit: int) -> str:
             parts[-1] += " " + buf
         else:
             parts.append(buf)
-    if len(parts) <= limit:
+    words = {1: 28, 2: 48}.get(limit, 65)    # long run-on sentences count too (Shannon's Oct 16 chat review)
+    keep = parts[:limit]
+    while len(keep) > 1 and len(" ".join(keep).split()) > words:
+        keep.pop()
+    if keep == parts:
         return text
-    return " ".join(parts[:limit]).strip()
+    return " ".join(keep).strip()
 
 
 def pick_notes(notes: list[str], message: str, limit: int = 12) -> list[str]:
