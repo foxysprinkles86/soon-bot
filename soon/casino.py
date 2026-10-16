@@ -105,7 +105,7 @@ async def cashier(message: discord.Message, bank: Bank):
             f"💵 Claim: {ts(claim[0]) if claim else '**ready!** Type `claim`'}\n"
             f"🎟️ Free scratch: {ts(sc[0]) if sc else '**ready!** Type `scratch`'}\n"
             f"🧾 Cash out: {f'{co[1]}/{CASHOUT_LIMIT} tacos used, resets {ts(co[0])}' if co else f'{CASHOUT_LIMIT} tacos available'}\n"
-            f"💳 Chip loans: {f'{bc[1]}/{LOAN_LIMIT} tacos used, resets {ts(bc[0])}' if bc else f'{LOAN_LIMIT} tacos available'}\n"
+            f"💳 Taco-debt loans: {f'{bc[1]}/{LOAN_LIMIT} used, resets {ts(bc[0])}' if bc else f'{LOAN_LIMIT} available'}\n"
             f"🦹 Heists: type `heist` for the heist board\n{crime}"
             f"-# Chips: {w.chips} {C} • Tacos: {w.tacobal} 🌮 • "
             f"{random.choice(['Tick tock.', 'Patience is a virtue. You have neither.'])}")
@@ -119,7 +119,7 @@ async def cashier(message: discord.Message, bank: Bank):
             f"{u} • Chips: **{w.chips}** {C} • Tacos: **{w.tacobal}** 🌮\n"
             f"💵 `claim`: {CLAIM_EVERY} {C} every 12 hours • {f'next {ts(claim[0])}' if claim else '**ready!**'}\n"
             f"🧾 `cash out 50`: **sell** {CASHOUT_RATE} {C} for 1 🌮 • {co[1] if co else 0}/{CASHOUT_LIMIT} used\n"
-            f"💳 `buy chips`: **borrow** {LOAN_RATE} {C} for 1 🌮 • debt allowed • {bc[1] if bc else 0}/{LOAN_LIMIT} used\n"
+            f"💳 `buy chips`: sell 1 🌮 for {LOAN_RATE} {C} (as many as you have) • into taco debt: {bc[1] if bc else 0}/{LOAN_LIMIT} loans used\n"
             f"🎟️ `buy scratch`: 5 {C} a card • ⏰ `timers`: all cooldowns\n"
             f"-# How can I take your money today?", embed=pic("cashier.gif"))
 
@@ -154,10 +154,18 @@ async def cashier(message: discord.Message, bank: Bank):
     elif re.search(r"buy\s+chips|loan|borrow|credit|more chips", m):
         num = re.search(r"\d+", m)
         want = max(1, int(num.group())) if num else 1
-        got, used, resets = await bank.use_allowance(gid, uid, "bcwin", want, LOAN_LIMIT, WINDOW)
+        # Shannon, Oct 16: tacos you HAVE sell freely (down to 0). Only going INTO taco debt is a loan: 3 per 12 hours.
+        own = min(want, max(w.tacobal, 0))
+        loan, used, resets = 0, 0, None
+        if want > own:
+            loan, used, resets = await bank.use_allowance(gid, uid, "bcwin", want - own, LOAN_LIMIT, WINDOW)
+        else:
+            t = await bank.timer(gid, uid, "bcwin")
+            used = t[1] if t else 0
+        got = own + loan
         if not got:
-            await send(f"💳 {u} Credit limit reached. {LOAN_LIMIT} tacos of loans per 12 hours. Even I have standards. Barely.\n"
-                       f"-# More credit {ts(resets)} • Tacos: {w.tacobal} 🌮")
+            await send(f"💳 {u} Credit limit reached. {LOAN_LIMIT} tacos of taco-debt loans per 12 hours. Even I have "
+                       f"standards. Barely.\n-# More credit {ts(resets)} • Tacos: {w.tacobal} 🌮 • Out of chips? `broke`")
             return
         w = await bank.add(gid, uid, "chip loan", chips=got * LOAN_RATE, tacobal=-got)
         if w.tacobal < 0:
@@ -173,8 +181,8 @@ async def cashier(message: discord.Message, bank: Bank):
                                   "Those tacos are mine now. I'm not giving them back."])
         await send(f"💳 **Casa de Soon Credit Department**\n# {DANCE} +{got * LOAN_RATE} {C} {DANCE}\n"
                    f"{u} trades **{got} taco{s(got)}** for **{got * LOAN_RATE} {C}**. {quip}\n"
-                   f"-# Chips: {w.chips} {C} • Tacos: {w.tacobal} 🌮 • Loans used: {used}/{LOAN_LIMIT} tacos this 12 hours"
-                   f"{' (limit hit, I gave you what I could)' if want > got else ''}")
+                   f"-# Chips: {w.chips} {C} • Tacos: {w.tacobal} 🌮 • Taco-debt loans used: {used}/{LOAN_LIMIT} this 12 hours"
+                   f"{' (loan limit hit, I gave you what I could)' if want > got else ''}")
 
     elif re.search(r"cash\s*out", m):
         num = re.search(r"\d+", m)
@@ -397,20 +405,23 @@ async def broke_help(message, bank: Bank):
         return f"next <t:{int(t[0].timestamp())}:R>" if t else "**ready now!**"
     claim, scratch, bribed = (await bank.timer(gid, uid, "claimcd"), await bank.timer(gid, uid, "scratchcd"),
                               await bank.timer(gid, uid, "brokebribe"))
-    lines = ["# 💋 The Broke Bitch Menu 💋", (f"{u}, you're in chip debt ({w.chips} {C}). Nobody leaves my casino without a way to play." if w.chips < 0 else
+    lines = ["# 💋 The Broke Bitch Menu 💋",
+             (f"{u}, you're in chip debt ({w.chips} {C}). Nobody leaves my casino without a way to play." if w.chips < 0 else
               f"{u}, you're down to {w.chips} {C}. Nobody leaves my casino without a way to play." if w.chips < BROKE_MIN else
-              f"{u} claims to be broke with **{w.chips} {C}**. Suspicious. Here's the menu anyway."),
-             f"💵 `claim`: {CLAIM_EVERY} free {C} every 12 hours • {when(claim)}",
-             f"🎟️ `scratch`: a free scratch card every 12 hours • {when(scratch)}",
-             "🍹 `rob the bartender`: 50/50 for a free margarita and 25 chips",
-             f"🌮 `buy chips 1`: trade 1 taco for {LOAN_RATE} {C} (taco debt is allowed, I'm not a monster)",
-             "🌧️ hang around: someone always ends up making it rain"]
+              f"{u} claims to be broke with **{w.chips} {C}**. Suspicious. 🤨 Here's the menu anyway."),
+             "", "## Take the 💋Broke Bitch Bribe💋."]
     if bribed:
-        lines.append(f"💋 Your Broke Bitch Bribe is on cooldown ({when(bribed)}). Greedy.")
+        lines.append(f"Your Broke Bitch Bribe is on cooldown ({when(bribed)}). Greedy.")
     else:
-        lines.append(f"💋 **Or take the 💋Broke Bitch Bribe💋.** Tap below: I forget your claim and scratch cooldowns, wipe your chip debt AND slip "
-                     f"you {BROKE_GIFT} {C}. No chips needed. I accept winks."
-                     + ("" if w.chips < BROKE_MIN else f" (Only works when you're actually broke: under {BROKE_MIN} {C}.)"))
+        lines.append(f"**Tap below**: I reset your daily **loan**, **claim** and **scratch** cooldowns, **wipe** your chip debt "
+                     f"AND **slip** you {BROKE_GIFT} {C}. No chips needed. I accept winks."
+                     + ("" if w.chips < BROKE_MIN else f" (**Only works when you're actually broke: under {BROKE_MIN} {C}.**)"))
+    lines += ["",
+              f"💵 `claim`: {CLAIM_EVERY} free {C} every 12 hours • {when(claim)}",
+              f"🎟️ `scratch`: a free scratch card every 12 hours • {when(scratch)}",
+              "🍹 `rob the bartender`: 50/50 for a free margarita and 25 chips",
+              f"🌮 `buy chips 1`: trade 1 taco for {LOAN_RATE} {C} (taco debt is allowed, I'm not a monster)",
+              "🌧️ hang around: someone always ends up making it rain"]
     btns = [("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")]
     if not bribed:
         btns.insert(0, ("bribe soon broke", "Broke Bitch Bribe", "💋", discord.ButtonStyle.primary))
@@ -429,7 +440,7 @@ async def broke_bribe(message, bank: Bank):
         await message.channel.send(f"💋 {u} I already took your bribe. My integrity recharges <t:{int(cd[0].timestamp())}:R>.")
         return
     await bank.set_timer(gid, uid, "brokebribe", BROKE_CD)
-    for k in ("claimcd", "scratchcd", "robbar", "barban"):
+    for k in ("claimcd", "scratchcd", "robbar", "barban", "bcwin"):
         await bank.clear_timer(gid, uid, k)
     gift = BROKE_GIFT - min(w.chips, 0)                  # chip debt gets wiped too: they always end up able to play
     w = await bank.add(gid, uid, "broke bribe", chips=gift)
@@ -437,7 +448,7 @@ async def broke_bribe(message, bank: Bank):
                           "You bribed me with puppy eyes. It worked. Tell no one.",
                           "I've been bribed with worse. Mostly by Kor.",
                           "Fine. The house takes pity. Once."])
-    await message.channel.send(f"💋 {u} {line}\nCooldowns forgotten: `claim`, `scratch` and the bar are ready. "
+    await message.channel.send(f"💋 {u} {line}\nCooldowns forgotten: `claim`, `scratch`, the bar and your taco loans are ready. "
                                f"I also slipped **{gift} {C}** under the table{' (debt included)' if gift > BROKE_GIFT else ''}. Chips: {w.chips} {C}",
                                view=buttons.view(
                                    ("claim", "Claim", "💵", discord.ButtonStyle.success), ("scratch", "Free scratch", "🎟️")))
