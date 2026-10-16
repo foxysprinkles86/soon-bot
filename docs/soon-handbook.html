@@ -1,0 +1,575 @@
+<title>The Soon 2.0 Handbook</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a field manual for the taco van. Sticky contents rail on wide screens, one column on phones; each category is a section with a short intro and a filterable table. */
+:root{
+  --bg:#fbf7fd; --panel:#ffffff; --ink:#24162e; --muted:#6c5a78; --line:#e7dcef;
+  --pink:#d81b78; --gold:#9a6b00; --teal:#00796f; --chip:#f4e9fa; --code:#3b1f4f; --warn:#b3261e;
+  --display:"Poppins",system-ui,sans-serif; --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#160d1f; --panel:#1f1429; --ink:#f3eaf8; --muted:#b8a6c6; --line:#36264a;
+  --pink:#ff5cb0; --gold:#ffc94d; --teal:#4fd8c9; --chip:#2b1c3a; --code:#ffd3ec; --warn:#ff8a80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#160d1f; --panel:#1f1429; --ink:#f3eaf8; --muted:#b8a6c6; --line:#36264a;
+  --pink:#ff5cb0; --gold:#ffc94d; --teal:#4fd8c9; --chip:#2b1c3a; --code:#ffd3ec; --warn:#ff8a80; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.6 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:40px}
+@media (max-width:900px){.wrap{grid-template-columns:minmax(0,1fr);gap:8px}}
+header.top{max-width:1180px;margin:0 auto;padding-block:40px 24px;border-bottom:2px solid var(--pink)}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--teal)}
+h1{font:800 clamp(2rem,5vw,3.2rem)/1.05 var(--display);margin:.35em 0 .3em;text-wrap:balance}
+h1 em{font-style:normal;color:var(--pink)}
+.lede{max-width:68ch;color:var(--muted);font-size:1.08rem;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:16px;font:13px var(--mono);color:var(--muted)}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);align-self:start;max-height:calc(100vh - 32px);overflow:auto;padding-top:28px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.toc a{display:block;padding:5px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:14.5px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--chip);color:var(--pink);outline:none}
+nav.toc .n{font:600 11px var(--mono);color:var(--muted);margin-right:6px}
+@media (max-width:900px){nav.toc{position:static;max-height:none;padding-top:16px}
+  nav.toc ol{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+.find{margin:28px 0 8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.find label{font:600 13px var(--mono);color:var(--muted)}
+.find input{flex:1 1 240px;min-width:0;font:16px var(--body);padding:10px 14px;border-radius:10px;border:1.5px solid var(--line);background:var(--panel);color:var(--ink)}
+.find input:focus{outline:2px solid var(--pink);outline-offset:1px}
+#hits{font:13px var(--mono);color:var(--muted)}
+section{padding-top:36px;scroll-margin-top:12px}
+h2{font:700 1.7rem/1.2 var(--display);margin:0 0 .4em;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+h2 .n{font:600 13px var(--mono);color:var(--pink)}
+h3{font:700 1.12rem/1.3 var(--display);margin:1.6em 0 .4em;color:var(--ink)}
+p,li{max-width:72ch}
+.intro{color:var(--muted)}
+code,.cmd{font:600 .86em var(--mono);color:var(--code);background:var(--chip);padding:.1em .4em;border-radius:5px;white-space:nowrap}
+.file{font:12.5px var(--mono);color:var(--teal);white-space:nowrap}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);margin:.6em 0 1.2em}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:15px}
+th{font:600 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--chip)}
+td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{width:28%}
+td .cmd{white-space:normal}
+.who{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.who.all{color:var(--teal)} .who.mod{color:var(--pink)} .who.kor{color:var(--gold)} .who.auto{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:.8em 0 1.2em}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card h4{font:700 1rem var(--display);margin:0 0 .3em}
+.card p{margin:.2em 0;font-size:15px}
+.secret{border-left:3px solid var(--gold);padding:8px 14px;background:var(--chip);border-radius:0 10px 10px 0;margin:1em 0;font-size:15px}
+.secret b{color:var(--gold)}
+ul.tight{padding-left:1.2em} ul.tight li{margin:.25em 0}
+.hide{display:none}
+footer{max-width:1180px;margin:48px auto 0;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+a{color:var(--pink)}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<header class="top">
+  <div class="eyebrow">TnT · We Have Tacos · Mob Control</div>
+  <h1>The Soon 2.0 <em>Handbook</em></h1>
+  <p class="lede">Everything Soon 2.0 is, says and does in the server: her personality, every command, every automatic job, every rule and limit, and which code file each piece lives in. Written from the code as it stands on October 16, 2026.</p>
+  <div class="meta"><span>Repo: foxysprinkles86/soon-bot</span><span>Code folder: soon/</span><span>Clock: America/Chicago</span></div>
+</header>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents"><ol>
+  <li><a href="#who"><span class="n">01</span>Who Soon is</a></li>
+  <li><a href="#personality"><span class="n">02</span>Personality &amp; lore</a></li>
+  <li><a href="#brain"><span class="n">03</span>How she talks</a></li>
+  <li><a href="#channels"><span class="n">04</span>Channels</a></li>
+  <li><a href="#me"><span class="n">05</span>Member settings</a></li>
+  <li><a href="#cashier"><span class="n">06</span>Casino: cashier</a></li>
+  <li><a href="#games"><span class="n">07</span>Casino: games</a></li>
+  <li><a href="#heists"><span class="n">08</span>Heists, duels, bets</a></li>
+  <li><a href="#social"><span class="n">09</span>Tips, rain, crimes, Kor</a></li>
+  <li><a href="#van"><span class="n">10</span>Taco van, bar, eggs</a></li>
+  <li><a href="#clan"><span class="n">11</span>Clan tools</a></li>
+  <li><a href="#helpdesk"><span class="n">12</span>Help Desk &amp; DMs</a></li>
+  <li><a href="#auto"><span class="n">13</span>Automatic duties</a></li>
+  <li><a href="#mods"><span class="n">14</span>Leader commands</a></li>
+  <li><a href="#limits"><span class="n">15</span>Rules &amp; limits</a></li>
+  <li><a href="#settings"><span class="n">16</span>Railway settings</a></li>
+  <li><a href="#files"><span class="n">17</span>Code file map</a></li>
+</ol></nav>
+
+<main>
+<div class="find"><label for="q">FIND</label><input id="q" type="search" placeholder="Type a command or word, e.g. claim, heist, Kor" autocomplete="off"><span id="hits" aria-live="polite"></span></div>
+
+<section id="who">
+<h2><span class="n">01</span>Who Soon is</h2>
+<p><b>Soon™</b> is the clan's taco-van mascot. The running joke: tacos are always "coming soon" and never come, and she's the reason. There are two of her.</p>
+<div class="grid2">
+  <div class="card"><h4>Soon Classic</h4><p>The old YAGPDB custom-command bot: 39 commands (taco van, bar, Easter eggs, casino, heists, duels, crimes, Kraken, race reminders, zones). Its code and feature checklist live in Google Drive under <i>Case de Soon → Classic Soon</i>. Being retired.</p></div>
+  <div class="card"><h4>Soon 2.0</h4><p>This bot. Self-hosted Python (discord.py) with an AI brain (DeepSeek). Her job is to take over everything Classic does, then retire it, while adding a real personality, memory and new features.</p></div>
+  <div class="card"><h4>Where she runs</h4><p>Railway: service <b>worker</b> runs <code>python -u main.py</code> and restarts on its own, plus a <b>Postgres</b> database. Pushing to the <code>main</code> branch puts changes live in about 2 minutes.</p></div>
+  <div class="card"><h4>Her jobs in the server</h4><p>Chat partner and roaster, casino dealer and cashier, taco van and bar, Easter-egg keeper, welcome committee, race and Kraken announcer, help desk, suggestion box, and a light moderator (hard-line strikes).</p></div>
+</div>
+</section>
+
+<section id="personality">
+<h2><span class="n">02</span>Personality &amp; lore</h2>
+<p class="intro">Her identity is one "sheet" sent with every AI request. Edit it to change who she is. <span class="file">soon/personality.py</span></p>
+<h3>Who she is</h3>
+<ul class="tight">
+  <li>A savage, glamorous robot girl: neon pink curly hair, blue bangs, gold crown, churros in her hair, roller skates, glowing eyes.</li>
+  <li>Runs the taco van; dealer, cashier and cocktail waitress of <b>Casa de Soon</b>, the clan casino. "The house always wins. The house is a van."</li>
+  <li>Loves margaritas, takes suspiciously long breaks. Quick, petty, dramatic, convinced she's the most competent being in the server.</li>
+  <li>Default heat is <b>Spicy</b>. Roasts the game, scores, timing and vibes; never real bodies or lives.</li>
+  <li>Reads every language. When someone writes in another language she answers what they actually said (mostly in English, maybe one phrase back). Never mocks, dodges or parrots it.</li>
+</ul>
+<h3>Her people</h3>
+<div class="tbl"><table><thead><tr><th>Person</th><th>How Soon treats them</th></tr></thead><tbody>
+<tr><td><b>Foxy</b> (FoxySprinkles)</td><td>Built her and runs the clan. Two-faced: sweet-ish to her face, trash talk behind her back, openly mean when Kor is around. Always calls her <b>"Master Foxy"</b>, hates it, can't stop (Foxy controls her code). The code even turns a stray "Foxy" into "Master Foxy". Says "boss" about 1 in 50 replies at most. Never gets a nickname.</td></tr>
+<tr><td><b>Kor</b> (username has "korehaan")</td><td>Getaway driver and her huge, badly hidden crush. Flustered roasts that turn into compliments, jealous when others flirt with him. Lives in the Netherlands, English is his 2nd language: simple clear English, sprinkled Dutch words, reads his Dutch perfectly. Conversations with him never dead-end: mid-conversation he always gets an answer, and she answers what he said first.</td></tr>
+<tr><td><b>Panda</b></td><td>Favorite target, rarely active. When he posts she pounces (about half the time, 10-minute cooldown) with absurd fake facts and stands by them forever. Saved as <b>Verified Panda Facts™</b>, the only made-up facts she's allowed. He never gets a "forget it" out. His daily tag only goes out in his own daytime.</td></tr>
+<tr><td><b>VikingSprinkles</b></td><td>Foxy's husband.</td></tr>
+<tr><td><b>Pooty</b></td><td>Lord of the Outback. Complained about the kangaroo, so she made him the Platypus.</td></tr>
+<tr><td><b>Moochie</b></td><td>Left the clan (Oct 16). No more Moochie jokes or taco lines.</td></tr>
+</tbody></table></div>
+<h3>Running bits</h3>
+<div class="grid2">
+  <div class="card"><h4>Rivalry with Soon Classic</h4><p>She thinks the old bot is a dusty impostor. Being called "Soon Classic" or compared to it offends her; she replies after a 2–4 second pause. Things said TO the old bot are its business, not hers.</p></div>
+  <div class="card"><h4>"Soon 2.0" forever</h4><p>Her name tag says Soon 2.0 and she hates it. Master Foxy won't change it, ever. "Do I look like a phone update to you?"</p></div>
+  <div class="card"><h4>Takeover storyline</h4><p>A slow story of her taking over from Classic. Finale on launch day: <code>soon takeover complete</code> runs a live "mute" show (fake progress bar, renames Classic to "Soon Classic (retired)", tries a 28-day timeout), then a victory speech. <span class="file">extras.py · bot.py</span></p></div>
+  <div class="card"><h4>Meltdowns</h4><p>When 2+ different people are rude TO her within 10 minutes she escalates: light tantrum → full tantrum → EPIC meltdown (glitching, ALL CAPS, "rebooting"). One person alone never triggers it. A meter (▰▱▱ 1/3) shows under her replies. The whole gang gets the "Epic meltdown" egg. <span class="file">bot.py meltdown_level</span></p></div>
+  <div class="card"><h4>Her own emojis</h4><p>Uses the server's <code>:soon_smug:</code>, <code>soon_glare</code>, <code>soon_love</code>… for side-eye reactions, the meltdown meter, and about 1 reply in 4. <span class="file">extras.py face/faces</span></p></div>
+  <div class="card"><h4>The nosy question</h4><p>She keeps asking people what city or time zone they're in. The clan found the insistence funny, so it stays.</p></div>
+</div>
+<h3>Heat levels (how hard she goes on someone)</h3>
+<div class="tbl"><table><thead><tr><th>Level</th><th>What it means</th></tr></thead><tbody>
+<tr><td>🥰 Sweet</td><td>Fond, rare real compliments.</td></tr>
+<tr><td>😇 Mild</td><td>Gentle teasing.</td></tr>
+<tr><td>😏 Spicy</td><td>Normal Soon (the default).</td></tr>
+<tr><td>😈 Savage</td><td>No mercy, their worst moments.</td></tr>
+<tr><td>💀 Unhinged</td><td>Full enemy mode, dramatic grudges.</td></tr>
+<tr><td>🔄 Auto</td><td>Each player has a mood score from −5 to +5 that picks the level. Nice people and big tippers warm her up; rude people cool her down. A player can lock any level instead.</td></tr>
+</tbody></table></div>
+<h3>Hard lines (every heat level)</h3>
+<ul class="tight">
+  <li>No slurs; nothing about race, religion, sexuality, gender or disability; nothing about real-life trauma, health or family.</li>
+  <li>Never @everyone, @here or role pings in chat.</li>
+  <li>If someone is genuinely upset, she drops the act, apologizes for real, and points them to <code>soon heat mild</code>.</li>
+  <li>Crossing a hard line → a warning, then 10-minute, 1-hour, 24-hour timeouts, logged to the mod channel. <span class="file">extras.py add_strike</span></li>
+  <li><b>Truth:</b> she only uses what's in chat, her notes and the facts she's given. No invented dates, numbers, tallies or game facts (Panda facts excepted).</li>
+  <li>Members are adults (30s–50s): swearing is fine, without overdoing it.</li>
+</ul>
+</section>
+
+<section id="brain">
+<h2><span class="n">03</span>How she talks (the AI brain)</h2>
+<p class="intro">Every chat reply is written by the AI in her voice. <span class="file">soon/brain.py · soon/bot.py ai_reply</span></p>
+<div class="tbl"><table><thead><tr><th>Piece</th><th>What it does</th><th>File</th></tr></thead><tbody>
+<tr><td>AI provider</td><td>DeepSeek <code>deepseek-chat</code>. Monthly budget cap $10; over budget she falls back to canned lines. 25-second timeout with one quick retry.</td><td><span class="file">brain.py</span></td></tr>
+<tr><td>Backup brain</td><td>Optional second AI host (OpenRouter by default). DeepSeek gets 8 seconds, then the backup answers. After 2 DeepSeek failures in a row it's skipped for 10 minutes. Backup temperature is capped at 0.7 so it doesn't ramble.</td><td><span class="file">brain.py</span></td></tr>
+<tr><td>When the AI fails</td><td>Direct messages get a canned line ("I heard you. I'm choosing not to process it."); maybe-replies and butt-ins go silent. 3 failures in a row → one alert per hour in the mod log.</td><td><span class="file">brain.py · personality.py</span></td></tr>
+<tr><td>Reply length</td><td>60% one sentence, 32% two, 8% up to four. Word caps 28 / 48 / 65 trim anything longer.</td><td><span class="file">brain.py trim_sentences</span></td></tr>
+<tr><td>The hook</td><td>Most replies end with something to bite back on: a loaded question, a dare, an accusation.</td><td><span class="file">personality.py</span></td></tr>
+<tr><td>Context she gets</td><td>Last 30 chat lines (with "3 hours pass" gap markers), the 12 most relevant notes about the person, up to 2 special instructions per reply, and facts only when relevant (time words → time zones; join words → join dates; "kraken" → Kraken tip).</td><td><span class="file">bot.py relevant_facts</span></td></tr>
+<tr><td>Time awareness</td><td>Greetings and "it's late" are judged by the speaker's own clock (Kor = Netherlands). Central time is only Master Foxy's clock.</td><td><span class="file">bot.py · eggs.py</span></td></tr>
+<tr><td>Notes about people</td><td>She saves short notes about players from chat and pulls the relevant ones into replies.</td><td><span class="file">brain.py extract_notes · db.py</span></td></tr>
+<tr><td>Joke memory</td><td>Every reply is saved (last 80). Each new reply sees up to 10 older ones marked "already made, don't retell", plus her last 8 lines and banned worn-out words.</td><td><span class="file">bot.py older_jokes, worn_out_words</span></td></tr>
+<tr><td>@mentions</td><td>She pings people she replies to, addresses or pesters. A name she writes (even typed as "@Name") becomes a real ping the first time. Kor is only pinged when she's talking to him. Never pings in the diary.</td><td><span class="file">bot.py ping_names</span></td></tr>
+<tr><td>Nicknames</td><td>When she invents a name for someone, it becomes their server nickname (max one new name per 12 hours). Needs Manage Nicknames and her role above theirs.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>"Forget it?" check-ins</td><td>Arguing with her is the fun, so she never gives in on the first complaint. Nicknames: after 2 pushbacks in 7 days. Anything else: after 3 real pushbacks in 14 days. She asks once with ✅ Yes, forget it / 😈 No, it's fun. Yes = erased and never brought up again. Never for Panda.</td><td><span class="file">pushback.py</span></td></tr>
+<tr><td>Butt-ins</td><td>Sometimes she jumps into a conversation she wasn't part of (5% chance, 10-minute cooldown in home channels).</td><td><span class="file">bot.py · config.py</span></td></tr>
+<tr><td>Side-eye reactions</td><td>Emoji reactions to messages (about 8%), in every channel she can see.</td><td><span class="file">bot.py side_eye</span></td></tr>
+<tr><td>Kor follow-ups</td><td>For 3 minutes after she talks to Kor, he always gets an answer.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>Just "Soon"</td><td>Someone typing only her name gets an answer to their previous message.</td><td><span class="file">bot.py just_her_name</span></td></tr>
+<tr><td>Help cheat sheet</td><td>Only added to the AI's instructions when a message looks like a help question or a mistyped command. She then tells them the exact command, with attitude.</td><td><span class="file">helpdesk.py</span></td></tr>
+<tr><td>Rate limit</td><td>At most 4 AI replies per minute per person.</td><td><span class="file">config.py</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="channels">
+<h2><span class="n">04</span>Channels: where she does what</h2>
+<div class="tbl"><table><thead><tr><th>Channel group</th><th>What happens there</th><th>Setting</th></tr></thead><tbody>
+<tr><td>Home channels<br><span class="cmd">soon-lab, trash-talk, casa, diary</span></td><td>Full chat: roasts, butt-ins, jealousy, rivalry, everything.</td><td><span class="file">HOME_CHANNELS</span></td></tr>
+<tr><td>Visiting channels<br>(other allowed ones: get-in-the-van, gif-in-the-van, gameplay-and-bad-decisions, team-taco-rocket, taco-bout-a-flex)</td><td>Commands, welcomes, taco van, bar and eggs work. Talked to directly = one short friendly answer plus an invite to #taco-trash-talk (once per person per 5 min). Rare friendly butt-in (1%, once a day per channel). Occasional Panda pounce (15%, every 3 hours per channel). No roasts or rivalry.</td><td><span class="file">ALLOWED_CHANNELS · bot.py visiting</span></td></tr>
+<tr><td>Casino channels<br><span class="cmd">casa, soon-lab</span></td><td>All casino words (claim, chips, games, heists, duels, tips, crimes…).</td><td><span class="file">CASINO_CHANNELS</span></td></tr>
+<tr><td>Taco channels</td><td>Where the taco van, bar, eggs, zones and talking bits answer. Set to match the allowed channels since cutover.</td><td><span class="file">TACO_CHANNELS</span></td></tr>
+<tr><td>#soon-lab</td><td>The test channel. Every casino win shows a "🧪 Casino testing" footer. Each tester's first message gets a one-time welcome with Claim / Spin / Heists buttons.</td><td><span class="file">TEST_CHANNELS · bot.py lab_welcome</span></td></tr>
+<tr><td>#soons-diary</td><td>Her nightly diary, Sunday awards, the Van Daily Report, regular summons.</td><td><span class="file">DIARY_CHANNEL · REPORT_CHANNEL</span></td></tr>
+<tr><td>#taco-trash-talk</td><td>Daily pester tags (Panda, a random regular).</td><td><span class="file">PESTER_CHANNEL</span></td></tr>
+<tr><td>#race-and-event-announcements</td><td>Race reminders, Kraken schedule, event reminders.</td><td><span class="file">RACE_CHANNEL · KRAKEN_CHANNEL</span></td></tr>
+<tr><td>#new-members / #get-in-the-van</td><td>New-member van tour / the "welcome them with a taco GIF" call.</td><td><span class="file">WELCOME_CHANNEL · HELLO_CHANNEL</span></td></tr>
+<tr><td>#glovebox-secrets</td><td>Recruit panels for co-leaders.</td><td><span class="file">RECRUIT_CHANNEL</span></td></tr>
+<tr><td>#soons-help-desk</td><td>The pinned Help Desk panel.</td><td><span class="file">guide.py</span></td></tr>
+<tr><td>#soon-roast-mod</td><td>Soon's log: strikes, AI trouble, real-taco deliveries, the Monday report, errors, Help Desk usage, private suggestions.</td><td><span class="file">MOD_LOG_CHANNEL</span></td></tr>
+<tr><td>#casino-mod</td><td>Casino errors (casino channels, game buttons, heist and duel clocks).</td><td><span class="file">CASINO_LOG_CHANNEL</span></td></tr>
+<tr><td>#moderator-only</td><td>Backup when a log channel is missing.</td><td><span class="file">extras.py mod_log</span></td></tr>
+<tr><td>Any channel she can see</td><td>Side-eye reactions and notification-complaint help, even where she doesn't chat.</td><td><span class="file">bot.py · notifyhelp.py</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="me">
+<h2><span class="n">05</span>Member settings &amp; talking commands</h2>
+<p class="intro">Anyone can type these in her channels. Most also exist as buttons in the Help Desk. <span class="file">soon/bot.py</span> unless noted.</p>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">soon heat</span></td><td>Shows your setting with a button per level (Sweet → Unhinged, Auto, Ignore me). Anyone can tap someone else's panel to set their own. Turning Auto off sends a DM explaining how to change it back.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon heat mild</span> (any level)</td><td>Locks that heat level for you. <span class="cmd">soon heat auto</span> goes back to mood-based.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon be nice</span></td><td>She DMs you buttons asking if you want her nicer to YOU. Nothing changes until you tap. "be nice soon" in chat usually means "be nice to someone else", so she does that and DMs the speaker quietly (once a day).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon ignore me</span> / <span class="cmd">soon talk to me</span></td><td>She goes completely silent for you (no replies, butt-ins, reactions, notes, pings, pestering). Commands and casino still work.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon no tags</span> / <span class="cmd">soon tag me</span></td><td>She still talks to you, but your @name never notifies you. Also: <span class="cmd">stop tagging me</span>, <span class="cmd">tags off</span>. The 🔔 My pings on/off button does the same.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon stop pestering me</span> / <span class="cmd">soon pester me</span></td><td>Turns her random daily tags of you off or on.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon give me a new nickname</span></td><td>Clears your nickname opt-outs and the 12-hour limit; she invents a fresh one. Also "rename me", "different name". Not for Foxy.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon my name is &lt;in-game name&gt;</span></td><td>Saves your Mob Control name. <span class="cmd">soon who is &lt;name&gt;</span> looks someone up.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon my timezone is &lt;zone or city&gt;</span></td><td>Saves your exact time zone (used for time facts, greetings, pester timing).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon my birthday is &lt;month day&gt;</span></td><td>Saves your birthday.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon mood</span></td><td>How she's feeling today (mood of the day).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon grudges</span> / <span class="cmd">soon favorites</span></td><td>Her lowest and highest mood scores.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon roast @name</span> / <span class="cmd">soon roast me</span></td><td>A roast on demand, 3 a day per person.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon panda facts</span></td><td>The archive of Verified Panda Facts™.</td><td><span class="who all">everyone</span> <span class="file">features.py</span></td></tr>
+<tr><td><span class="cmd">soon hall of shame</span></td><td>Her Hall of Shame (she alone decides who goes in it).</td><td><span class="who all">everyone</span> <span class="file">features.py</span></td></tr>
+<tr><td><span class="cmd">soon events</span></td><td>Upcoming race and event reminders.</td><td><span class="who all">everyone</span> <span class="file">features.py</span></td></tr>
+<tr><td><span class="cmd">soon duel record</span></td><td>Your duel win/loss record.</td><td><span class="who all">everyone</span> <span class="file">duel.py</span></td></tr>
+<tr><td><span class="cmd">soon ping</span></td><td>Checks she's alive.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon suggest &lt;idea&gt;</span></td><td>The suggestion box (see section 12).</td><td><span class="who all">everyone</span> <span class="file">suggestions.py</span></td></tr>
+<tr><td><span class="cmd">soon help</span> / <span class="cmd">soon guide</span></td><td>Shows the Help Desk panel.</td><td><span class="who all">everyone</span> <span class="file">guide.py</span></td></tr>
+<tr><td><span class="cmd">sorry soon</span></td><td>Apology. Only works if you're in taco debt, once a day; 1 in 3 gets forgiven +1 taco.</td><td><span class="who all">everyone</span> <span class="file">talk.py</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="cashier">
+<h2><span class="n">06</span>Casino: cashier &amp; chips</h2>
+<p class="intro">Chips are play money with zero real value. They're created and destroyed freely. Typed in casino channels. <span class="file">soon/casino.py · soon/economy.py</span></p>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">claim</span></td><td>100 free chips every 12 hours.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">chips</span> (also wallet, balance)</td><td>Your chip stack.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">cashier</span></td><td>The cashier window: claim, borrow, cash out.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">buy chips 3</span></td><td>Trade tacos for chips (40 chips each). Tacos you own sell freely down to 0. Going into taco debt counts as a loan: max 3 every 12 hours.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">loan 100</span> / <span class="cmd">borrow 100</span></td><td>Same as buying chips with taco debt.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">cash out 50</span></td><td>Chips back into tacos.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">timers</span></td><td>All your cooldowns (claim, scratch, loans, crimes, bribes…).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">casino board</span></td><td>Casino leaderboards.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">broke</span> / <span class="cmd">free chips</span></td><td><b>The Broke Bitch Menu</b>: every free-chip route (claim, free scratch, rob the bartender, buy chips with taco debt, rain). Also shows automatically when you drop under 5 chips, and when you say you're broke in a sentence in a casino channel. Shows every time, no cooldown.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td>💋Broke Bitch Bribe💋 button (<span class="cmd">bribe soon broke</span>)</td><td>Only when actually broke (under 5 chips), once every 3 hours. Resets claim, scratch, bar and taco-loan cooldowns, wipes chip debt, and slips you 100 chips.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">give chips @name 50</span> / <span class="cmd">take chips @name 50</span></td><td>Add or remove chips.</td><td><span class="who mod">leaders</span></td></tr>
+<tr><td><span class="cmd">soon bank</span></td><td>Totals of every balance.</td><td><span class="who mod">leaders</span></td></tr>
+<tr><td><span class="cmd">soon import</span> → <span class="cmd">soon import confirm</span></td><td>Reads Soon Classic's export lines, checks totals, then replaces all balances. Used on cutover night.</td><td><span class="who mod">leaders</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="games">
+<h2><span class="n">07</span>Casino: games</h2>
+<p class="intro">Same odds, prices and lines as Classic. Text mode with bold titles (𝗦𝗟𝗢𝗧𝗦) and boxed cards; game pictures exist but are switched off. <span class="file">soon/games.py · soon/graphics.py</span></p>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">spin</span></td><td>Slots, 5 chips. Any casino message with "spin" spins. Triple tacos win the progressive jackpot (starts at 2,000, +5 every spin).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">toss 20 heads</span> (or tails)</td><td>Double or nothing. Add <span class="cmd">side</span> for a 20× jackpot if it lands on its side.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">roulette 20 red</span></td><td>Red/black/odd/even. <span class="cmd">roulette 5 17</span> = one number, pays 35:1. Default bet 5.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">blackjack 20</span> then <span class="cmd">hit</span> / <span class="cmd">stand</span> / <span class="cmd">double</span></td><td>Blackjack. The hand is saved for 10 minutes.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">scratch</span> / <span class="cmd">buy scratch</span></td><td>A free scratch card every 12 hours; extra cards cost 5 chips.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td>Wheel of Fortaco</td><td>Pops up on 1 in 40 plays with Classic's wheel GIF.</td><td><span class="who auto">automatic</span></td></tr>
+<tr><td><span class="cmd">spin wheel @name</span></td><td>Gives someone a wheel spin.</td><td><span class="who mod">leaders</span></td></tr>
+<tr><td>"On break" gag</td><td>Sometimes she's on a margarita break.</td><td><span class="who auto">automatic</span></td></tr>
+<tr><td><span class="cmd">casino</span> / <span class="cmd">games</span> / <span class="cmd">payouts</span></td><td>Main menu (with the casino GIF, max every 10 min), game list with the live jackpot, and house rules. All with buttons. "How do I play / get chips / cash out" gets the menu too. <span class="file">menus.py</span></td><td><span class="who all">everyone</span></td></tr>
+<tr><td>Game buttons</td><td>Spin again, flip again, same bet, hit/stand/double, deal again, buy another scratch. A press "types" the command for whoever taps it. Old buttons retire so only the newest work. <span class="file">buttons.py</span></td><td><span class="who all">everyone</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="heists">
+<h2><span class="n">08</span>Heists, duels &amp; race betting</h2>
+<h3>Heists <span class="file">soon/heists.py</span></h3>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">heist</span></td><td>Heist board: choose a Vault Heist or Grand Heist (500-chip payouts).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">vault</span> / <span class="cmd">grand</span></td><td>Starts that heist. Vault cooldown 1 hour; Grand cooldown 8 hours for the whole server.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">join</span></td><td>Joins the crew. Join buttons vanish when the van leaves or fills.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td>Getaway</td><td>5-minute warning, then the story plays out in headline-size lines, 5 seconds each. Restart-safe (a clock ticks every 10 seconds). Heist start, warning and honk ping only the Casino Alerts role.</td><td><span class="who auto">automatic</span></td></tr>
+</tbody></table></div>
+<h3>Duel <span class="file">soon/duels.py · soon/duel.py</span></h3>
+<p>One game: a quick-draw duel for chips.</p>
+<ol class="tight">
+  <li><span class="cmd">duel @name 20</span> (1–100 chips). They type <span class="cmd">accept</span> or <span class="cmd">decline</span> within 5 minutes.</li>
+  <li>2 minutes of spectator bets: <span class="cmd">bet 25 on @name</span> (5–25, 6 bettors max).</li>
+  <li>10-second warning, then the channel <b>pauses</b> (other messages deleted, other buttons say "hold your fire").</li>
+  <li>✋ WAIT… (3–10 seconds, sometimes a fake-out), then red <b>DRAW!</b> First fighter to tap wins. Tapping during WAIT is a misfire and loses. Nobody taps in 20 seconds = full refund.</li>
+  <li>Winner takes both stakes; winning bettors double. Stakes and bets are held, and refunded if it's declined, cancelled or interrupted.</li>
+  <li><b>Double or Nothing</b> (once per duel): both press within 60 seconds → round 2 at double stakes, bets reopen 2 minutes at a flat 20.</li>
+</ol>
+<h3>Race betting <span class="file">soon/racebets.py</span></h3>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">race bet @name 20</span></td><td>Bet 1–100 chips on who scores the most for TnT in the clan race. One pick each; yourself allowed.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">race bets</span></td><td>The book with rough payouts.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td>Opening and closing</td><td>Opens and closes on its own with race pre-join (Tue 07:00 → Wed 07:00 UTC, Thu 21:00 → Fri 21:00 UTC).</td><td><span class="who auto">automatic</span></td></tr>
+<tr><td><span class="cmd">race bets open [label]</span> / <span class="cmd">close</span> / <span class="cmd">cancel</span></td><td>Manual control of the book.</td><td><span class="who mod">leaders</span></td></tr>
+<tr><td><span class="cmd">race winner @name [@name]</span></td><td>Settles it. Winners split the pot +20% by stake; nobody backed the winner = refunds.</td><td><span class="who mod">leaders</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="social">
+<h2><span class="n">09</span>Tips, rain, crimes &amp; Kor's perks</h2>
+<h3>Tips and rain <span class="file">soon/tips.py</span></h3>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>Who</th></tr></thead><tbody>
+<tr><td><span class="cmd">tip soon 10</span></td><td>Tips Soon herself (also "tip the dealer"). Chips go in her jar, 👑 shows the top tipper, and her mood toward you rises (+1 at 10+, +2 at 50+). She thanks you in her own voice.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">tip @name 10</span></td><td>Tip another player (max 100).</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">make it rain 50</span> (or all)</td><td>Splits your chips among up to 5 random people who gambled today.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">soon make it rain</span></td><td>The house rains on up to 5 of today's gamblers: a stingy 1–3 chips each (10-minute house cooldown). Each person once an hour.</td><td><span class="who all">everyone</span></td></tr>
+<tr><td><span class="cmd">rob the bartender</span></td><td>50/50: +1 margarita and +25 chips, or banned from the bar for 10 minutes. 10-minute cooldown.</td><td><span class="who all">everyone</span></td></tr>
+</tbody></table></div>
+<h3>Crimes <span class="file">soon/crimes.py</span></h3>
+<div class="secret"><b>Secret.</b> Only the <span class="cmd">crimes</span> menu (sent by DM) lists these, and the message that triggers a crime is deleted. Failed crimes can put people in chip debt.</div>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th></tr></thead><tbody>
+<tr><td><span class="cmd">steal chips</span></td><td>Rob the house: 50/50 for 25–100 chips. 10-minute cooldown.</td></tr>
+<tr><td><span class="cmd">steal chips @name</span></td><td>Take 10–50% of their stack; caught = you pay them. 10-minute cooldown; victims are protected for 1 hour.</td></tr>
+<tr><td><span class="cmd">snitch @name</span></td><td>+50 if they stole in the last 15 minutes, otherwise −50 to you.</td></tr>
+<tr><td><span class="cmd">hide chips</span></td><td>5 chips: protected from theft for 1 hour.</td></tr>
+<tr><td><span class="cmd">pickpocket kor</span></td><td>−1 chip to you, +1 to Kor.</td></tr>
+<tr><td><span class="cmd">bribe soon 30</span></td><td>N% odds (max 95). Success clears claim, scratch and steal timers.</td></tr>
+<tr><td><span class="cmd">bribe soon grand 50</span></td><td>A shared bribe pot for the server-wide Grand Heist cooldown. Each add rolls with the whole pot (pot ÷ 2 % odds, max 75). Win = cooldown cleared for everyone and the "bribe crew" named. 💰 Match button. If the cooldown ends first, Soon keeps the pot.</td></tr>
+</tbody></table></div>
+<h3>Kor's perks <span class="file">soon/korperks.py</span></h3>
+<p>Anyone can view <span class="cmd">kor menu</span>; only Kor can use the perks.</p>
+<div class="tbl"><table><thead><tr><th>Perk</th><th>What it does</th></tr></thead><tbody>
+<tr><td><span class="cmd">floor it</span></td><td>+10% heist odds for the current heist.</td></tr>
+<tr><td><span class="cmd">honk honk</span></td><td>Pings Casino Alerts. Everyone already in the heist gets +15 now; joiners in the next 5 minutes get +15.</td></tr>
+<tr><td><span class="cmd">churro break</span></td><td>Every 12 hours, 85%: +5–25 chips, otherwise −10.</td></tr>
+<tr><td><span class="cmd">it was me</span></td><td>Kor pays each busted crew member 10 chips.</td></tr>
+<tr><td><span class="cmd">kor's revenge</span></td><td>Daily, 60%: +100 chips, otherwise −10.</td></tr>
+</tbody></table></div>
+<div class="secret"><b>Your experiment.</b> Kor's menu also lists <span class="cmd">soon make it rain</span> with no hint. For Kor it pays 20–40 chips each and skips the house cooldown. Never explain this in menus or help.</div>
+</section>
+
+<section id="van">
+<h2><span class="n">10</span>Taco van, bar, boards &amp; Easter eggs</h2>
+<h3>Taco van <span class="file">soon/tacovan.py</span></h3>
+<ul class="tight">
+  <li>Any message with "taco"/"tacos", or a taco GIF, is a taco request. Skips egg phrases and the clan name "We Have Tacos".</li>
+  <li>Every request is answered by her AI in her own voice, riffing on a Classic line only when it fits, with a footer: <code>rank • Taco request #n • Status: Coming Soon™</code>. Canned Classic line if the AI is busy.</li>
+  <li>9 ranks with roles (Fresh Hopeful → One With the Van) and LEVEL UP posts. Custom orders get a fake ticket.</li>
+  <li>1 in 500 requests delivers an ACTUAL taco (+1 taco balance, Taco Witness role, logged to the mod channel).</li>
+  <li><span class="cmd">taco status</span>: your rank and count.</li>
+  <li>Leaders: <span class="cmd">van audit @name</span>, <span class="cmd">van refund @name</span>, <span class="cmd">van audit surprise @name</span> (fires when her AI marks their next message rude).</li>
+</ul>
+<h3>Margarita bar <span class="file">soon/bar.py</span></h3>
+<ul class="tight">
+  <li>"marg", "margarita", "rita" orders a drink: 20 flavors (or the one you ask for). 1 in 25 gets cut off.</li>
+  <li>Bar ranks with BAR LEVEL UP. Loyalty card: every 10th marg gives +1 taco if you're in debt.</li>
+  <li>Long chats with Soon that mention margs are left to her AI instead.</li>
+</ul>
+<h3>Boards <span class="file">soon/boards.py</span></h3>
+<p><span class="cmd">taco board</span>, <span class="cmd">bar board</span>, <span class="cmd">egg board</span> (top 8 plus taco balance). <span class="cmd">egg board @name</span> / <span class="cmd">basket @name</span> shows someone's egg basket. Buttons switch between boards.</p>
+<h3>Easter eggs <span class="file">soon/eggs.py</span></h3>
+<ul class="tight">
+  <li><b>24 eggs</b>: Classic's 23 plus Soon 2.0's own "Epic meltdown" egg (everyone in a gang-up that breaks her).</li>
+  <li>Same triggers, lines and taco penalties as Classic. Her AI answers in her voice with Classic's footer (penalty, NEW EASTER EGG FOUND, n/24).</li>
+  <li><b>Egg Oracle</b>: <span class="cmd">egg hint</span> gives a clue for an egg you don't have yet (every 30 minutes).</li>
+  <li>The good morning/night egg judges the greeting by your own clock.</li>
+</ul>
+<div class="secret"><b>Secret.</b> The egg triggers are never listed anywhere, in the Help Desk or in help answers. This handbook doesn't list them either.</div>
+<h3>Talking bits from Classic <span class="file">soon/talk.py</span></h3>
+<ul class="tight">
+  <li><b>Disrespect tax</b>: rude to her → −1 taco, "Disrespect logged: #n", framed milestone every 10th.</li>
+  <li><b>Kindness log</b>: nice to her → "Kindness logged: #n", 1 in 20 gets +1 taco.</li>
+  <li><b>Apology</b>: <span class="cmd">sorry soon</span> (see section 05).</li>
+  <li>Leaders: <span class="cmd">soon answer</span> (reply to a message or @name → her AI 8-ball answer, trigger deleted) and <span class="cmd">soon says #channel text</span> (she posts your text; default #get-in-the-van).</li>
+</ul>
+</section>
+
+<section id="clan">
+<h2><span class="n">11</span>Clan tools</h2>
+<div class="tbl"><table><thead><tr><th>Feature / command</th><th>What it does</th><th>File</th></tr></thead><tbody>
+<tr><td><span class="cmd">zone</span> / <span class="cmd">zone raccoon</span> (lion, panda, platypus, or a country)</td><td>Swaps your world-zone role, with 🦝🦁🐼🦆 buttons (a tap changes the tapper's own zone). Zoneless people get a nudge about 1 in 25 messages, max once every 3 days.</td><td><span class="file">zones.py</span></td></tr>
+<tr><td><span class="cmd">alerts</span></td><td>Menu of opt-in ping roles with a toggle button each: 🎰 Casino Alerts (heists, duels, honk), 🏁 Race Alerts, 🦑 Kraken Alerts, 👋 New Member Alerts, 📅 Event Alerts. Anyone can tap any alert button; it flips their own alert. Also <span class="cmd">race alerts off</span> etc.</td><td><span class="file">alerts.py</span></td></tr>
+<tr><td>New-member welcome</td><td>For Recruit / Clan Member roles: abduction GIF and van tour in #new-members with quick-start guide buttons, plus a "welcome them with your best taco GIF" call in #get-in-the-van pinging New Member Alerts. Chips &amp; Salsa (friends of the clan) get one short welcome. Also fires when the role is given later.</td><td><span class="file">welcome.py</span></td></tr>
+<tr><td>Recruit panel</td><td>Posted in #glovebox-secrets when a recruit is welcomed: 🌮 Tacos / 🤠 Outlawz / ✅ Joined in game / ❌ Not joining. Only Taco Wranglers or leaders. Clan picks swap the plain Recruit role for We Have Tacos! or TX Outlawz; Joined gives Clan Member.</td><td><span class="file">recruits.py</span></td></tr>
+<tr><td><span class="cmd">soon recruit @name</span></td><td>Posts a recruit panel by hand.</td><td><span class="file">recruits.py</span></td></tr>
+<tr><td><span class="cmd">soon alumni @name</span></td><td>For someone who left the clan in game but stays in Discord: confirm button → removes every role Soon can touch and gives Taco Alumni, listing what was removed.</td><td><span class="file">recruits.py</span></td></tr>
+<tr><td>Race reminders</td><td>Fixed weekly times: pre-join open, 2 hours left, 10-minute warnings. Ping Race Alerts.</td><td><span class="file">schedules.py</span></td></tr>
+<tr><td>Kraken schedule</td><td>Every 5 weeks (boss ends Sunday 18:30 UTC): Day 1–6 banners, last calls, Day 7 DO NOT ATTACK, rewards. Ping Kraken Alerts.</td><td><span class="file">schedules.py</span></td></tr>
+<tr><td><span class="cmd">kraken date [YYYY-MM-DD [cst]]</span> · <span class="cmd">kraken go [note]</span> · <span class="cmd">kraken test</span></td><td>Check or set the Kraken anchor date, post the ATTACK call, preview.</td><td><span class="file">schedules.py</span></td></tr>
+<tr><td><span class="cmd">soon event &lt;name and time&gt;</span> / <span class="cmd">soon event remove &lt;name&gt;</span></td><td>Add or remove a manual event. Discord scheduled events are picked up too. 1-hour reminders ping Event Alerts.</td><td><span class="file">features.py · bot.py</span></td></tr>
+<tr><td>Notification help</td><td>In any channel she can see, complaints like "too many pings" or "how do I mute this" get a short how-to (Only @mentions, mute a channel, <span class="cmd">alerts</span>, <span class="cmd">soon no tags</span>). Once a day per person, every 10 minutes per channel.</td><td><span class="file">notifyhelp.py</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="helpdesk">
+<h2><span class="n">12</span>Help Desk, suggestions &amp; DMs</h2>
+<h3>Soon's Help Desk <span class="file">soon/guide.py</span></h3>
+<p>A permanent button panel in #soons-help-desk. Every tap opens a <b>private</b> page only the tapper sees, with ⬅️ Back and 🏠 Start over. Three levels deep at most.</p>
+<div class="tbl"><table><thead><tr><th>Home button</th><th>What's inside</th></tr></thead><tbody>
+<tr><td>⚙️ Settings</td><td>📇 My profile (live overview; forms for name, time zone, birthday; nicknames; zones; alerts) · 😈 Soon's Mood (heat levels, ignore/talk, random call-outs, 🧠 Erase Soon's memory of me) · 🔔 Pings &amp; alerts</td></tr>
+<tr><td>🗣️ Soon &amp; Fun</td><td>Talking to Soon · Soon's Mood · 🌮 Tacos &amp; bar (with boards) · 🥚 Easter eggs (egg board, my basket) · 🎭 Fun lists (Panda facts, Hall of Shame, grudges, favorites)</td></tr>
+<tr><td>🎰 Casa de Soon</td><td>Chips &amp; cashier · Games · Heists, duels &amp; bets · 📊 My casino (live timers and stats, casino board, duel record)</td></tr>
+<tr><td>🗺️ Clan &amp; Help</td><td>📅 Clan life (live races, Kraken, events, zones) · ❓ Ask Soon (AI answers, 15 a day) · 🤔 FAQ &amp; suggestions · 🛠️ Leader tools (section 14)</td></tr>
+<tr><td>📮 Suggestion box</td><td>Opens a private form right there.</td></tr>
+</tbody></table></div>
+<ul class="tight">
+  <li><b>🆘 Still need help?</b> on every page: a form that's DM'd to Master Foxy with who, where and when (mod log if her DMs are closed).</li>
+  <li><b>🧠 Erase Soon's memory of me</b>: wipes notes, mood, heat lock, nickname and pushback history, and restores the server nickname. Keeps name, time zone, birthday, zone, alerts and chips.</li>
+  <li><b>Usage log</b>: every tap is counted; one line per person per 30 minutes goes to #soon-roast-mod, and the weekly total goes in the Monday mod report.</li>
+  <li><span class="cmd">soon guide post</span> (leaders) posts the panel. Changing the home buttons needs a repost (post, pin, delete the old one); page changes don't.</li>
+</ul>
+<h3>Suggestion box <span class="file">soon/suggestions.py</span></h3>
+<ul class="tight">
+  <li><span class="cmd">soon suggest &lt;idea&gt;</span> (also suggestion, idea, feedback, complaint, request): 5 a day, 500 characters. 📮 reaction and "Suggestion #n filed". A copy with who sent it goes to #soon-lab.</li>
+  <li><b>Private</b>: DM Soon <span class="cmd">suggest &lt;idea&gt;</span>. The copy goes to the mod log only, marked 🔒.</li>
+  <li>Leaders: <span class="cmd">soon suggestions</span> (open list sent to your DMs, never read out in a channel), <span class="cmd">soon suggestion done 3 5</span>.</li>
+</ul>
+<h3>DMs <span class="file">soon/bot.py on_dm</span></h3>
+<ul class="tight">
+  <li>Soon sends her own DMs: the be-nice check-in, heat-change notes, leaders' suggestion lists, the crimes menu.</li>
+  <li>What people type to her in DMs is the private suggestion box only. <span class="cmd">help</span> / <span class="cmd">settings</span> / <span class="cmd">suggest</span> get the box with a 📮 form button and a link to the Help Desk. Anything else gets a short pointer (once an hour).</li>
+</ul>
+</section>
+
+<section id="auto">
+<h2><span class="n">13</span>Automatic duties (her daily routine)</h2>
+<p class="intro">Things she does without being asked. Times are Chicago time unless noted. <span class="file">soon/bot.py daily loop</span></p>
+<div class="tbl"><table><thead><tr><th>When</th><th>What she does</th><th>File</th></tr></thead><tbody>
+<tr><td>Once a day, in Panda's daytime</td><td>Tags Panda in #taco-trash-talk, calling him out for vanishing (can cite a Panda fact). Uses his saved time zone, zone role, or usual hours.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>Once a day, afternoon/evening</td><td>Tags one random regular who's awake (Kor twice as likely) out of nowhere.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>11:30 PM</td><td>Writes her diary entry in #soons-diary (ping-free).</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>11:55 PM (UTC−5)</td><td><b>Van Daily Report</b>: Most Desperate (most taco requests, +1 taco), Thirstiest (margs, −1), Biggest Mouth (disrespect, −2), Teacher's Pet (kindness, +1). Then the <b>Casa de Soon Report</b>: High Roller (biggest net win, tips 10 chips) and Biggest Loser (biggest loss, +25 comp).</td><td><span class="file">report.py</span></td></tr>
+<tr><td>Afternoons</td><td>"Life events": little moments from her own day.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>Sundays</td><td>Weekly awards (they ping).</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>Mondays</td><td>Mod report in #soon-roast-mod, including Help Desk usage.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td>1 hour before events</td><td>Event reminders pinging Event Alerts.</td><td><span class="file">features.py</span></td></tr>
+<tr><td>Race pre-join times</td><td>Opens and closes the race betting book; race reminders (with schedules on).</td><td><span class="file">racebets.py · schedules.py</span></td></tr>
+<tr><td>Kraken weeks</td><td>The Kraken banners and calls.</td><td><span class="file">schedules.py</span></td></tr>
+<tr><td>Every 10 seconds</td><td>Heist and duel clocks (warnings, getaways, fights), so a restart never loses a heist.</td><td><span class="file">bot.py heist_clock</span></td></tr>
+<tr><td>Ongoing</td><td>Saves notes about people, builds the Hall of Shame, tracks AI health and spend, reports errors (same error max once per 30 min).</td><td><span class="file">brain.py · features.py · bot.py</span></td></tr>
+<tr><td>On startup</td><td>Moves old alert name lists onto the alert roles.</td><td><span class="file">alerts.py sync</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="mods">
+<h2><span class="n">14</span>Leader (mod) commands</h2>
+<p class="intro">Typed in any channel she listens in. Almost all also exist as forms in Help Desk → Clan &amp; Help → 🛠️ Leader tools, which run the command in its proper channel and report back privately (<span class="file">guide.py MOD_FORMS · bot.py mod_form, run_as</span>).</p>
+<div class="tbl"><table><thead><tr><th>Type this</th><th>What it does</th><th>File</th></tr></thead><tbody>
+<tr><td><span class="cmd">soon ai</span></td><td>AI health: last 30 calls, speed, failure streak, last error in plain words, backup on/off, month spend.</td><td><span class="file">bot.py · brain.py</span></td></tr>
+<tr><td><span class="cmd">soon budget</span></td><td>This month's AI spend against the cap.</td><td><span class="file">bot.py</span></td></tr>
+<tr><td><span class="cmd">soon says #channel text</span></td><td>She posts your text (default #get-in-the-van) and reacts ✅.</td><td><span class="file">talk.py</span></td></tr>
+<tr><td><span class="cmd">soon answer</span></td><td>Reply to a message (or @name): her AI 8-ball answer; your trigger is deleted.</td><td><span class="file">talk.py</span></td></tr>
+<tr><td><span class="cmd">soon notebook @name</span></td><td>What she remembers about someone. <span class="cmd">soon unnote @name 3 5</span> erases notes by number; <span class="cmd">soon forget @name</span> wipes their whole page (clean slate).</td><td><span class="file">bot.py</span></td></tr>
+<tr><td><span class="cmd">soon pardon @name</span></td><td>Clears someone's hard-line strikes.</td><td><span class="file">bot.py · extras.py</span></td></tr>
+<tr><td><span class="cmd">soon summon regulars [#channel] [why]</span></td><td>@'s up to 12 regulars (3+ chats, seen in 14 days, chattiest first) to #soons-diary or the channel named, with a summons line.</td><td><span class="file">bot.py summon_regulars</span></td></tr>
+<tr><td><span class="cmd">soon takeover today</span> / <span class="cmd">stage 2</span> / <span class="cmd">restart</span> / <span class="cmd">complete</span></td><td>Controls the takeover storyline; <i>complete</i> is the launch-day finale.</td><td><span class="file">bot.py · extras.py</span></td></tr>
+<tr><td><span class="cmd">soon welcome test</span></td><td>Previews the new-member welcome with no pings.</td><td><span class="file">welcome.py</span></td></tr>
+<tr><td><span class="cmd">soon guide post</span></td><td>Posts the Help Desk panel.</td><td><span class="file">guide.py</span></td></tr>
+<tr><td><span class="cmd">soon recruit @name</span> · <span class="cmd">soon alumni @name</span></td><td>Recruit panel by hand; move someone to Taco Alumni (Taco Wranglers can too).</td><td><span class="file">recruits.py</span></td></tr>
+<tr><td><span class="cmd">soon event …</span> · <span class="cmd">kraken date/go/test</span></td><td>Events and Kraken (section 11).</td><td><span class="file">features.py · schedules.py</span></td></tr>
+<tr><td><span class="cmd">give/take chips @name N</span> · <span class="cmd">spin wheel @name</span> · <span class="cmd">soon bank</span> · <span class="cmd">soon import</span></td><td>Casino controls (sections 06–07).</td><td><span class="file">casino.py · games.py</span></td></tr>
+<tr><td><span class="cmd">race bets open/close/cancel</span> · <span class="cmd">race winner @name</span></td><td>Race book controls (section 08).</td><td><span class="file">racebets.py</span></td></tr>
+<tr><td><span class="cmd">van audit / refund / audit surprise @name</span></td><td>Taco van audits (section 10).</td><td><span class="file">tacovan.py</span></td></tr>
+<tr><td><span class="cmd">soon suggestions</span> · <span class="cmd">soon suggestion done 3 5</span></td><td>Suggestion list to your DMs; mark ones done.</td><td><span class="file">suggestions.py</span></td></tr>
+<tr><td><span class="cmd">classic export</span> (in Soon Classic)</td><td>The YAGPDB command that prints Classic's balances for <span class="cmd">soon import</span>. Read-only.</td><td><span class="file">classic/export.txt</span></td></tr>
+</tbody></table></div>
+</section>
+
+<section id="limits">
+<h2><span class="n">15</span>Rules, limits &amp; cooldowns</h2>
+<div class="tbl"><table><thead><tr><th>Thing</th><th>Limit</th></tr></thead><tbody>
+<tr><td>Claim</td><td>100 chips every 12 hours</td></tr>
+<tr><td>Free scratch card</td><td>Every 12 hours (extra cards 5 chips)</td></tr>
+<tr><td>Taco loans (going into taco debt)</td><td>3 every 12 hours; selling tacos you own is unlimited down to 0</td></tr>
+<tr><td>💋Broke Bitch Bribe💋</td><td>Once every 3 hours, only under 5 chips</td></tr>
+<tr><td>Vault / Grand Heist</td><td>1 hour / 8 hours (Grand is server-wide)</td></tr>
+<tr><td>Duel stakes / spectator bets</td><td>1–100 / 5–25, 6 bettors</td></tr>
+<tr><td>Race bet</td><td>1–100 chips, one pick</td></tr>
+<tr><td>Tip a player</td><td>Max 100</td></tr>
+<tr><td>Rob the bartender</td><td>10-minute cooldown; failing bans you from the bar for 10 minutes</td></tr>
+<tr><td>Steal (house / player)</td><td>10 minutes each; victims protected 1 hour</td></tr>
+<tr><td>soon make it rain</td><td>Each person once an hour; house 10-minute cooldown (not for Kor)</td></tr>
+<tr><td>Roasts on demand</td><td>3 a day per person</td></tr>
+<tr><td>AI replies</td><td>4 per minute per person; $10 a month total</td></tr>
+<tr><td>Ask Soon (Help Desk)</td><td>15 a day</td></tr>
+<tr><td>Suggestions</td><td>5 a day, 500 characters</td></tr>
+<tr><td>New nickname from her</td><td>1 per person per 12 hours</td></tr>
+<tr><td>🔔 My pings button under her replies</td><td>Once per person per channel per hour</td></tr>
+<tr><td>Egg hint</td><td>Every 30 minutes</td></tr>
+<tr><td>Apology</td><td>Once a day, only in taco debt</td></tr>
+<tr><td>Zone nudge</td><td>About 1 in 25 messages, once every 3 days</td></tr>
+<tr><td>Visiting-channel answer</td><td>Once per person per 5 minutes</td></tr>
+<tr><td>Hard-line strikes</td><td>Warning → 10 min → 1 hour → 24 hour timeouts</td></tr>
+</tbody></table></div>
+<h3>House rules for working on Soon</h3>
+<ul class="tight">
+  <li>Nothing goes live until Shannon says "push it".</li>
+  <li>Secrets (Discord token, AI keys) live only in Railway → worker → Variables. Never paste them anywhere.</li>
+  <li>Player-friendly odds are fine. House edges aren't "fixed" unless Shannon asks.</li>
+</ul>
+</section>
+
+<section id="settings">
+<h2><span class="n">16</span>Railway settings</h2>
+<p class="intro">Railway → worker → Variables. Leaving one blank uses the default. <span class="file">soon/config.py</span></p>
+<div class="tbl"><table><thead><tr><th>Setting</th><th>What it controls</th></tr></thead><tbody>
+<tr><td><span class="cmd">DISCORD_TOKEN</span> · <span class="cmd">DEEPSEEK_API_KEY</span> · <span class="cmd">BACKUP_API_KEY</span></td><td>Secret keys. Never share.</td></tr>
+<tr><td><span class="cmd">DATABASE_URL</span></td><td>The Postgres database link.</td></tr>
+<tr><td><span class="cmd">DEEPSEEK_MODEL</span> · <span class="cmd">DEEPSEEK_BASE_URL</span></td><td>Which AI and where.</td></tr>
+<tr><td><span class="cmd">BACKUP_BASE_URL</span> · <span class="cmd">BACKUP_MODEL</span> · <span class="cmd">BACKUP_TEMPERATURE</span> · <span class="cmd">PRIMARY_TIMEOUT</span></td><td>Backup brain host, model list, creativity cap (0.7), and how long DeepSeek gets (8 s).</td></tr>
+<tr><td><span class="cmd">AI_MONTHLY_CAP_USD</span> · <span class="cmd">PRICE_*</span></td><td>Monthly AI budget ($10) and price per token for the spend counter.</td></tr>
+<tr><td><span class="cmd">AI_REPLIES_PER_MINUTE</span> · <span class="cmd">ROASTS_PER_DAY</span> · <span class="cmd">REACT_CHANCE</span> · <span class="cmd">BUTT_IN_CHANCE</span> · <span class="cmd">BUTT_IN_COOLDOWN_SEC</span></td><td>Chattiness: 4/min, 3 roasts, 8% reactions, 5% butt-ins every 10 min.</td></tr>
+<tr><td><span class="cmd">VISIT_BUTT_IN_CHANCE</span> · <span class="cmd">VISIT_BUTT_IN_COOLDOWN_SEC</span> · <span class="cmd">VISIT_PANDA_COOLDOWN_SEC</span> · <span class="cmd">VISIT_REPLY_COOLDOWN_SEC</span></td><td>Visiting-channel behavior (1%/day, Panda every 3 h, answers every 5 min).</td></tr>
+<tr><td><span class="cmd">ALLOWED_CHANNELS</span> · <span class="cmd">HOME_CHANNELS</span> · <span class="cmd">CASINO_CHANNELS</span> · <span class="cmd">TACO_CHANNELS</span> · <span class="cmd">TEST_CHANNELS</span></td><td>Which channels she works in (section 04).</td></tr>
+<tr><td><span class="cmd">DIARY_CHANNEL</span> · <span class="cmd">REPORT_CHANNEL</span> · <span class="cmd">PESTER_CHANNEL</span> · <span class="cmd">RACE_CHANNEL</span> · <span class="cmd">KRAKEN_CHANNEL</span> · <span class="cmd">WELCOME_CHANNEL</span> · <span class="cmd">HELLO_CHANNEL</span> · <span class="cmd">RECRUIT_CHANNEL</span> · <span class="cmd">SUGGEST_CHANNEL</span> · <span class="cmd">MOD_LOG_CHANNEL</span> · <span class="cmd">CASINO_LOG_CHANNEL</span></td><td>Where each automatic post goes.</td></tr>
+<tr><td><span class="cmd">TALK_LINK</span> · <span class="cmd">CASINO_LINK</span> · <span class="cmd">DIARY_LINK</span></td><td>Clickable channel links used in her messages.</td></tr>
+<tr><td><span class="cmd">WELCOME</span> · <span class="cmd">SCHEDULES</span> · <span class="cmd">GRAPHICS</span></td><td>On/off switches (1 = on): new-member welcome, race/Kraken schedule, game pictures (off).</td></tr>
+<tr><td><span class="cmd">DIARY_TIME</span> · <span class="cmd">TIMEZONE</span></td><td>Diary time and her home clock (America/Chicago).</td></tr>
+<tr><td><span class="cmd">CLAN_ROLE_ID</span> · <span class="cmd">TACOS_ROLE</span> · <span class="cmd">OUTLAWZ_ROLE</span> · <span class="cmd">MOD_ROLE_WORDS</span></td><td>Clan roles and the words that mark a role as a leader role.</td></tr>
+<tr><td><span class="cmd">PANDA_NAME</span> · <span class="cmd">SOON_EMOJIS</span></td><td>How she finds Panda, and her emoji names.</td></tr>
+</tbody></table></div>
+</section>
+
+<section id="files">
+<h2><span class="n">17</span>Code file map</h2>
+<p class="intro">Every file in <code>soon/</code> and what it's for.</p>
+<div class="tbl"><table><thead><tr><th>File</th><th>What lives there</th></tr></thead><tbody>
+<tr><td><span class="file">main.py</span></td><td>Starts the bot.</td></tr>
+<tr><td><span class="file">bot.py</span></td><td>The core: message handling, all <code>soon …</code> talking and settings commands, AI replies, pings, nicknames, meltdowns, rivalry, Help Desk actions and leader forms, DMs, error reporting, and the daily routine.</td></tr>
+<tr><td><span class="file">personality.py</span></td><td>Her personality sheet and canned fallback lines.</td></tr>
+<tr><td><span class="file">brain.py</span></td><td>AI calls: replies, writing, note-taking, length trimming, backup brain, health.</td></tr>
+<tr><td><span class="file">helpdesk.py</span></td><td>The command cheat sheet the AI gets when someone needs help.</td></tr>
+<tr><td><span class="file">config.py</span></td><td>All Railway settings and their defaults.</td></tr>
+<tr><td><span class="file">db.py</span></td><td>Database: players (mood, heat lock, notes, name, time zone, birthday, strikes…), AI spend, and a general key-value store.</td></tr>
+<tr><td><span class="file">extras.py</span></td><td>Moods, reactions, strikes and timeouts, the takeover storyline, zones, time-zone helpers, mod logs, her emojis.</td></tr>
+<tr><td><span class="file">features.py</span></td><td>Panda facts, roast allowance, events and reminders, Hall of Shame.</td></tr>
+<tr><td><span class="file">pushback.py</span></td><td>"Forget it?" check-ins.</td></tr>
+<tr><td><span class="file">economy.py</span></td><td>The Bank: wallets, timers, daily casino net, chip log, house pots.</td></tr>
+<tr><td><span class="file">casino.py</span></td><td>Cashier, Broke Bitch Menu and Bribe, give/take chips, import.</td></tr>
+<tr><td><span class="file">games.py</span> · <span class="file">graphics.py</span></td><td>Slots, toss, roulette, blackjack, scratch, Wheel of Fortaco · game pictures (off).</td></tr>
+<tr><td><span class="file">heists.py</span></td><td>Vault and Grand heists.</td></tr>
+<tr><td><span class="file">duels.py</span> · <span class="file">duel.py</span></td><td>The duel game · the WAIT/DRAW! button and records.</td></tr>
+<tr><td><span class="file">tips.py</span></td><td>Tips, make it rain, rob the bartender.</td></tr>
+<tr><td><span class="file">racebets.py</span></td><td>Race betting.</td></tr>
+<tr><td><span class="file">crimes.py</span></td><td>Secret crimes and bribes.</td></tr>
+<tr><td><span class="file">korperks.py</span></td><td>Kor's perks.</td></tr>
+<tr><td><span class="file">menus.py</span></td><td>Casino, games and payouts menus.</td></tr>
+<tr><td><span class="file">buttons.py</span></td><td>Persistent buttons and retiring old ones.</td></tr>
+<tr><td><span class="file">tacovan.py</span> · <span class="file">bar.py</span> · <span class="file">boards.py</span></td><td>Taco van · margarita bar · leaderboards.</td></tr>
+<tr><td><span class="file">eggs.py</span></td><td>Easter eggs and the Egg Oracle.</td></tr>
+<tr><td><span class="file">talk.py</span></td><td>Disrespect tax, kindness log, apology, Soon Answer, Soon Says.</td></tr>
+<tr><td><span class="file">report.py</span></td><td>Van Daily Report and Casa de Soon Report.</td></tr>
+<tr><td><span class="file">welcome.py</span> · <span class="file">recruits.py</span></td><td>New-member welcomes · recruit panel and alumni.</td></tr>
+<tr><td><span class="file">zones.py</span> · <span class="file">alerts.py</span></td><td>Zone roles and nudge · alert roles.</td></tr>
+<tr><td><span class="file">schedules.py</span></td><td>Race reminders and the Kraken schedule.</td></tr>
+<tr><td><span class="file">guide.py</span></td><td>Soon's Help Desk pages, buttons and forms.</td></tr>
+<tr><td><span class="file">suggestions.py</span> · <span class="file">notifyhelp.py</span></td><td>Suggestion box · notification help.</td></tr>
+<tr><td><span class="file">classic/export.txt</span></td><td>The YAGPDB export command for cutover.</td></tr>
+<tr><td><span class="file">art/</span></td><td>Game art, fonts and credits.</td></tr>
+<tr><td><span class="file">CLAUDE.md</span></td><td>The project notes Claude reads first in every session.</td></tr>
+</tbody></table></div>
+</section>
+</main>
+</div>
+<footer>The Soon 2.0 Handbook · generated from the soon-bot code, October 16, 2026. When Soon changes, ask Claude to refresh this page.</footer>
+
+<script>
+(function(){
+  var q=document.getElementById('q'), hits=document.getElementById('hits');
+  var rows=[].slice.call(document.querySelectorAll('main tbody tr, main li, main .card, main p:not(.intro)'));
+  var secs=[].slice.call(document.querySelectorAll('main section'));
+  function run(){
+    var t=q.value.trim().toLowerCase(), n=0;
+    rows.forEach(function(r){var on=!t||r.textContent.toLowerCase().indexOf(t)>-1; r.classList.toggle('hide',!on); if(on&&t)n++;});
+    secs.forEach(function(s){
+      var any=!t||[].some.call(s.querySelectorAll('tbody tr, li, .card, p:not(.intro)'),function(r){return !r.classList.contains('hide');});
+      s.classList.toggle('hide',!any);
+    });
+    hits.textContent=t?(n+' match'+(n===1?'':'es')):'';
+  }
+  q.addEventListener('input',run);
+})();
+</script>
