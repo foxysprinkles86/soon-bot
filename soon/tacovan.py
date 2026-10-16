@@ -187,7 +187,7 @@ STATUS = [
 
 TACO_RE = re.compile(r"(?i)\btacos?\b")
 SKIP_RE = re.compile(r"(?i)\btaco ?(?:status|board|audit|refund)\b|\b(?:when|where)\b.{0,25}\btacos?\b|who ate|"
-                     r"taco (?:tuesday|bell|cabana)|del taco|free tacos?|^\s*(?:van|taco) (?:audit|refund)\b")
+                     r"taco (?:tuesday|bell|cabana)|del taco|free tacos?|we have tacos|^\s*(?:van|taco) (?:audit|refund)\b")
 ORDER_RE = re.compile(r"(?i)\b(?:cherry|piggy|pig|kraken|space|rocket|fish|shrimp|chicken|beef|pork|steak|al pastor|carnitas|"
                       r"birria|veggie|vegan|breakfast|street|crunchy|hard shell|soft shell|spicy|cheesy|double|triple|deluxe|"
                       r"supreme|mango|lime|lobster|brisket|chorizo|bean|potato|egg|mystery|golden|burnt|frozen|margarita)"
