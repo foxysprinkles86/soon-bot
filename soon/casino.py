@@ -74,8 +74,8 @@ async def handle(message: discord.Message, bank: Bank, mod: bool) -> bool:
     if BROKE_RE.match(text):
         await broke_help(message, bank)
         return True
-    if BROKE_SAY_RE.search(text) and not await bank.timer(message.guild.id, message.author.id, "brokehelp"):
-        await broke_help(message, bank)                  # "ugh I'm so broke" in a sentence: the menu, max once per 30 min
+    if BROKE_SAY_RE.search(text):
+        await broke_help(message, bank)                  # "ugh I'm so broke" in a sentence: the menu, every time (Shannon)
         return True
     if CASHIER_RE.search(text):
         await cashier(message, bank)
@@ -379,19 +379,18 @@ async def import_classic(message: discord.Message, bank: Bank, confirm: bool, me
 # ---------- nobody gets locked out (Shannon's call: it's just a fun game) ----------
 
 async def broke_check(message, bank: Bank):
-    """After any casino command: if they're (nearly) out of chips, show every free-chip route. Max once per 30 min."""
+    """After any casino command: if they're (nearly) out of chips, show every free-chip route. Every time (Shannon)."""
     if (not casino_channel(message.channel) or BROKE_BRIBE_RE.match(message.content or "")
             or re.search(r"(?i)cash\s*out", message.content or "")):
         return
     gid, uid = message.guild.id, message.author.id
-    if (await bank.get(gid, uid)).chips >= BROKE_MIN or await bank.timer(gid, uid, "brokehelp"):
+    if (await bank.get(gid, uid)).chips >= BROKE_MIN:
         return
     await broke_help(message, bank)
 
 
 async def broke_help(message, bank: Bank):
     gid, uid, u = message.guild.id, message.author.id, message.author.mention
-    await bank.set_timer(gid, uid, "brokehelp", 1800)
     w = await bank.get(gid, uid)
 
     def when(t):
