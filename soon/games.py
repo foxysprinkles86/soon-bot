@@ -116,8 +116,8 @@ def bet_from(m: str, default: int = 5) -> tuple[int, bool]:
 # ---------- router ----------
 
 SLOT_RE = re.compile(r"(?i)spin(?:\s*$|\S|\s+[^wt\s]|\s+the(?:\S|\s+[^w\s])|\s+t[^h]|\s+w[^h])|^\s*(?:slots?|🎰)\s*[!.]*\s*$")
-TOSS_RE = re.compile(r"(?i)^\s*(?:bet\s+(?:\d+|max|all)\s+(?:on\s+)?)?(?:toss|flip)(?:\s+(?:\d+|max|all(?:\s*in)?))?"
-                     r"(?:\s+(?:heads?|tails?))?(?:\s+(?:\d+|max|all(?:\s*in)?))?(?:\s*[+&]?\s*(?:sides?|edge)(?:\s+bet)?)?\s*$")
+TOSS_RE = re.compile(r"(?i)^\s*(?:bet\s+(?:\d+|max|all)\s+(?:on\s+)?)?(?:toss|flip)"   # words in any order: "toss side max"
+                     r"(?:\s*(?:\d+|max|all(?:\s*in)?|heads?|tails?|sides?|edge|bet|[+&]))*\s*[!.]*\s*$")
 ROUL_RE = re.compile(r"(?i)^\s*(?:bet\s+(?:\d+|max|all)\s+(?:on\s+)?)?roulette\b.*$|^\s*(?:bet\s+)?(?:all|max|\d+)\s+on\s+(?:red|black|odd|even)\s*[!.]*\s*$")
 BJ_RE = re.compile(r"(?i)^\s*(?:bet\s+(?:\d+|max|all)\s+(?:on\s+)?)?(?:blackjack|bj)(?:\s+(?:\d+|max|all(?:\s*in)?))?\s*$")
 BJ_MOVE_RE = re.compile(r"(?i)^\s*(?:hit|stand|stay|double(?:\s*down)?)\s*[!.]*\s*$")
